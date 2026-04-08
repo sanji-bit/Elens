@@ -63,6 +63,18 @@ function parsePxValue(value: string): number {
   return Number.isFinite(num) ? num : 0
 }
 
+function parseBorderRadius(raw: string): [string, string, string, string] {
+  const parts = raw.split(/\s+/).map((token) => {
+    const num = parseFloat(token)
+    return Number.isFinite(num) ? String(num) : '0'
+  })
+  const a = parts[0] ?? '0'
+  const b = parts[1] ?? a
+  const c = parts[2] ?? a
+  const d = parts[3] ?? b
+  return [a, b, c, d]
+}
+
 type NumberInputOptions = {
   value: number
   min?: number
@@ -165,7 +177,15 @@ const PADDING_ICONS: Record<string, string> = {
 const FIELD_ICONS: Record<string, string> = {
   opacity: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1ZM6 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Zm9 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm-1.5 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-4a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   radius: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.9 6h-.02c-.403 0-.735 0-1.006.022-.28.023-.54.072-.782.196a2 2 0 0 0-.874.874c-.124.243-.173.501-.196.782C6 8.144 6 8.477 6 8.88V9.5a.5.5 0 0 0 1 0V8.9c0-.428 0-.72.019-.944.018-.22.05-.332.09-.41a1 1 0 0 1 .437-.437c.078-.04.19-.072.41-.09C8.18 7 8.472 7 8.9 7H9.5a.5.5 0 0 0 0-1H8.9Zm6.2 0h.02c.403 0 .735 0 1.006.022.28.023.54.072.782.196a2 2 0 0 1 .874.874c.124.243.173.501.196.782.022.27.022.603.022 1.005V9.5a.5.5 0 0 1-1 0V8.9c0-.428 0-.72-.019-.944-.018-.22-.05-.332-.09-.41a1 1 0 0 0-.437-.437c-.078-.04-.19-.072-.41-.09A17 17 0 0 0 15.1 7H14.5a.5.5 0 0 1 0-1h.6Zm.02 12H14.5a.5.5 0 0 1 0-1h.6c.428 0 .72 0 .944-.019.22-.018.332-.05.41-.09a1 1 0 0 0 .437-.437c.04-.078.072-.19.09-.41.019-.225.019-.516.019-.944V14.5a.5.5 0 0 1 1 0v.62c0 .403 0 .735-.022 1.006-.023.281-.072.54-.196.782a2 2 0 0 1-.874.874c-.243.124-.5.173-.782.196-.27.022-.603.022-1.006.022M8.9 18h-.02c-.403 0-.735 0-1.006-.022-.28-.023-.541-.072-.782-.196a2 2 0 0 1-.874-.874c-.124-.243-.174-.501-.196-.782A18 18 0 0 1 6 15.12V14.5a.5.5 0 0 1 1 0v.6c0 .428 0 .82.019.944.018.22.05.332.09.41a1 1 0 0 0 .437.437c.078.04.19.072.41.09.225.019.516.019.944.019H9.5a.5.5 0 0 1 0 1H8.9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  radiusSettings: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 5.5H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11.5H17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 18H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="17" cy="6" r="1.5" fill="currentColor"/><circle cx="7" cy="12" r="1.5" fill="currentColor"/><circle cx="13" cy="18" r="1.5" fill="currentColor"/></svg>`,
   gap: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 14.75c0 .138.112.25.25.25h.25a.5.5 0 0 1 0 1h-.25A1.25 1.25 0 0 1 14 14.75v-6.5C14 7.56 14.56 7 15.25 7h.25a.5.5 0 0 1 0 1h-.25a.25.25 0 0 0-.25.25v6.5ZM7 15.5a.5.5 0 0 1 .5-.5h.25a.25.25 0 0 0 .25-.25v-6.5A.25.25 0 0 0 7.75 8H7.5a.5.5 0 0 1 0-1h.25C8.44 7 9 7.56 9 8.25v6.5C9 15.44 8.44 16 7.75 16H7.5a.5.5 0 0 1-.5-.5Zm4-2a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-1 0v4Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+}
+
+const CORNER_ICONS: Record<string, string> = {
+  TL: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 12V6A2 2 0 0 1 6 4H12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  TR: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 12V6A2 2 0 0 0 10 4H4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  BR: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4V10A2 2 0 0 1 10 12H4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  BL: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4V10A2 2 0 0 0 6 12H12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 }
 
 // --- Direction SVG icons (24×24 from Figma design) ---
@@ -459,6 +479,102 @@ function createLabeledField(options: LabeledFieldOptions): HTMLDivElement {
   }
   wrap.addEventListener('click', () => input.focus())
   return wrap
+}
+
+// --- Radius field with settings button ---
+type RadiusFieldOptions = LabeledFieldOptions & {
+  onOpenSettings: (anchor: HTMLElement) => void
+}
+
+function createRadiusField(options: RadiusFieldOptions): HTMLDivElement {
+  const { icon, suffix, iconHtml, onOpenSettings, ...numOpts } = options
+  const wrap = el('div', 'ei-dp-field ei-dp-field-radius')
+  const iconEl = el('div', 'ei-dp-field-icon')
+  if (iconHtml) {
+    iconEl.innerHTML = iconHtml
+  } else {
+    iconEl.textContent = icon
+  }
+
+  const input = createNumberInput(numOpts)
+  input.className = 'ei-dp-field-input'
+
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'ei-dp-field-action'
+  button.setAttribute(IGNORE_ATTR, 'true')
+  button.title = 'Edit corner radii'
+  button.innerHTML = FIELD_ICONS.radiusSettings || ''
+  button.addEventListener('click', (event) => {
+    event.stopPropagation()
+    onOpenSettings(button)
+  })
+
+  wrap.append(iconEl, input, button)
+  if (suffix) {
+    wrap.appendChild(el('div', 'ei-dp-field-suffix', suffix))
+  }
+  wrap.addEventListener('click', () => input.focus())
+  return wrap
+}
+
+function formatBorderRadiusCss(tl: string, tr: string, br: string, bl: string): string {
+  const px = (value: string) => `${Number(value) || 0}px`
+  const a = px(tl)
+  const b = px(tr)
+  const c = px(br)
+  const d = px(bl)
+  if (a === b && a === c && a === d) return a
+  if (a === c && b === d) return `${a} ${b}`
+  if (b === d) return `${a} ${b} ${c}`
+  return `${a} ${b} ${c} ${d}`
+}
+
+function openRadiusDropdown(
+  anchor: HTMLElement,
+  getRadius: () => string,
+  onChange: (value: string) => void,
+): void {
+  closeSizingDropdown()
+
+  const [rTL, rTR, rBR, rBL] = parseBorderRadius(getRadius())
+  const values: [string, string, string, string] = [rTL, rTR, rBR, rBL]
+
+  const row = el('div', 'ei-dp-grid')
+  row.setAttribute(IGNORE_ATTR, 'true')
+
+  const fields: Array<[string, number]> = [
+    ['TL', 0],
+    ['TR', 1],
+    ['BL', 3],
+    ['BR', 2],
+  ]
+
+  for (const [labelText, index] of fields) {
+    const field = createLabeledField({
+      icon: '',
+      iconHtml: CORNER_ICONS[labelText],
+      value: Number(values[index]),
+      min: 0,
+      onChange: (value) => {
+        values[index] = String(value)
+        onChange(formatBorderRadiusCss(values[0], values[1], values[2], values[3]))
+      },
+    })
+    row.appendChild(field)
+  }
+
+  const currentRow = anchor.closest('.ei-dp-grid')
+  if (currentRow && currentRow.parentElement) {
+    currentRow.parentElement.insertBefore(row, currentRow.nextSibling)
+  } else {
+    document.body.appendChild(row)
+  }
+
+  activeDropdown = row
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleDropdownOutsideClick, true)
+  })
 }
 
 // --- Size Field (number + sizing mode dropdown) ---
@@ -1023,6 +1139,25 @@ export function buildDesignPanel(
   // === 4. Appearance ===
   container.appendChild(divider())
   container.appendChild(sectionTitle('Appearance'))
+  const radiusField = createRadiusField({
+    icon: '',
+    iconHtml: FIELD_ICONS.radius,
+    value: parsePxValue(info.boxModel.borderRadius),
+    min: 0,
+    onChange: (v) => tracker.apply('border-radius', `${v}px`),
+    onOpenSettings: (anchor) => {
+      const radiusInput = radiusField.querySelector('input') as HTMLInputElement | null
+      openRadiusDropdown(anchor, () => {
+        const computed = window.getComputedStyle(element).getPropertyValue('border-radius')
+        return computed || info.boxModel.borderRadius
+      }, (value) => {
+        tracker.apply('border-radius', value)
+        if (radiusInput) {
+          radiusInput.value = String(parsePxValue(value))
+        }
+      })
+    },
+  })
   container.appendChild(grid(
     createLabeledField({
       icon: '',
@@ -1034,13 +1169,7 @@ export function buildDesignPanel(
       suffix: '%',
       onChange: (v) => tracker.apply('opacity', String(v / 100)),
     }),
-    createLabeledField({
-      icon: '',
-      iconHtml: FIELD_ICONS.radius,
-      value: parsePxValue(info.boxModel.borderRadius),
-      min: 0,
-      onChange: (v) => tracker.apply('border-radius', `${v}px`),
-    }),
+    radiusField,
   ))
 
   // === 5. Fill ===
@@ -1100,6 +1229,10 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-field-input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 6px 0 0; outline: none; cursor: ew-resize; letter-spacing: 0.055px; }
 .ei-dp-field-input:focus { cursor: text; }
 .ei-dp-field-suffix { flex-shrink: 0; font-size: 11px; color: rgba(255,255,255,0.4); padding-right: 6px; user-select: none; }
+.ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 8px; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; font-size: 12px; border-left: 1px solid rgba(255,255,255,0.08); }
+.ei-dp-field-action:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-field-action:focus { outline: none; }
+.ei-dp-field-radius { gap: 4px; }
 .ei-dp-field-select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 4px 0 0; outline: none; cursor: pointer; -webkit-appearance: none; }
 .ei-dp-fill-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); margin-bottom: 8px; overflow: hidden; }
 .ei-dp-swatch { width: 14px; height: 14px; border-radius: 2px; border: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); flex-shrink: 0; position: relative; cursor: pointer; overflow: hidden; margin-left: 4px; }
@@ -1112,7 +1245,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-btn { flex: 1; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 600; cursor: pointer; padding: 0; transition: all 0.12s ease; display: flex; align-items: center; justify-content: center; }
 .ei-dp-btn svg { display: block; }
 .ei-dp-btn:hover { color: rgba(255,255,255,0.7); }
-.ei-dp-btn[data-active="true"] { background: transparent; color: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+.ei-dp-btn[data-active="true"] { background: transparent; color: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.15); }
 .ei-dp-align-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
 .ei-dp-align-row .ei-dp-field { flex: 1; }
 .ei-dp-align-row > * { flex: 1; min-width: 0; }

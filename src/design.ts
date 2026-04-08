@@ -177,7 +177,7 @@ const PADDING_ICONS: Record<string, string> = {
 const FIELD_ICONS: Record<string, string> = {
   opacity: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1ZM6 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Zm9 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm-1.5 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-4a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   radius: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.9 6h-.02c-.403 0-.735 0-1.006.022-.28.023-.54.072-.782.196a2 2 0 0 0-.874.874c-.124.243-.173.501-.196.782C6 8.144 6 8.477 6 8.88V9.5a.5.5 0 0 0 1 0V8.9c0-.428 0-.72.019-.944.018-.22.05-.332.09-.41a1 1 0 0 1 .437-.437c.078-.04.19-.072.41-.09C8.18 7 8.472 7 8.9 7H9.5a.5.5 0 0 0 0-1H8.9Zm6.2 0h.02c.403 0 .735 0 1.006.022.28.023.54.072.782.196a2 2 0 0 1 .874.874c.124.243.173.501.196.782.022.27.022.603.022 1.005V9.5a.5.5 0 0 1-1 0V8.9c0-.428 0-.72-.019-.944-.018-.22-.05-.332-.09-.41a1 1 0 0 0-.437-.437c-.078-.04-.19-.072-.41-.09A17 17 0 0 0 15.1 7H14.5a.5.5 0 0 1 0-1h.6Zm.02 12H14.5a.5.5 0 0 1 0-1h.6c.428 0 .72 0 .944-.019.22-.018.332-.05.41-.09a1 1 0 0 0 .437-.437c.04-.078.072-.19.09-.41.019-.225.019-.516.019-.944V14.5a.5.5 0 0 1 1 0v.62c0 .403 0 .735-.022 1.006-.023.281-.072.54-.196.782a2 2 0 0 1-.874.874c-.243.124-.5.173-.782.196-.27.022-.603.022-1.006.022M8.9 18h-.02c-.403 0-.735 0-1.006-.022-.28-.023-.541-.072-.782-.196a2 2 0 0 1-.874-.874c-.124-.243-.174-.501-.196-.782A18 18 0 0 1 6 15.12V14.5a.5.5 0 0 1 1 0v.6c0 .428 0 .82.019.944.018.22.05.332.09.41a1 1 0 0 0 .437.437c.078.04.19.072.41.09.225.019.516.019.944.019H9.5a.5.5 0 0 1 0 1H8.9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
-  radiusSettings: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 5.5H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11.5H17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 18H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="17" cy="6" r="1.5" fill="currentColor"/><circle cx="7" cy="12" r="1.5" fill="currentColor"/><circle cx="13" cy="18" r="1.5" fill="currentColor"/></svg>`,
+  radiusSettings: `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M 2.498505115509033 12 C 2.631113365292549 12 2.7582907006144524 11.947321958839893 2.8520588874816895 11.853553771972656 C 2.9458270743489265 11.75978558510542 2.998505115509033 11.632608249783516 2.998505115509033 11.5 L 2.998505115509033 9.949999809265137 C 3.563649356365204 9.835242375731468 4.07174214720726 9.528635561466217 4.4366936683654785 9.08212947845459 C 4.801645189523697 8.635623395442963 5.001011371612549 8.076677799224854 5.001011371612549 7.5 C 5.001011371612549 6.9233222007751465 4.801645189523697 6.364376604557037 4.4366936683654785 5.91787052154541 C 4.07174214720726 5.471364438533783 3.563649356365204 5.164757624268532 2.998505115509033 5.050000190734863 L 2.998505115509033 0.5 C 2.998505115509033 0.36739175021648407 2.9458270743489265 0.24021489173173904 2.8520588874816895 0.14644670486450195 C 2.7582907006144524 0.05267851799726486 2.631113365292549 0 2.498505115509033 0 C 2.3658968657255173 0 2.238719530403614 0.05267851799726486 2.144951343536377 0.14644670486450195 C 2.05118315666914 0.24021489173173904 1.9985051155090332 0.36739175021648407 1.9985051155090332 0.5 L 1.9985051155090332 5.050000190734863 C 1.434184968471527 5.165742203593254 0.9271209537982941 5.472745716571808 0.562993049621582 5.919136047363281 C 0.19886514544487 6.365526378154755 0 6.923932790756226 0 7.5 C -8.881784197001252e-16 8.076067209243774 0.19886514544487 8.634473621845245 0.562993049621582 9.080863952636719 C 0.9271209537982941 9.527254283428192 1.434184968471527 9.834257796406746 1.9985051155090332 9.949999809265137 L 1.9985051155090332 11.5 C 1.9985051155090332 11.632608249783516 2.05118315666914 11.75978558510542 2.144951343536377 11.853553771972656 C 2.238719530403614 11.947321958839893 2.3658968657255173 12 2.498505115509033 12 Z M 9.498504638671875 12 C 9.631112888455391 12 9.758290223777294 11.947321958839893 9.852058410644531 11.853553771972656 C 9.945826597511768 11.75978558510542 9.998504638671875 11.632608249783516 9.998504638671875 11.5 L 9.998504638671875 6.949999809265137 C 10.562824785709381 6.834257796406746 11.069889277219772 6.527254283428192 11.434017181396484 6.080863952636719 C 11.798145085573196 5.634473621845245 11.99700927734375 5.076067209243774 11.99700927734375 4.5 C 11.99700927734375 3.9239327907562256 11.798145085573196 3.3655263781547546 11.434017181396484 2.9191360473632812 C 11.069889277219772 2.472745716571808 10.562824785709381 2.165742203593254 9.998504638671875 2.0500001907348633 L 9.998504638671875 0.5 C 9.998504638671875 0.36739175021648407 9.945826597511768 0.24021489173173904 9.852058410644531 0.14644670486450195 C 9.758290223777294 0.05267851799726486 9.631112888455391 0 9.498504638671875 0 C 9.365896388888359 0 9.238719053566456 0.05267851799726486 9.144950866699219 0.14644670486450195 C 9.051182679831982 0.24021489173173904 8.998504638671875 0.36739175021648407 8.998504638671875 0.5 L 8.998504638671875 2.0500001907348633 C 8.433360397815704 2.164757624268532 7.925268083810806 2.471364438533783 7.560316562652588 2.91787052154541 C 7.1953650414943695 3.3643766045570374 6.995998859405518 3.9233222007751465 6.995998859405518 4.5 C 6.995998859405518 5.0766777992248535 7.1953650414943695 5.635623395442963 7.560316562652588 6.08212947845459 C 7.925268083810806 6.528635561466217 8.433360397815704 6.835242375731468 8.998504638671875 6.949999809265137 L 8.998504638671875 11.5 C 8.998504638671875 11.632608249783516 9.051182679831982 11.75978558510542 9.144950866699219 11.853553771972656 C 9.238719053566456 11.947321958839893 9.365896388888359 12 9.498504638671875 12 Z M 9.498504638671875 6 C 9.100679904222488 5.999999999999998 8.719149798154831 5.841964930295944 8.437845230102539 5.560660362243652 C 8.156540662050247 5.2793557941913605 7.998505115509033 4.897824734449387 7.998505115509033 4.5 C 7.998505115509033 4.102175265550613 8.156540662050247 3.7206442058086395 8.437845230102539 3.4393396377563477 C 8.719149798154831 3.158035069704056 9.100679904222488 3.0000000000000018 9.498504638671875 3 C 9.896329373121262 3.0000000000000018 10.277859479188919 3.158035069704056 10.559164047241211 3.4393396377563477 C 10.840468615293503 3.7206442058086395 10.998504638671875 4.102175265550613 10.998504638671875 4.5 C 10.998504638671875 4.897824734449387 10.840468615293503 5.2793557941913605 10.559164047241211 5.560660362243652 C 10.277859479188919 5.841964930295944 9.896329373121262 5.999999999999998 9.498504638671875 6 Z M 2.498505115509033 9 C 2.1006803810596466 8.999999999999998 1.7191493213176727 8.841964930295944 1.4378447532653809 8.560660362243652 C 1.156540185213089 8.27935579419136 0.9985051155090332 7.897824734449387 0.9985051155090332 7.5 C 0.9985051155090332 7.102175265550613 1.156540185213089 6.7206442058086395 1.4378447532653809 6.439339637756348 C 1.7191493213176727 6.158035069704056 2.1006803810596466 6.000000000000002 2.498505115509033 6 C 2.89632984995842 6.000000000000002 3.2778609097003937 6.158035069704056 3.5591654777526855 6.439339637756348 C 3.8404700458049774 6.7206442058086395 3.9985051155090314 7.102175265550613 3.998505115509033 7.5 C 3.9985051155090314 7.897824734449387 3.8404700458049774 8.27935579419136 3.5591654777526855 8.560660362243652 C 3.2778609097003937 8.841964930295944 2.89632984995842 8.999999999999998 2.498505115509033 9 Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   gap: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 14.75c0 .138.112.25.25.25h.25a.5.5 0 0 1 0 1h-.25A1.25 1.25 0 0 1 14 14.75v-6.5C14 7.56 14.56 7 15.25 7h.25a.5.5 0 0 1 0 1h-.25a.25.25 0 0 0-.25.25v6.5ZM7 15.5a.5.5 0 0 1 .5-.5h.25a.25.25 0 0 0 .25-.25v-6.5A.25.25 0 0 0 7.75 8H7.5a.5.5 0 0 1 0-1h.25C8.44 7 9 7.56 9 8.25v6.5C9 15.44 8.44 16 7.75 16H7.5a.5.5 0 0 1-.5-.5Zm4-2a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-1 0v4Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
 
@@ -531,11 +531,21 @@ function formatBorderRadiusCss(tl: string, tr: string, br: string, bl: string): 
 }
 
 function openRadiusDropdown(
-  anchor: HTMLElement,
+  anchor: HTMLButtonElement,
   getRadius: () => string,
   onChange: (value: string) => void,
+  updateInput: (displayValue: string) => void,
 ): void {
+  // Toggle: if already open with same button, close it
+  if (activeDropdown && activeRadiusButton === anchor) {
+    closeSizingDropdown()
+    return
+  }
+
   closeSizingDropdown()
+
+  anchor.setAttribute('data-active', 'true')
+  activeRadiusButton = anchor
 
   const [rTL, rTR, rBR, rBL] = parseBorderRadius(getRadius())
   const values: [string, string, string, string] = [rTL, rTR, rBR, rBL]
@@ -558,7 +568,11 @@ function openRadiusDropdown(
       min: 0,
       onChange: (value) => {
         values[index] = String(value)
-        onChange(formatBorderRadiusCss(values[0], values[1], values[2], values[3]))
+        const cssValue = formatBorderRadiusCss(values[0], values[1], values[2], values[3])
+        onChange(cssValue)
+        // Update input display
+        const uniqueValues = [...new Set(values.map(v => Number(v)))]
+        updateInput(uniqueValues.length === 1 ? String(uniqueValues[0]) : uniqueValues.join(', '))
       },
     })
     row.appendChild(field)
@@ -572,9 +586,6 @@ function openRadiusDropdown(
   }
 
   activeDropdown = row
-  requestAnimationFrame(() => {
-    document.addEventListener('mousedown', handleDropdownOutsideClick, true)
-  })
 }
 
 // --- Size Field (number + sizing mode dropdown) ---
@@ -649,11 +660,16 @@ function createSizeField(options: SizeFieldOptions): HTMLDivElement {
 }
 
 let activeDropdown: HTMLDivElement | null = null
+let activeRadiusButton: HTMLButtonElement | null = null
 
 function closeSizingDropdown(): void {
   if (activeDropdown) {
     activeDropdown.remove()
     activeDropdown = null
+  }
+  if (activeRadiusButton) {
+    activeRadiusButton.removeAttribute('data-active')
+    activeRadiusButton = null
   }
   document.removeEventListener('mousedown', handleDropdownOutsideClick, true)
 }
@@ -732,7 +748,7 @@ type FillRowOptions = {
   value: string
   opacity?: number
   onChange: (value: string) => void
-  onOpacityChange?: (value: number) => void
+  onOpacityChange?: (opacity: number, currentHex: string) => void
 }
 
 function createFillRow(options: FillRowOptions): HTMLDivElement {
@@ -740,6 +756,9 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   const isGradient = value.includes('gradient(')
 
   const wrap = el('div', 'ei-dp-fill-row')
+
+  // Track current color for opacity changes
+  let currentHex = rgbToHex(value)
 
   const swatch = el('div', 'ei-dp-swatch')
   if (isGradient) {
@@ -764,8 +783,8 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     hexInput.style.color = 'rgba(255,255,255,0.45)'
     picker.value = '#000000'
   } else {
-    hexInput.value = rgbToHex(value).replace('#', '')
-    picker.value = rgbToHex(value)
+    hexInput.value = currentHex.replace('#', '')
+    picker.value = currentHex
   }
 
   const opacityInput = createNumberInput({
@@ -773,12 +792,16 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     min: 0,
     max: 100,
     step: 1,
-    onChange: (v) => onOpacityChange?.(v),
+    onChange: (v) => {
+      currentHex = picker.value || currentHex
+      onOpacityChange?.(v, currentHex)
+    },
   })
   opacityInput.className = 'ei-dp-fill-opacity'
   const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
 
   function applyColor(hex: string): void {
+    currentHex = hex
     swatch.style.background = hex
     hexInput.value = hex.replace('#', '').toUpperCase()
     hexInput.readOnly = false
@@ -808,6 +831,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     let hex = hexInput.value.trim()
     if (!hex.startsWith('#')) hex = '#' + hex
     if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+      currentHex = hex
       swatch.style.background = hex
       picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
       onChange(hex)
@@ -1147,13 +1171,14 @@ export function buildDesignPanel(
     onChange: (v) => tracker.apply('border-radius', `${v}px`),
     onOpenSettings: (anchor) => {
       const radiusInput = radiusField.querySelector('input') as HTMLInputElement | null
-      openRadiusDropdown(anchor, () => {
+      openRadiusDropdown(anchor as HTMLButtonElement, () => {
         const computed = window.getComputedStyle(element).getPropertyValue('border-radius')
         return computed || info.boxModel.borderRadius
       }, (value) => {
         tracker.apply('border-radius', value)
+      }, (displayValue) => {
         if (radiusInput) {
-          radiusInput.value = String(parsePxValue(value))
+          radiusInput.value = displayValue
         }
       })
     },
@@ -1187,7 +1212,13 @@ export function buildDesignPanel(
         tracker.apply('background-color', v)
       }
     },
-    onOpacityChange: (v) => tracker.apply('background-color', `rgb(from ${info.visual.backgroundColor} r g b / ${v}%)`),
+    onOpacityChange: (opacity, hex) => {
+      const alpha = opacity / 100
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
+    },
   }))
 
   // === 6. Typography ===
@@ -1229,9 +1260,10 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-field-input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 6px 0 0; outline: none; cursor: ew-resize; letter-spacing: 0.055px; }
 .ei-dp-field-input:focus { cursor: text; }
 .ei-dp-field-suffix { flex-shrink: 0; font-size: 11px; color: rgba(255,255,255,0.4); padding-right: 6px; user-select: none; }
-.ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 8px; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; font-size: 12px; border-left: 1px solid rgba(255,255,255,0.08); }
+.ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; border-radius: 4px; transition: background 0.12s ease, color 0.12s ease; }
 .ei-dp-field-action:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-field-action:focus { outline: none; }
+.ei-dp-field-action[data-active="true"] { color: ${accentColor}; }
 .ei-dp-field-radius { gap: 4px; }
 .ei-dp-field-select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 4px 0 0; outline: none; cursor: pointer; -webkit-appearance: none; }
 .ei-dp-fill-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); margin-bottom: 8px; overflow: hidden; }
@@ -1257,7 +1289,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-gap-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
 .ei-dp-gap-field:focus-within { border-color: ${accentColor}; }
 .ei-dp-gap-field .ei-dp-field-input { flex: 1; min-width: 0; }
-.ei-dp-gap-trigger { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; width: 25px; cursor: pointer; color: rgba(255,255,255,0.4); border-left: 1px solid rgba(255,255,255,0.08); transition: color 0.12s ease; }
+.ei-dp-gap-trigger { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; width: 25px; cursor: pointer; color: rgba(255,255,255,0.4); transition: color 0.12s ease; }
 .ei-dp-gap-trigger:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-gap-trigger svg { display: block; }
 .ei-dp-size-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }

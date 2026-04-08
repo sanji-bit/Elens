@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "element-inspector-sdk",
+      "name": "elens",
       "devDependencies": {
         "typescript": "^5.9.2",
         "vite": "^6.4.1",

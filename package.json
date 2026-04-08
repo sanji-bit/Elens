@@ -1,5 +1,5 @@
 {
-  "name": "element-inspector-sdk",
+  "name": "elens",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "description": "Standalone DOM element inspector SDK for Web, Electron, and Tauri apps",

@@ -1,4 +1,4 @@
-# element-inspector-sdk
+# elens
 
 Standalone DOM element inspector SDK for **Web, Electron, and Tauri** apps.
 
@@ -19,7 +19,7 @@ Standalone DOM element inspector SDK for **Web, Electron, and Tauri** apps.
 ## Usage
 
 ```ts
-import { mountElementInspector } from 'element-inspector-sdk'
+import { mountElementInspector } from 'elens'
 
 const inspector = mountElementInspector({
   enabled: false,

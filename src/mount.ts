@@ -2,8 +2,8 @@ import type { Change, ElementInspectorInstance, ElementInspectorOptions, Inspect
 import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
 import { buildCopyText, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
 
-const IGNORE_ATTR = 'data-element-inspector-ignore'
-const MODE_STORAGE_KEY = 'element-inspector-mode'
+const IGNORE_ATTR = 'data-elens-ignore'
+const MODE_STORAGE_KEY = 'elens-mode'
 
 function loadPersistedMode(): 'inspector' | 'design' | null {
   try {

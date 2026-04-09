@@ -1186,6 +1186,30 @@ type StrokeValues = {
   left: number
 }
 
+// --- Effects (Shadow) constants ---
+type ShadowType = 'drop' | 'inner'
+
+const SHADOW_TYPE_LABELS: Record<ShadowType, string> = {
+  drop: 'Drop shadow',
+  inner: 'Inner shadow',
+}
+
+type ShadowValues = {
+  type: ShadowType
+  color: string
+  opacity: number
+  x: number
+  y: number
+  blur: number
+  spread: number
+}
+
+// Shadow field icons (from Figma)
+const EFFECTS_ICONS: Record<string, string> = {
+  blur: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm8-4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm-5 4a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  spread: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 12a7 7 0 1 0 14 0 7 7 0 0 0-14 0ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm5-4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-4 4a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+}
+
 // --- Stroke position dropdown ---
 let activePosDropdown: HTMLDivElement | null = null
 
@@ -1247,6 +1271,303 @@ function openPosDropdown(
   requestAnimationFrame(() => {
     document.addEventListener('mousedown', handlePosDropdownOutside, true)
   })
+}
+
+// --- Shadow type dropdown ---
+let activeShadowDropdown: HTMLDivElement | null = null
+
+function closeShadowDropdown(): void {
+  if (activeShadowDropdown) {
+    activeShadowDropdown.remove()
+    activeShadowDropdown = null
+  }
+  document.removeEventListener('mousedown', handleShadowDropdownOutside, true)
+}
+
+function handleShadowDropdownOutside(e: MouseEvent): void {
+  if (activeShadowDropdown && e.target instanceof Element && !activeShadowDropdown.contains(e.target)) {
+    closeShadowDropdown()
+  }
+}
+
+function openShadowDropdown(
+  anchor: HTMLElement,
+  currentType: ShadowType,
+  onSelect: (type: ShadowType) => void,
+  accentColor: string,
+): void {
+  closeShadowDropdown()
+  const dropdown = el('div', 'ei-dp-size-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  for (const t of ['drop', 'inner'] as ShadowType[]) {
+    const item = el('div', 'ei-dp-size-option')
+    item.setAttribute(IGNORE_ATTR, 'true')
+    const check = el('span', 'ei-dp-size-check')
+    if (t === currentType) {
+      check.innerHTML = SIZE_ICONS.checkmark ?? ''
+      check.style.color = accentColor
+    }
+    const label = el('span', 'ei-dp-size-option-label', SHADOW_TYPE_LABELS[t])
+    label.style.paddingLeft = '8px'
+    item.append(check, label)
+    item.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(t)
+      closeShadowDropdown()
+    })
+    dropdown.appendChild(item)
+  }
+
+  const panel = anchor.closest('.ei-panel')
+  if (panel) {
+    panel.appendChild(dropdown)
+    const anchorRect = anchor.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
+    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
+  }
+
+  activeShadowDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleShadowDropdownOutside, true)
+  })
+}
+
+// --- Effects Panel (Shadow) ---
+
+function createEffectsPanel(
+  initialValues: ShadowValues,
+  tracker: StyleTracker,
+  accentColor: string,
+  onChange: () => void,
+): HTMLDivElement {
+  const panel = el('div', 'ei-dp-effects-panel')
+  panel.setAttribute(IGNORE_ATTR, 'true')
+
+  const values = initialValues
+
+  // Row 1: Shadow type dropdown
+  const typeRow = el('div', 'ei-dp-effects-type-row')
+  const typeBtn = el('button', 'ei-dp-effects-type-btn')
+  typeBtn.type = 'button'
+  typeBtn.setAttribute(IGNORE_ATTR, 'true')
+  const typeLabel = el('span', '', SHADOW_TYPE_LABELS[values.type])
+  const typeArrow = el('span', 'ei-dp-effects-type-arrow')
+  typeArrow.innerHTML = DOWN_ARROW_ICON
+  typeBtn.append(typeLabel, typeArrow)
+
+  typeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    openShadowDropdown(typeBtn, values.type, (t) => {
+      values.type = t
+      typeLabel.textContent = SHADOW_TYPE_LABELS[t]
+      applyShadow(tracker, values)
+      onChange()
+    }, accentColor)
+  })
+
+  typeRow.appendChild(typeBtn)
+
+  // Row 2: Color + Opacity
+  const colorWrapper = el('div', 'ei-dp-effects-color-wrapper')
+  const colorInputs = el('div', 'ei-dp-effects-color-row')
+
+  const swatch = el('div', 'ei-dp-swatch')
+  swatch.style.backgroundColor = values.color
+
+  const picker = document.createElement('input')
+  picker.type = 'color'
+  picker.className = 'ei-dp-picker'
+  picker.setAttribute(IGNORE_ATTR, 'true')
+  picker.value = values.color
+
+  const hexInput = document.createElement('input')
+  hexInput.type = 'text'
+  hexInput.className = 'ei-dp-hex'
+  hexInput.setAttribute(IGNORE_ATTR, 'true')
+  hexInput.value = values.color.replace('#', '').toUpperCase()
+
+  const opacityInput = createNumberInput({
+    value: values.opacity,
+    min: 0, max: 100, step: 1,
+    onChange: (v) => {
+      values.opacity = v
+      applyShadow(tracker, values)
+      onChange()
+    },
+  })
+  opacityInput.className = 'ei-dp-fill-opacity'
+  const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
+
+  function applyColor(hex: string): void {
+    values.color = hex
+    swatch.style.backgroundColor = hex
+    hexInput.value = hex.replace('#', '').toUpperCase()
+    applyShadow(tracker, values)
+    onChange()
+  }
+
+  picker.addEventListener('input', (e) => {
+    e.stopPropagation()
+    applyColor(picker.value)
+  })
+
+  hexInput.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      let hex = hexInput.value.trim()
+      if (!hex.startsWith('#')) hex = '#' + hex
+      if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+        applyColor(hex)
+        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
+      }
+      hexInput.blur()
+    }
+  })
+
+  hexInput.addEventListener('blur', () => {
+    let hex = hexInput.value.trim()
+    if (!hex.startsWith('#')) hex = '#' + hex
+    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+      applyColor(hex)
+      picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
+    }
+  })
+
+  swatch.appendChild(picker)
+  colorInputs.append(swatch, hexInput, opacityInput, opacitySuffix)
+  colorWrapper.append(colorInputs)
+
+  // Row 3: X + Y
+  const posRow = el('div', 'ei-dp-effects-grid')
+
+  const xInput = createLabeledField({
+    icon: 'X',
+    value: values.x,
+    onChange: (v) => {
+      values.x = v
+      applyShadow(tracker, values)
+      onChange()
+    },
+  })
+
+  const yInput = createLabeledField({
+    icon: 'Y',
+    value: values.y,
+    onChange: (v) => {
+      values.y = v
+      applyShadow(tracker, values)
+      onChange()
+    },
+  })
+
+  posRow.append(xInput, yInput)
+
+  // Row 4: Blur + Spread
+  const blurSpreadRow = el('div', 'ei-dp-effects-grid')
+
+  const blurInput = createLabeledField({
+    icon: '',
+    iconHtml: EFFECTS_ICONS.blur ?? '',
+    value: values.blur,
+    min: 0,
+    onChange: (v) => {
+      values.blur = v
+      applyShadow(tracker, values)
+      onChange()
+    },
+  })
+
+  const spreadInput = createLabeledField({
+    icon: '',
+    iconHtml: EFFECTS_ICONS.spread ?? '',
+    value: values.spread,
+    onChange: (v) => {
+      values.spread = v
+      applyShadow(tracker, values)
+      onChange()
+    },
+  })
+
+  blurSpreadRow.append(blurInput, spreadInput)
+
+  panel.append(typeRow, colorWrapper, posRow, blurSpreadRow)
+  return panel
+}
+
+function applyShadow(tracker: StyleTracker, values: ShadowValues): void {
+  const { type, color, opacity, x, y, blur, spread } = values
+
+  let r = 0, g = 0, b = 0
+  const hex = color.replace('#', '')
+  if (hex.length >= 6) {
+    r = parseInt(hex.slice(0, 2), 16)
+    g = parseInt(hex.slice(2, 4), 16)
+    b = parseInt(hex.slice(4, 6), 16)
+  }
+  const alpha = opacity / 100
+  const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`
+
+  const inset = type === 'inner' ? 'inset ' : ''
+  const shadowValue = `${inset}${x}px ${y}px ${blur}px ${spread}px ${rgba}`
+
+  tracker.apply('box-shadow', shadowValue)
+}
+
+function detectShadowValues(element: HTMLElement): ShadowValues | null {
+  const style = window.getComputedStyle(element)
+  const boxShadow = style.getPropertyValue('box-shadow')
+
+  if (!boxShadow || boxShadow === 'none') return null
+
+  // Parse box-shadow: inset? offsetX offsetY blur spread color
+  const isInset = boxShadow.includes('inset')
+  const shadowParts = boxShadow.replace('inset', '').trim().split(/\s+/)
+
+  // Extract values - box-shadow format varies, try to parse
+  let x = 0, y = 0, blur = 0, spread = 0
+  let colorPart = ''
+
+  // Try to extract numbers (first 4 should be x, y, blur, spread)
+  const nums: number[] = []
+  for (const part of shadowParts) {
+    const num = parseFloat(part)
+    if (Number.isFinite(num)) {
+      nums.push(num)
+    } else {
+      // Non-number part is likely the color
+      colorPart = part
+    }
+  }
+
+  if (nums.length >= 2) {
+    x = nums[0] ?? 0
+    y = nums[1] ?? 0
+    blur = nums[2] ?? 0
+    spread = nums[3] ?? 0
+  }
+
+  // Parse color
+  const hex = rgbToHex(colorPart || 'rgba(0,0,0,0.25)')
+
+  // Try to extract opacity from rgba if present
+  let opacity = 100
+  const rgbaMatch = boxShadow.match(/rgba\([^,]+,\s*[^,]+,\s*[^,]+,\s*([\d.]+)\)/)
+  if (rgbaMatch) {
+    opacity = Math.round(parseFloat(rgbaMatch[1]!) * 100)
+  }
+
+  return {
+    type: isInset ? 'inner' : 'drop',
+    color: hex,
+    opacity,
+    x,
+    y,
+    blur,
+    spread,
+  }
 }
 
 // --- Stroke Panel ---
@@ -2200,6 +2521,55 @@ export function buildDesignPanel(
   }
   container.appendChild(strokeSection.container)
 
+  // === 7. Effects (Shadow) ===
+  let effectsSection: SectionHandle
+  const existingShadow = detectShadowValues(element)
+  // Ignore shadow if it's from stroke (inset stroke uses box-shadow too)
+  const isStrokeShadow = existingStroke?.position === 'inside'
+  const hasEffects = existingShadow && !isStrokeShadow
+
+  function populateEffectsContent(contentEl: HTMLDivElement, values: ShadowValues): void {
+    contentEl.innerHTML = ''
+    contentEl.appendChild(createEffectsPanel(
+      values,
+      tracker,
+      accentColor,
+      callbacks.onStyleChange,
+    ))
+  }
+
+  effectsSection = createSection('Effects', {
+    addRemove: {
+      onAdd: () => {
+        const defaultShadow: ShadowValues = {
+          type: 'drop',
+          color: '#000000',
+          opacity: 25,
+          x: 0,
+          y: 4,
+          blur: 4,
+          spread: 0,
+        }
+        applyShadow(tracker, defaultShadow)
+        populateEffectsContent(effectsSection.content, defaultShadow)
+        effectsSection.setHasContent(true)
+        callbacks.onStyleChange()
+      },
+      onRemove: () => {
+        tracker.apply('box-shadow', 'none')
+        effectsSection.content.innerHTML = ''
+        effectsSection.setHasContent(false)
+        callbacks.onStyleChange()
+      },
+    },
+  })
+  if (hasEffects) {
+    populateEffectsContent(effectsSection.content, existingShadow)
+  } else {
+    effectsSection.setHasContent(false)
+  }
+  container.appendChild(effectsSection.container)
+
   return container
 }
 
@@ -2322,5 +2692,15 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-text-input::-webkit-scrollbar-track { background: transparent; }
 .ei-dp-text-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 .ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+.ei-dp-effects-panel { }
+.ei-dp-effects-type-row { margin-bottom: 8px; }
+.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; width: 100%; transition: background 0.12s ease; }
+.ei-dp-effects-type-btn:hover { background: rgba(255,255,255,0.1); }
+.ei-dp-effects-type-btn:focus { outline: none; }
+.ei-dp-effects-type-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
+.ei-dp-effects-type-arrow svg { display: block; }
+.ei-dp-effects-color-wrapper { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; }
+.ei-dp-effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 `
 }

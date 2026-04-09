@@ -247,11 +247,11 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-panel-subtitle { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
 .ei-actions { display: flex; gap: 8px; }
 .ei-icon-btn { min-width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 12px; }
-.ei-body { padding: 14px 16px 16px; max-height: 70vh; overflow-y: overlay; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent; }
-.ei-body::-webkit-scrollbar { width: 8px; }
+.ei-body { padding: 4px 16px 16px; max-height: 70vh; overflow-y: auto; overflow-y: overlay; scrollbar-width: none; -ms-overflow-style: none; }
+.ei-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .ei-body::-webkit-scrollbar-track { background: transparent; }
-.ei-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-.ei-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+.ei-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 0; }
+.ei-body::-webkit-scrollbar-thumb:hover { background: transparent; }
 .ei-empty { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.5; }
 .ei-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .ei-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }

@@ -1121,9 +1121,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     // Resume existing change if this element already has one
     const existingChange = changes.find(c => c.type === 'design' && c.element === info.element)
     let activeChangeId: string | null = existingChange?.id ?? null
-    styleTracker = createStyleTracker(info.element, () => {
+    let currentTextDiff: { property: string; original: string; modified: string } | null = null
+
+    const saveToChanges = () => {
       if (!styleTracker) return
-      const diffs = styleTracker.getDiffs()
+      const styleDiffs = styleTracker.getDiffs()
+      const diffs = [...styleDiffs]
+      // Include or update text diff
+      if (currentTextDiff) {
+        const existingTextDiffIndex = diffs.findIndex(d => d.property === 'textContent')
+        if (existingTextDiffIndex >= 0) {
+          diffs[existingTextDiffIndex] = currentTextDiff
+        } else {
+          diffs.push(currentTextDiff)
+        }
+      }
       if (diffs.length === 0) return
       const autoComment = diffs.map(d => `${d.property}: ${d.original} \u2192 ${d.modified}`).join(', ')
       if (activeChangeId) {
@@ -1137,12 +1149,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         currentInfo = freshInfo
         updateHighlight(freshInfo)
       })
-    })
+    }
+
+    styleTracker = createStyleTracker(info.element, saveToChanges)
     const designPanel = buildDesignPanel(info.element, info, styleTracker, accentColor, {
       onStyleChange: () => {
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
         updateHighlight(freshInfo)
+      },
+      onTextChange: (original, modified) => {
+        if (modified !== original) {
+          currentTextDiff = { property: 'textContent', original, modified }
+        } else {
+          currentTextDiff = null
+        }
+        saveToChanges()
       },
     })
     body.appendChild(designPanel)

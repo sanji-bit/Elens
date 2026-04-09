@@ -1347,8 +1347,10 @@ function createEffectsPanel(
 
   const values = initialValues
 
-  // Row 1: Shadow type dropdown
-  const typeRow = el('div', 'ei-dp-effects-type-row')
+  // Row 1: Shadow type dropdown + Color + Opacity
+  const row1 = el('div', 'ei-dp-effects-row1')
+
+  // Type dropdown button (compact)
   const typeBtn = el('button', 'ei-dp-effects-type-btn')
   typeBtn.type = 'button'
   typeBtn.setAttribute(IGNORE_ATTR, 'true')
@@ -1367,10 +1369,7 @@ function createEffectsPanel(
     }, accentColor)
   })
 
-  typeRow.appendChild(typeBtn)
-
-  // Row 2: Color + Opacity
-  const colorWrapper = el('div', 'ei-dp-effects-color-wrapper')
+  // Color inputs
   const colorInputs = el('div', 'ei-dp-effects-color-row')
 
   const swatch = el('div', 'ei-dp-swatch')
@@ -1438,7 +1437,7 @@ function createEffectsPanel(
 
   swatch.appendChild(picker)
   colorInputs.append(swatch, hexInput, opacityInput, opacitySuffix)
-  colorWrapper.append(colorInputs)
+  row1.append(typeBtn, colorInputs)
 
   // Row 3: X + Y
   const posRow = el('div', 'ei-dp-effects-grid')
@@ -1493,7 +1492,7 @@ function createEffectsPanel(
 
   blurSpreadRow.append(blurInput, spreadInput)
 
-  panel.append(typeRow, colorWrapper, posRow, blurSpreadRow)
+  panel.append(row1, posRow, blurSpreadRow)
   return panel
 }
 
@@ -2693,13 +2692,12 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-text-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 .ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 .ei-dp-effects-panel { }
-.ei-dp-effects-type-row { margin-bottom: 8px; }
-.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; width: 100%; transition: background 0.12s ease; }
+.ei-dp-effects-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; width: 100px; flex-shrink: 0; transition: background 0.12s ease; }
 .ei-dp-effects-type-btn:hover { background: rgba(255,255,255,0.1); }
 .ei-dp-effects-type-btn:focus { outline: none; }
 .ei-dp-effects-type-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
 .ei-dp-effects-type-arrow svg { display: block; }
-.ei-dp-effects-color-wrapper { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
 .ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; }
 .ei-dp-effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 `

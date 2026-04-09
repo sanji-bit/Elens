@@ -111,3 +111,12 @@ export type ElementInspectorInstance = {
   exportMarkdown: () => string
   exportJSON: () => string
 }
+
+// Figma capture global
+declare global {
+  interface Window {
+    figma?: {
+      captureForDesign: (options: { selector: string }) => Promise<unknown>
+    }
+  }
+}

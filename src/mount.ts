@@ -1,6 +1,6 @@
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode } from './types'
 import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
-import { buildCopyText, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
+import { buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
@@ -37,10 +37,15 @@ const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" heigh
 const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3.364 3.907a.417.417 0 0 1 .543-.543L17.24 8.781a.417.417 0 0 1-.053.789l-5.103 1.317a1.667 1.667 0 0 0-1.199 1.196L9.57 17.188a.417.417 0 0 1-.789.052L3.364 3.907Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_CLEAR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 2.5h5M2.5 5h15m-1.667 0-.584 8.766c-.088 1.315-.132 1.973-.416 2.471a2.5 2.5 0 0 1-1.082 1.013c-.516.25-1.175.25-2.493.25H8.742c-1.318 0-1.977 0-2.493-.25a2.5 2.5 0 0 1-1.082-1.013c-.284-.498-.328-1.156-.416-2.471L4.167 5m4.166 3.75v4.167m3.334-4.167v4.167" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 1.66663V18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 15.8334L10 18.3334L7.5 15.8334" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8334 7.5L18.3334 10L15.8334 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.66663 10H18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.16663 7.5L1.66663 10L4.16663 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 4.16663L10 1.66663L12.5 4.16663" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M1.667 6.981c0-.292 0-.438.012-.561a2.5 2.5 0 0 1 2.241-2.241c.123-.013.277-.013.585-.013.118 0 .178 0 .228-.003a1.667 1.667 0 0 0 1.446-1.042l.071-.204c.035-.106.053-.158.072-.205a1.667 1.667 0 0 1 1.445-1.042c.05-.003.106-.003.217-.003h4.032c.111 0 .167 0 .217.003a1.667 1.667 0 0 1 1.446 1.042c.018.047.036.1.071.205l.072.204a1.667 1.667 0 0 0 1.445 1.042c.05.003.11.003.228.003.308 0 .462 0 .585.013a2.5 2.5 0 0 1 2.241 2.241c.013.123.013.269.013.561V13.5c0 1.4 0 2.1-.273 2.635a2.5 2.5 0 0 1-1.092 1.092c-.535.273-1.235.273-2.635.273H5.667c-1.4 0-2.1 0-2.635-.273a2.5 2.5 0 0 1-1.093-1.092c-.272-.535-.272-1.235-.272-2.635V6.981Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="10.417" r="3.333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_CHEVRON_DOWN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`
+const ICON_CAPTURE_SCREEN = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.16675 4.88667C1.16675 4.68232 1.16675 4.58014 1.17527 4.49408C1.25752 3.66403 1.91415 3.00739 2.7442 2.92515C2.83027 2.91663 2.93796 2.91663 3.15334 2.91663C3.23633 2.91663 3.27782 2.91663 3.31306 2.91449C3.76294 2.88725 4.15689 2.6033 4.325 2.18513C4.33816 2.15238 4.35047 2.11546 4.37508 2.04163C4.39969 1.96779 4.412 1.93088 4.42516 1.89813C4.59328 1.47995 4.98722 1.19601 5.43711 1.16876C5.47234 1.16663 5.51125 1.16663 5.58908 1.16663H8.41108C8.48891 1.16663 8.52782 1.16663 8.56306 1.16876C9.01294 1.19601 9.40689 1.47995 9.575 1.89813C9.58816 1.93088 9.60047 1.96779 9.62508 2.04163C9.64969 2.11546 9.662 2.15238 9.67516 2.18513C9.84328 2.6033 10.2372 2.88725 10.6871 2.91449C10.7223 2.91663 10.7638 2.91663 10.8468 2.91663C11.0622 2.91663 11.1699 2.91663 11.256 2.92515C12.086 3.00739 12.7426 3.66403 12.8249 4.49408C12.8334 4.58014 12.8334 4.68232 12.8334 4.88667V9.44996C12.8334 10.4301 12.8334 10.9201 12.6427 11.2944C12.4749 11.6237 12.2072 11.8914 11.8779 12.0592C11.5036 12.25 11.0135 12.25 10.0334 12.25H3.96675C2.98666 12.25 2.49661 12.25 2.12226 12.0592C1.79298 11.8914 1.52527 11.6237 1.35749 11.2944C1.16675 10.9201 1.16675 10.4301 1.16675 9.44996V4.88667Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.00008 9.62496C8.28875 9.62496 9.33341 8.58029 9.33341 7.29163C9.33341 6.00296 8.28875 4.95829 7.00008 4.95829C5.71142 4.95829 4.66675 6.00296 4.66675 7.29163C4.66675 8.58029 5.71142 9.62496 7.00008 9.62496Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_CAPTURE_WINDOW = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.6666 2.33337H2.33329C1.68896 2.33337 1.16663 2.85571 1.16663 3.50004V10.5C1.16663 11.1444 1.68896 11.6667 2.33329 11.6667H11.6666C12.311 11.6667 12.8333 11.1444 12.8333 10.5V3.50004C12.8333 2.85571 12.311 2.33337 11.6666 2.33337Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 4.66663H3.50583" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.83337 4.66663H5.83921" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.16663 4.66663H8.17246" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_SELECT_ELEMENT = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.25 5.54167V4.55C12.25 3.56991 12.25 3.07986 12.0593 2.70552C11.8915 2.37623 11.6238 2.10852 11.2945 1.94074C10.9201 1.75 10.4301 1.75 9.45 1.75H4.55C3.56991 1.75 3.07986 1.75 2.70552 1.94074C2.37623 2.10852 2.10852 2.37623 1.94074 2.70552C1.75 3.07986 1.75 3.56991 1.75 4.55V9.45C1.75 10.4301 1.75 10.9201 1.94074 11.2945C2.10852 11.6238 2.37623 11.8915 2.70552 12.0593C3.07986 12.25 3.56991 12.25 4.55 12.25H5.54167M10.142 10.3316L9.15128 12.1714C8.98934 12.4721 8.90838 12.6225 8.80969 12.6618C8.72402 12.6958 8.62728 12.6874 8.5488 12.639C8.45842 12.5832 8.40474 12.4211 8.29738 12.0968L6.70856 7.29826C6.61455 7.01432 6.56754 6.87235 6.60134 6.7778C6.63076 6.69552 6.69552 6.63076 6.7778 6.60134C6.87235 6.56754 7.01432 6.61455 7.29826 6.70857L12.0968 8.29739C12.4211 8.40475 12.5832 8.45843 12.639 8.54882C12.6874 8.6273 12.6958 8.72404 12.6617 8.80971C12.6225 8.90839 12.4721 8.98936 12.1714 9.15129L10.3316 10.142C10.2858 10.1666 10.2629 10.179 10.2428 10.1948C10.225 10.2089 10.2089 10.225 10.1948 10.2428C10.179 10.2629 10.1666 10.2858 10.142 10.3316Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_STATE_CAPTURE = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_icon)"><path d="M5.24996 2.04163V1.16663M2.95201 2.95201L2.33329 2.33329M2.95201 7.58329L2.33329 8.20201M7.58329 2.95201L8.20201 2.33329M2.04163 5.24996H1.16663M9.25424 9.44388L7.80072 12.1432C7.63467 12.4516 7.55164 12.6058 7.45175 12.6448C7.36506 12.6786 7.26743 12.6691 7.18894 12.6191C7.09851 12.5614 7.04696 12.3941 6.94385 12.0594L4.92632 5.50969C4.84209 5.23625 4.79998 5.09954 4.83386 5.0072C4.86338 4.92677 4.92677 4.86338 5.0072 4.83387C5.09954 4.79998 5.23625 4.84209 5.50969 4.92632L12.0593 6.94387C12.3941 7.04698 12.5614 7.09853 12.619 7.18897C12.6691 7.26745 12.6786 7.36509 12.6448 7.45177C12.6058 7.55167 12.4516 7.63469 12.1432 7.80074L9.44388 9.25424C9.39805 9.27891 9.37514 9.29125 9.35508 9.3071C9.33728 9.32117 9.32117 9.33728 9.3071 9.35508C9.29125 9.37514 9.27891 9.39805 9.25424 9.44388Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></g><defs><clipPath id="clip0_icon"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>`
 const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_OUTLINES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="2.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="11.5" y="2.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="2.5" y="11.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="11.5" y="11.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 function styleRow(label: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-row')
@@ -217,21 +222,29 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-design="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
-.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid #6C5CE7; background: color-mix(in srgb, #6C5CE7 10%, transparent); }
-.ei-highlight[data-move="true"] .ei-hl-content { background: color-mix(in srgb, #6C5CE7 10%, transparent); }
-.ei-moving { opacity: 0.72; outline: 1px solid #6C5CE7; outline-offset: 2px; }
+.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; background: transparent; }
+.ei-highlight[data-move="true"] .ei-hl-content { background: transparent; }
+.ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; pointer-events: none; }
 .ei-move-indicator { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; }
 .ei-move-indicator[data-visible="true"] { display: block; }
-.ei-move-bounds { position: absolute; border: 1px solid #6C5CE7; border-radius: 0; background: color-mix(in srgb, #6C5CE7 5%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #6C5CE7 16%, transparent); }
+.ei-move-bounds { position: absolute; border: 1px dashed #FF00FF; border-radius: 0; background: transparent; box-shadow: none; }
+.ei-move-bounds-label { position: absolute; display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 0; background: #FF00FF; color: rgba(255,255,255,0.98); font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; box-shadow: 0 6px 20px rgba(255,0,255,0.22); }
 .ei-move-handles { position: absolute; inset: 0; }
-.ei-move-handle { position: absolute; pointer-events: auto; width: 22px; height: 8px; margin: -4px 0 0 -11px; border: 0; border-radius: 0; background: rgba(255,255,255,0.28); box-shadow: 0 0 0 1px rgba(108,92,231,0.32); cursor: grab; transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.ei-move-handle { position: absolute; pointer-events: auto; width: 32px; height: 10px; margin: -5px 0 0 -16px; border: 2px solid #FF00FF; border-radius: 999px; background: rgba(255,255,255,0.92); cursor: grab; transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease, opacity 120ms ease; }
+.ei-move-handle::before { content: ''; position: absolute; inset: 1px 5px; border-radius: 999px; background: repeating-linear-gradient(90deg, rgba(255,0,255,0.22) 0 2px, transparent 2px 5px); }
 .ei-move-handle:hover,
-.ei-move-handle[data-active="true"] { background: #6C5CE7; box-shadow: 0 0 0 1px rgba(108,92,231,0.9), 0 0 0 4px color-mix(in srgb, #6C5CE7 18%, transparent); }
-.ei-move-handle:hover { transform: scaleX(1.05); }
-.ei-move-handle[data-active="true"] { cursor: grabbing; transform: scaleX(1.08); }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: color-mix(in srgb, #6C5CE7 10%, transparent); }
+.ei-move-handle[data-active="true"] { background: #FF00FF; box-shadow: 0 0 0 3px rgba(255,0,255,0.14); }
+.ei-move-handle:hover::before,
+.ei-move-handle[data-active="true"]::before { background: transparent; }
+.ei-move-handle:hover { transform: scale(1.03); }
+.ei-move-handle[data-active="true"] { cursor: grabbing; transform: scale(1.04); }
+.ei-move-guide-line { position: absolute; display: none; height: 1px; background: #FF00FF; transform-origin: center; }
+.ei-move-guide-dot { position: absolute; display: none; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; border: 2px solid #FF00FF; background: #fff; }
+.ei-move-indicator[data-visible="true"] .ei-move-guide-line,
+.ei-move-indicator[data-visible="true"] .ei-move-guide-dot { display: block; }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: transparent; }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: transparent; }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: color-mix(in srgb, #6C5CE7 10%, transparent); border: 1px solid #6C5CE7; }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-label,
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-code,
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-badge,
@@ -263,6 +276,16 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-toolbar-divider { display: flex; align-items: center; padding: 0 2px; }
 .ei-toolbar-divider-line { width: 1px; height: 16px; background: rgba(255,255,255,0.15); }
 .ei-toolbar-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.85); color: rgba(255,255,255,0.9); font-size: 11px; font-weight: 500; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.ei-toolbar-btn-group { display: flex; align-items: center; gap: 0; }
+.ei-toolbar-btn-group .ei-toolbar-btn { border-radius: 0; }
+.ei-toolbar-btn-group .ei-toolbar-btn:first-child { border-radius: 9999px 0 0 9999px; }
+.ei-toolbar-btn-group .ei-toolbar-btn:last-child { border-radius: 0 9999px 9999px 0; }
+.ei-toolbar-dropdown-btn { width: 20px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+.ei-capture-menu { position: fixed; min-width: 220px; border-radius: 12px; background: #111113; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 28px rgba(0,0,0,0.5); padding: 6px; z-index: ${zIndex + 5}; pointer-events: auto; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.ei-capture-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 24px; padding: 0 8px; border-radius: 8px; border: 0; background: transparent; color: rgba(255,255,255,0.92); cursor: pointer; text-align: left; transition: background 0.15s ease; }
+.ei-capture-menu-item:hover { background: rgba(255,255,255,0.15); }
+.ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: rgba(255,255,255,0.7); }
+.ei-capture-menu-label { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.95); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .ei-panel { position: fixed; top: 16px; left: 16px; width: 320px; border-radius: 18px; overflow: visible; background: #111113; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.55); pointer-events: auto; color: #e8e8ec; user-select: text; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .ei-drag-handle { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 12px; border: 0; background: transparent; cursor: grab; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
@@ -364,6 +387,8 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-ann-type { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); vertical-align: middle; }
 .ei-ann-diffs { margin-top: 4px; }
 .ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.6); font-family: monospace; line-height: 1.5; padding-left: 4px; border-left: 2px solid ${accentColor}; margin-bottom: 2px; }
+[data-ei-outlines="true"] * { outline: 1px solid rgba(0, 0, 0, 0.6); outline-offset: -1px; }
+[data-ei-outlines="true"] *:hover { outline-color: rgba(0, 0, 0, 0.9); }
 ${getDesignStyles(accentColor)}
 `
 }
@@ -376,6 +401,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let destroyed = false
   let lockedElement: HTMLElement | null = null
   let currentInfo: InspectorInfo | null = null
+  let outlinesEnabled = false
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
   let rafId: number | null = null
   let latestPoint: { x: number; y: number } | null = null
@@ -389,6 +415,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let styleTracker: StyleTracker | null = null
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
   let moveHandleEntries: Array<{ handle: HTMLButtonElement; element: HTMLElement }> = []
+  let moveDragRaf = 0
+  let pendingMovePointer: { x: number; y: number } | null = null
   let moveDragState: {
     element: HTMLElement
     container: HTMLElement
@@ -402,6 +430,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     placement: 'before' | 'after'
     target: HTMLElement | null
     bounds: DOMRect
+    elementRect: DOMRect
+    dragOffsetX: number
+    dragOffsetY: number
   } | null = null
   let suppressNextClick = false
 
@@ -428,8 +459,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   moveIndicator.setAttribute(IGNORE_ATTR, 'true')
   moveIndicator.dataset.visible = 'false'
   const moveBounds = el('div', 'ei-move-bounds')
+  const moveBoundsLabel = el('div', 'ei-move-bounds-label', 'Drag Bounds')
   const moveHandles = el('div', 'ei-move-handles')
-  moveIndicator.append(moveBounds, moveHandles)
+  const moveGuideLine = el('div', 'ei-move-guide-line')
+  const moveGuideDot = el('div', 'ei-move-guide-dot')
+  moveIndicator.append(moveBounds, moveBoundsLabel, moveHandles, moveGuideLine, moveGuideDot)
 
   function clearMoveHandles(): void {
     moveHandleEntries = []
@@ -443,6 +477,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     moveBounds.style.top = `${containerRect.top}px`
     moveBounds.style.width = `${Math.max(containerRect.width, 0)}px`
     moveBounds.style.height = `${Math.max(containerRect.height, 0)}px`
+    moveBoundsLabel.style.left = `${containerRect.left}px`
+    moveBoundsLabel.style.top = `${containerRect.top - 22}px`
 
     siblings.forEach((sibling) => {
       const rect = sibling.getBoundingClientRect()
@@ -470,8 +506,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       hideMoveIndicator()
       return
     }
-    moveIndicator.dataset.visible = 'true'
-    updateMoveHandles(container, getReorderableSiblings(element), moveDragState?.element ?? null)
+    updateMoveOverlay(container, moveDragState?.element ?? null)
   }
 
   // Design mode overlay elements
@@ -515,18 +550,52 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   moveBtn.classList.add('ei-toolbar-extra')
   const changesBtn = makeToolbarBtn(ICON_CHANGES, 'Changes')
   changesBtn.classList.add('ei-toolbar-extra')
-  const clearBtn = makeToolbarBtn(ICON_CLEAR, 'Clear All')
-  clearBtn.classList.add('ei-toolbar-extra')
+  // Screenshot button with dropdown
+  const screenshotGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
+  screenshotGroup.setAttribute(IGNORE_ATTR, 'true')
   const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, 'Screenshot')
-  screenshotBtn.classList.add('ei-toolbar-extra')
-  screenshotBtn.dataset.disabled = 'true'
+  const screenshotDropdownBtn = el('button', 'ei-toolbar-btn ei-toolbar-dropdown-btn')
+  screenshotDropdownBtn.type = 'button'
+  screenshotDropdownBtn.innerHTML = ICON_CHEVRON_DOWN
+  screenshotDropdownBtn.setAttribute(IGNORE_ATTR, 'true')
+  const screenshotDropdownTip = el('span', 'ei-toolbar-tip', 'Capture options')
+  screenshotDropdownTip.setAttribute(IGNORE_ATTR, 'true')
+  screenshotDropdownBtn.appendChild(screenshotDropdownTip)
+  screenshotGroup.append(screenshotBtn, screenshotDropdownBtn)
+
+  // Dropdown menu for capture options
+  const captureMenu = el('div', 'ei-capture-menu')
+  captureMenu.setAttribute(IGNORE_ATTR, 'true')
+  captureMenu.style.display = 'none'
+
+  function makeCaptureMenuItem(icon: string, label: string): HTMLButtonElement {
+    const item = el('button', 'ei-capture-menu-item')
+    item.type = 'button'
+    item.innerHTML = `
+      <span class="ei-capture-menu-icon">${icon}</span>
+      <span class="ei-capture-menu-label">${label}</span>
+    `
+    return item
+  }
+
+  const captureEntireScreenItem = makeCaptureMenuItem(ICON_CAPTURE_SCREEN, 'Entire screen')
+  const captureWindowItem = makeCaptureMenuItem(ICON_CAPTURE_WINDOW, 'Capture Window')
+  const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, 'Select element')
+  const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, 'State Capture')
+
+  captureMenu.append(captureEntireScreenItem, captureWindowItem, selectElementItem, stateCaptureItem)
+
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
   toolbarDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
 
   const exitBtn = makeToolbarBtn(ICON_EXIT, 'Exit')
   exitBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, clearBtn, screenshotBtn, toolbarDivider, exitBtn)
+  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, 'Toggle Outlines')
+  outlinesBtn.classList.add('ei-toolbar-extra')
+
+  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, outlinesBtn, screenshotGroup, toolbarDivider, exitBtn)
+  root.appendChild(captureMenu)
 
   // Panel
   const panel = el('div', 'ei-panel')
@@ -661,17 +730,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
   }
 
-  function getReorderContainer(element: HTMLElement): HTMLElement | null {
-    const container = element.parentElement
-    if (!container) return null
-    const display = window.getComputedStyle(container).display
-    return display === 'flex' || display === 'grid' ? container : null
-  }
-
   function getReorderableSiblings(element: HTMLElement): HTMLElement[] {
     const container = element.parentElement
     if (!container) return []
     return getHTMLElementChildren(container).filter(child => child.getAttribute(IGNORE_ATTR) !== 'true')
+  }
+
+  function getReorderContainer(element: HTMLElement): HTMLElement | null {
+    const container = element.parentElement
+    if (!container) return null
+    return getReorderableSiblings(element).length >= 2 ? container : null
   }
 
   function getReorderAxis(container: HTMLElement): 'x' | 'y' {
@@ -680,7 +748,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const columns = style.gridTemplateColumns.split(/\s+/).filter(Boolean)
       return columns.length > 1 ? 'x' : 'y'
     }
-    return style.flexDirection.startsWith('column') ? 'y' : 'x'
+    if (style.display === 'flex') {
+      return style.flexDirection.startsWith('column') ? 'y' : 'x'
+    }
+
+    const children = getHTMLElementChildren(container).filter(child => child.getAttribute(IGNORE_ATTR) !== 'true')
+    if (children.length < 2) return 'y'
+    const first = children[0].getBoundingClientRect()
+    const second = children[1].getBoundingClientRect()
+    const dx = Math.abs(second.left - first.left)
+    const dy = Math.abs(second.top - first.top)
+    return dx > dy ? 'x' : 'y'
   }
 
   function getInsertionTarget(
@@ -760,20 +838,53 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
+  function updateMoveGuide(bounds: DOMRect, pointerX: number, pointerY: number, axis: 'x' | 'y'): void {
+    if (axis === 'x') {
+      moveGuideLine.style.left = `${bounds.left}px`
+      moveGuideLine.style.top = `${pointerY}px`
+      moveGuideLine.style.width = `${Math.max(bounds.width, 0)}px`
+      moveGuideDot.style.left = `${pointerX}px`
+      moveGuideDot.style.top = `${pointerY}px`
+      return
+    }
+
+    moveGuideLine.style.left = `${pointerX}px`
+    moveGuideLine.style.top = `${bounds.top}px`
+    moveGuideLine.style.width = `${Math.max(bounds.height, 0)}px`
+    moveGuideLine.style.transform = 'rotate(90deg)'
+    moveGuideDot.style.left = `${pointerX}px`
+    moveGuideDot.style.top = `${pointerY}px`
+  }
+
+  function resetMoveGuide(): void {
+    moveGuideLine.style.transform = 'none'
+    moveGuideLine.style.width = '0px'
+    moveGuideDot.style.left = '0px'
+    moveGuideDot.style.top = '0px'
+  }
+
   function updateMoveIndicator(
-    container: HTMLElement,
+    _container: HTMLElement,
     _target: HTMLElement | null,
     _placement: 'before' | 'after',
     _axis: 'x' | 'y',
   ): void {
     moveIndicator.dataset.visible = 'true'
-    updateMoveHandles(container, getReorderableSiblings(moveDragState?.element ?? lockedElement ?? container), moveDragState?.element ?? null)
+    setActiveMoveHandle(moveDragState?.element ?? null)
+  }
+
+  function updateMoveOverlay(container: HTMLElement, activeElement: HTMLElement | null = null): void {
+    moveIndicator.dataset.visible = 'true'
+    updateMoveHandles(container, getReorderableSiblings(activeElement ?? lockedElement ?? container), activeElement)
   }
 
   function hideMoveIndicator(): void {
     moveIndicator.dataset.visible = 'false'
     moveBounds.style.width = '0px'
     moveBounds.style.height = '0px'
+    moveBoundsLabel.style.left = '0px'
+    moveBoundsLabel.style.top = '0px'
+    resetMoveGuide()
     clearMoveHandles()
   }
 
@@ -786,20 +897,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function getMoveBounds(container: HTMLElement): DOMRect {
     return container.getBoundingClientRect()
-  }
-
-  function isPointInsideBounds(x: number, y: number, bounds: DOMRect): boolean {
-    return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
-  }
-
-  function updateMovePanelText(info: InspectorInfo): void {
-    const container = getReorderContainer(info.element)
-    if (!container) {
-      body.innerHTML = '<div class="ei-empty">当前父容器不是 flex 或 grid，暂时不能重排。</div>'
-      return
-    }
-    const axis = getReorderAxis(container)
-    body.innerHTML = `<div class="ei-empty">锁定后会显示 Drag Bounds。拖动每个元素中间的小横条即可调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排。</div>`
   }
 
   function syncMoveOverlay(): void {
@@ -827,6 +924,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (!container) return
     const siblings = getReorderableSiblings(entry.element)
     const bounds = getMoveBounds(container)
+    const elementRect = entry.element.getBoundingClientRect()
     lockedElement = entry.element
     panelAnchor = { x: event.clientX, y: event.clientY }
     moveDragState = {
@@ -842,6 +940,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       placement: 'before',
       target: null,
       bounds,
+      elementRect,
+      dragOffsetX: event.clientX - (elementRect.left + elementRect.width / 2),
+      dragOffsetY: event.clientY - (elementRect.top + elementRect.height / 2),
     }
     showMoveOverlay(entry.element)
     setActiveMoveHandle(entry.element)
@@ -851,10 +952,31 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function finishMoveDrag(): void {
     if (!moveDragState) return
+    if (moveDragRaf) {
+      window.cancelAnimationFrame(moveDragRaf)
+      moveDragRaf = 0
+    }
+    pendingMovePointer = null
+
+    // Clear all transforms and apply real DOM insertion
+    moveDragState.element.style.transform = ''
+    moveDragState.element.style.transition = ''
+
+    moveDragState.siblings.forEach(sibling => {
+      sibling.style.transform = ''
+      sibling.style.transition = ''
+    })
+
+    if (moveDragState.started && moveDragState.target !== null || moveDragState.lastIndex !== moveDragState.initialIndex) {
+      // Apply the actual DOM insertion
+      applyMoveInsertion(moveDragState.container, moveDragState.element, moveDragState.target, moveDragState.placement)
+      const newIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
+      delete moveDragState.element.dataset.eiMoving
+      saveMoveChange(moveDragState.element, moveDragState.initialIndex, newIndex)
+    }
+
     hideMoveIndicator()
     if (moveDragState.started) {
-      delete moveDragState.element.dataset.eiMoving
-      saveMoveChange(moveDragState.element, moveDragState.initialIndex, moveDragState.lastIndex)
       const info = extractInspectorInfo(moveDragState.element)
       currentInfo = info
       renderMove(info)
@@ -868,10 +990,90 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function cancelMoveDrag(): void {
     if (!moveDragState) return
+    if (moveDragRaf) {
+      window.cancelAnimationFrame(moveDragRaf)
+      moveDragRaf = 0
+    }
+    pendingMovePointer = null
+
+    // Clear all transforms
+    moveDragState.element.style.transform = ''
+    moveDragState.element.style.transition = ''
+    moveDragState.siblings.forEach(sibling => {
+      sibling.style.transform = ''
+      sibling.style.transition = ''
+    })
+
     delete moveDragState.element.dataset.eiMoving
     moveDragState = null
     resetMoveDragHandleState()
     syncMoveOverlay()
+  }
+
+  function flushMoveDrag(): void {
+    moveDragRaf = 0
+    if (!moveDragState || !pendingMovePointer) return
+
+    const pointer = clampPointerToBounds(pendingMovePointer.x, pendingMovePointer.y, moveDragState.bounds)
+    const dx = pointer.x - moveDragState.startX
+    const dy = pointer.y - moveDragState.startY
+
+    // Move dragged element with transform (follow mouse smoothly)
+    moveDragState.element.style.transform = `translate(${dx}px, ${dy}px)`
+    moveDragState.element.style.transition = 'none'
+
+    updateMoveGuide(moveDragState.bounds, pointer.x, pointer.y, moveDragState.axis)
+    const siblings = getReorderableSiblings(moveDragState.element)
+    moveDragState.siblings = siblings
+    const insertion = getInsertionTarget(
+      siblings,
+      pointer.x,
+      pointer.y,
+      moveDragState.element,
+      moveDragState.axis,
+    )
+    moveDragState.target = insertion.target
+    moveDragState.placement = insertion.placement
+
+    const currentIndex = siblings.indexOf(moveDragState.element)
+    const newIndex = insertion.index
+
+    // Shift other elements with transform to make space (smooth visual feedback)
+    if (newIndex !== currentIndex) {
+      const draggedSize = moveDragState.axis === 'y'
+        ? moveDragState.elementRect.height
+        : moveDragState.elementRect.width
+
+      siblings.forEach((sibling, idx) => {
+        if (sibling === moveDragState.element) return
+        sibling.style.transition = 'transform 80ms ease-out'
+
+        let shift = 0
+        if (currentIndex < newIndex) {
+          // Moving forward: elements between current and new shift back
+          if (idx > currentIndex && idx < newIndex) {
+            shift = moveDragState.axis === 'y' ? -draggedSize : -draggedSize
+          } else if (idx >= newIndex) {
+            // No shift for elements after the new position
+            shift = 0
+          }
+        } else if (currentIndex > newIndex) {
+          // Moving backward: elements between new and current shift forward
+          if (idx >= newIndex && idx < currentIndex) {
+            shift = moveDragState.axis === 'y' ? draggedSize : draggedSize
+          }
+        }
+
+        sibling.style.transform = shift !== 0 ? `translate${moveDragState.axis === 'y' ? 'Y' : 'X'}(${shift}px)` : ''
+      })
+    }
+
+    updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
+  }
+
+  function scheduleMoveDrag(): void {
+    if (moveDragRaf) return
+    moveDragRaf = window.requestAnimationFrame(flushMoveDrag)
   }
 
   function updateMoveDrag(event: MouseEvent): boolean {
@@ -886,25 +1088,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     if (!moveDragState.started) return true
 
-    const pointer = clampPointerToBounds(event.clientX, event.clientY, moveDragState.bounds)
-    const siblings = getReorderableSiblings(moveDragState.element)
-    moveDragState.siblings = siblings
-    const insertion = getInsertionTarget(
-      siblings,
-      pointer.x,
-      pointer.y,
-      moveDragState.element,
-      moveDragState.axis,
-    )
-    moveDragState.target = insertion.target
-    moveDragState.placement = insertion.placement
-    applyMoveInsertion(moveDragState.container, moveDragState.element, insertion.target, insertion.placement)
-    updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
-    const nextIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
-    moveDragState.lastIndex = nextIndex
-    const info = extractInspectorInfo(moveDragState.element)
-    currentInfo = info
-    updateHighlight(info)
+    pendingMovePointer = { x: event.clientX, y: event.clientY }
+    scheduleMoveDrag()
     return true
   }
 
@@ -1246,7 +1431,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function updateHighlight(info: InspectorInfo | null): void {
-    if (currentMode === 'off' || currentMode === 'changes' || !info) {
+    if (outlinesEnabled) return // Outlines mode: no highlight
+    // Support capture selection mode (element/state) when currentMode is 'off'
+    const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
+    if ((currentMode === 'off' && !isCaptureSelection) || currentMode === 'changes' || !info) {
       setHighlightVisible(false)
       return
     }
@@ -1273,7 +1461,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hlContent.style.width = `${Math.max(w - pl - pr, 0)}px`
     hlContent.style.height = `${Math.max(h - pt - pb, 0)}px`
 
-    const isDesign = currentMode === 'design'
+    const isDesign = currentMode === 'design' || isCaptureSelection
     const isMove = currentMode === 'move'
     highlight.dataset.design = isDesign ? 'true' : 'false'
     highlight.dataset.move = isMove ? 'true' : 'false'
@@ -1555,9 +1743,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     unlockBtn.style.display = 'inline-block'
-    setPanelVisible(true)
-    positionPanel(panelAnchor, info)
-    updateMovePanelText(info)
+    // Hide panel in Move mode — operations are done via external handles
+    setPanelVisible(false)
     updateHighlight(info)
     syncMoveOverlay()
   }
@@ -1599,6 +1786,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function refreshLocked(): void {
+    if (outlinesEnabled) return // Outlines mode: no refresh
     renderMarkers()
     if (!lockedElement) {
       updateHighlight(currentInfo)
@@ -1631,16 +1819,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Event handlers ---
 
   function onMouseMove(event: MouseEvent): void {
+    if (outlinesEnabled) return // Outlines mode: no interaction
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
     if (currentMode === 'move' && updateMoveDrag(event)) return
     if (currentMode === 'move' && lockedElement) {
-      const container = getReorderContainer(lockedElement)
-      if (container) {
-        const bounds = getMoveBounds(container)
-        if (isPointInsideBounds(event.clientX, event.clientY, bounds)) {
-          showMoveOverlay(lockedElement)
-        }
-      }
+      hideTooltip()
+      return
     }
     if (lockedElement) {
       hideTooltip()
@@ -1665,6 +1849,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function blockMouse(event: Event): void {
+    if (outlinesEnabled) return // Outlines mode: allow normal interaction
     if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
     if (currentMode === 'move' && (event.type === 'mousedown' || event.type === 'mouseup')) return
     event.preventDefault()
@@ -1677,6 +1862,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       event.stopPropagation()
       return
     }
+    if (outlinesEnabled) return // Outlines mode: no interaction
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
     if (isPanelEvent(event)) return
     event.preventDefault()
@@ -2041,6 +2227,40 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderForCurrentMode(null)
   }
 
+  // --- Figma Capture Functions (replaced by new capture system) ---
+  // See captureEntireScreen, captureWindow, startSelectElementCapture, startStateCapture above
+
+  function showToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+    const toast = el('div', 'ei-toast')
+    toast.textContent = message
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 20px;
+      background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#00b894' : '#111113'};
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: ${zIndex + 10};
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `
+    root.appendChild(toast)
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1'
+    })
+    setTimeout(() => {
+      toast.style.opacity = '0'
+      setTimeout(() => toast.remove(), 300)
+    }, 3000)
+  }
+
   function destroy(): void {
     if (destroyed) return
     setMode('off')
@@ -2067,21 +2287,268 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   designBtn.addEventListener('click', () => setMode('design'))
   moveBtn.addEventListener('click', () => setMode('move'))
   changesBtn.addEventListener('click', () => setMode('changes'))
-  clearBtn.addEventListener('click', () => {
-    changes.forEach(c => {
-      if (c.type === 'design' && c.diffs) {
-        for (const diff of c.diffs) c.element.style.removeProperty(diff.property)
-      }
-    })
-    changes = []
-    changeIdCounter = 0
-    renderMarkers()
-    if (currentMode === 'changes') renderChangesList()
-  })
   exitBtn.addEventListener('click', () => {
     setMode('off')
+    outlinesEnabled = false
+    outlinesBtn.dataset.active = ''
+    document.body.dataset.eiOutlines = ''
     collapseToolbar()
     requestAnimationFrame(initToolbarPosition)
+  })
+
+  // --- Outlines toggle ---
+  outlinesBtn.addEventListener('click', () => {
+    outlinesEnabled = !outlinesEnabled
+    outlinesBtn.dataset.active = outlinesEnabled ? 'true' : ''
+    document.body.dataset.eiOutlines = outlinesEnabled ? 'true' : ''
+    if (outlinesEnabled) {
+      // Clear mode when entering outlines mode
+      setMode('off')
+    }
+  })
+
+  // --- Capture Dropdown Menu ---
+  let isCaptureMenuOpen = false
+  let captureMenuMode: 'entire' | 'window' | 'element' | 'state' | null = null
+  let stateCaptureElement: HTMLElement | null = null
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+  function positionCaptureMenu(): void {
+    const rect = screenshotGroup.getBoundingClientRect()
+    captureMenu.style.left = `${rect.left}px`
+    captureMenu.style.top = `${rect.top - captureMenu.offsetHeight - 8}px`
+  }
+
+  function openCaptureMenu(): void {
+    if (isCaptureMenuOpen) return
+    isCaptureMenuOpen = true
+    captureMenu.style.display = 'block'
+    positionCaptureMenu()
+    screenshotDropdownBtn.style.background = 'rgba(255,255,255,0.15)'
+  }
+
+  function closeCaptureMenu(): void {
+    if (!isCaptureMenuOpen) return
+    isCaptureMenuOpen = false
+    captureMenu.style.display = 'none'
+    screenshotDropdownBtn.style.background = ''
+  }
+
+  function toggleCaptureMenu(): void {
+    if (isCaptureMenuOpen) closeCaptureMenu()
+    else openCaptureMenu()
+  }
+
+  // Capture functions for each mode
+  async function captureEntireScreen(): Promise<void> {
+    if (currentMode !== 'off') setMode('off')
+    showToast('Capturing entire page...', 'info')
+    await performCapture('body', { scroll: true })
+  }
+
+  async function captureWindow(): Promise<void> {
+    if (currentMode !== 'off') setMode('off')
+    showToast('Capturing current window...', 'info')
+    await performCapture('body', { scroll: false })
+  }
+
+  async function startSelectElementCapture(): Promise<void> {
+    if (currentMode !== 'off') setMode('off')
+    showToast('Hover to preview, click to capture', 'info')
+    captureMenuMode = 'element'
+
+    // Show highlight overlay for element selection
+    let selectedElement: HTMLElement | null = null
+    highlight.style.display = 'block'
+    highlight.dataset.design = 'true'
+
+    const moveHandler = (e: MouseEvent) => {
+      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
+      if (element && element !== selectedElement) {
+        selectedElement = element
+        const info = extractInspectorInfo(element)
+        updateHighlight(info)
+        showTooltip(info, e.clientX, e.clientY)
+      }
+    }
+
+    const clickHandler = async (e: MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
+      if (element) {
+        document.removeEventListener('click', clickHandler, true)
+        document.removeEventListener('mousemove', moveHandler, true)
+        highlight.style.display = 'none'
+        tooltip.style.display = 'none'
+        const selector = buildDomPath(element)
+        showToast(`Capturing selected element...`, 'info')
+        await performCapture(selector, { scroll: false })
+      }
+    }
+
+    document.addEventListener('mousemove', moveHandler, true)
+    document.addEventListener('click', clickHandler, true)
+  }
+
+  async function startStateCapture(): Promise<void> {
+    if (currentMode !== 'off') setMode('off')
+    captureMenuMode = 'state'
+    showToast('Hover to preview, click element with hover state...', 'info')
+
+    // Show highlight overlay for element selection
+    let selectedElement: HTMLElement | null = null
+    highlight.style.display = 'block'
+    highlight.dataset.design = 'true'
+
+    const moveHandler = (e: MouseEvent) => {
+      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
+      if (element && element !== selectedElement) {
+        selectedElement = element
+        const info = extractInspectorInfo(element)
+        updateHighlight(info)
+        showTooltip(info, e.clientX, e.clientY)
+      }
+    }
+
+    const clickHandler = async (e: MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
+      if (element) {
+        document.removeEventListener('click', clickHandler, true)
+        document.removeEventListener('mousemove', moveHandler, true)
+        highlight.style.display = 'none'
+        tooltip.style.display = 'none'
+        stateCaptureElement = element
+        await captureMultipleStates(element)
+      }
+    }
+
+    document.addEventListener('mousemove', moveHandler, true)
+    document.addEventListener('click', clickHandler, true)
+  }
+
+  async function captureMultipleStates(element: HTMLElement): Promise<void> {
+    const states = ['default', 'hover', 'active']
+    showToast(`Capturing ${states.length} states...`, 'info')
+
+    for (let i = 0; i < states.length; i++) {
+      const state = states[i]
+      showToast(`Capturing ${state} state (${i + 1}/${states.length})...`, 'info')
+
+      // Simulate state
+      if (state === 'hover') {
+        element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+        element.classList.add('hover')
+      } else if (state === 'active') {
+        element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        element.classList.add('active')
+      }
+
+      await sleep(300)
+      const selector = buildDomPath(element)
+      await performCapture(selector, { scroll: false, state })
+
+      // Reset state
+      if (state === 'hover') {
+        element.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+        element.classList.remove('hover')
+      } else if (state === 'active') {
+        element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+        element.classList.remove('active')
+      }
+
+      await sleep(200)
+    }
+
+    showToast('All states captured! Paste in Figma', 'success')
+    stateCaptureElement = null
+  }
+
+  interface CaptureOptions {
+    scroll: boolean
+    state?: string
+  }
+
+  async function performCapture(selector: string, options: CaptureOptions): Promise<void> {
+    try {
+      // 1) 注入 capture.js
+      if (!window.figma?.captureForDesign) {
+        const r = await fetch('https://mcp.figma.com/mcp/html-to-design/capture.js')
+        const s = await r.text()
+        const el_script = document.createElement('script')
+        el_script.textContent = s
+        document.head.appendChild(el_script)
+        await sleep(1200)
+      }
+
+      // 2) 如果需要滚动，触发懒加载
+      if (options.scroll) {
+        const step = Math.max(400, Math.floor(window.innerHeight * 0.8))
+        for (let y = 0; y < document.body.scrollHeight; y += step) {
+          window.scrollTo(0, y)
+          await sleep(180)
+        }
+        await sleep(600)
+        window.scrollTo(0, 0)
+      }
+
+      // 3) 等图片与字体
+      const imgs = Array.from(document.images || [])
+      await Promise.allSettled(
+        imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
+          img.addEventListener('load', res, { once: true })
+          img.addEventListener('error', res, { once: true })
+          setTimeout(res, 4000)
+        }))
+      )
+      if (document.fonts?.ready) await Promise.race([document.fonts.ready, sleep(3000)])
+      await sleep(500)
+
+      // 4) 执行抓取
+      const result = await window.figma?.captureForDesign({ selector })
+
+      showToast(options.state ? `${options.state} state captured!` : 'Captured! Paste in Figma (Ctrl+V)', 'success')
+      console.log('[Elens] Capture result:', result)
+    } catch (error) {
+      console.error('[Elens] Capture failed:', error)
+      showToast('Capture failed: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error')
+    }
+  }
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (isCaptureMenuOpen && !captureMenu.contains(e.target as Node) && !screenshotDropdownBtn.contains(e.target as Node)) {
+      closeCaptureMenu()
+    }
+  })
+
+  // Update window resize handler to reposition menu
+  window.addEventListener('resize', () => {
+    if (isCaptureMenuOpen) positionCaptureMenu()
+  })
+
+  screenshotBtn.addEventListener('click', () => captureEntireScreen())
+  screenshotDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggleCaptureMenu()
+  })
+  captureEntireScreenItem.addEventListener('click', () => {
+    closeCaptureMenu()
+    captureEntireScreen()
+  })
+  captureWindowItem.addEventListener('click', () => {
+    closeCaptureMenu()
+    captureWindow()
+  })
+  selectElementItem.addEventListener('click', () => {
+    closeCaptureMenu()
+    startSelectElementCapture()
+  })
+  stateCaptureItem.addEventListener('click', () => {
+    closeCaptureMenu()
+    startStateCapture()
   })
   toolbar.addEventListener('mousedown', startToolbarDrag)
   copyBtn.addEventListener('click', copyCurrent)

@@ -174,6 +174,14 @@ const PADDING_ICONS: Record<string, string> = {
   bottom: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 11h2v2h-2v-2Zm-1 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2ZM7.5 16a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
 
+// --- Margin direction SVG icons (external space |o ō o| style) ---
+const MARGIN_ICONS: Record<string, string> = {
+  left: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0v-9ZM12 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2Z" fill="currentColor" fill-opacity="0.4"/></svg>`,
+  top: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 5a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9ZM12 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2Z" fill="currentColor" fill-opacity="0.4"/></svg>`,
+  right: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M20 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0v-9ZM12 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2Z" fill="currentColor" fill-opacity="0.4"/></svg>`,
+  bottom: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2ZM7.5 18a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Z" fill="currentColor" fill-opacity="0.4"/></svg>`,
+}
+
 const FIELD_ICONS: Record<string, string> = {
   opacity: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 7h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1ZM6 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8Zm9 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm-1.5 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm-2 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm2-4a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm0 2a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   radius: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.9 6h-.02c-.403 0-.735 0-1.006.022-.28.023-.54.072-.782.196a2 2 0 0 0-.874.874c-.124.243-.173.501-.196.782C6 8.144 6 8.477 6 8.88V9.5a.5.5 0 0 0 1 0V8.9c0-.428 0-.72.019-.944.018-.22.05-.332.09-.41a1 1 0 0 1 .437-.437c.078-.04.19-.072.41-.09C8.18 7 8.472 7 8.9 7H9.5a.5.5 0 0 0 0-1H8.9Zm6.2 0h.02c.403 0 .735 0 1.006.022.28.023.54.072.782.196a2 2 0 0 1 .874.874c.124.243.173.501.196.782.022.27.022.603.022 1.005V9.5a.5.5 0 0 1-1 0V8.9c0-.428 0-.72-.019-.944-.018-.22-.05-.332-.09-.41a1 1 0 0 0-.437-.437c-.078-.04-.19-.072-.41-.09A17 17 0 0 0 15.1 7H14.5a.5.5 0 0 1 0-1h.6Zm.02 12H14.5a.5.5 0 0 1 0-1h.6c.428 0 .72 0 .944-.019.22-.018.332-.05.41-.09a1 1 0 0 0 .437-.437c.04-.078.072-.19.09-.41.019-.225.019-.516.019-.944V14.5a.5.5 0 0 1 1 0v.62c0 .403 0 .735-.022 1.006-.023.281-.072.54-.196.782a2 2 0 0 1-.874.874c-.243.124-.5.173-.782.196-.27.022-.603.022-1.006.022M8.9 18h-.02c-.403 0-.735 0-1.006-.022-.28-.023-.541-.072-.782-.196a2 2 0 0 1-.874-.874c-.124-.243-.174-.501-.196-.782A18 18 0 0 1 6 15.12V14.5a.5.5 0 0 1 1 0v.6c0 .428 0 .82.019.944.018.22.05.332.09.41a1 1 0 0 0 .437.437c.078.04.19.072.41.09.225.019.516.019.944.019H9.5a.5.5 0 0 1 0 1H8.9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
@@ -2112,6 +2120,9 @@ export function buildDesignPanel(
 
   // --- Padding helper ---
   function appendPaddingFields(target: HTMLElement): void {
+    const label = el('div', 'ei-dp-sublabel')
+    label.textContent = 'Padding'
+    target.appendChild(label)
     target.appendChild(grid(
       createLabeledField({
         icon: '',
@@ -2142,6 +2153,41 @@ export function buildDesignPanel(
         value: parsePxValue(info.boxModel.padding.bottom),
         min: 0,
         onChange: (v) => tracker.apply('padding-bottom', `${v}px`),
+      }),
+    ))
+  }
+
+  // --- Margin helper ---
+  function appendMarginFields(target: HTMLElement): void {
+    const label = el('div', 'ei-dp-sublabel')
+    label.textContent = 'Margin'
+    target.appendChild(label)
+    target.appendChild(grid(
+      createLabeledField({
+        icon: '',
+        iconHtml: MARGIN_ICONS.left,
+        value: parsePxValue(info.boxModel.margin.left),
+        onChange: (v) => tracker.apply('margin-left', `${v}px`),
+      }),
+      createLabeledField({
+        icon: '',
+        iconHtml: MARGIN_ICONS.top,
+        value: parsePxValue(info.boxModel.margin.top),
+        onChange: (v) => tracker.apply('margin-top', `${v}px`),
+      }),
+    ))
+    target.appendChild(grid(
+      createLabeledField({
+        icon: '',
+        iconHtml: MARGIN_ICONS.right,
+        value: parsePxValue(info.boxModel.margin.right),
+        onChange: (v) => tracker.apply('margin-right', `${v}px`),
+      }),
+      createLabeledField({
+        icon: '',
+        iconHtml: MARGIN_ICONS.bottom,
+        value: parsePxValue(info.boxModel.margin.bottom),
+        onChange: (v) => tracker.apply('margin-bottom', `${v}px`),
       }),
     ))
   }
@@ -2302,6 +2348,7 @@ export function buildDesignPanel(
     }
 
     appendPaddingFields(layoutSec.content)
+    appendMarginFields(layoutSec.content)
     container.appendChild(layoutSec.container)
 
   } else {
@@ -2316,6 +2363,7 @@ export function buildDesignPanel(
     // === 2. Spacing section (non-layout) ===
     const spacingSec = createSection('Spacing')
     appendPaddingFields(spacingSec.content)
+    appendMarginFields(spacingSec.content)
     container.appendChild(spacingSec.container)
   }
 
@@ -2608,6 +2656,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-section-content { padding-bottom: 16px; }
 .ei-dp-section-content[data-visible="false"] { display: none; }
 .ei-dp-section-content > :last-child { margin-bottom: 0; }
+.ei-dp-sublabel { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.35); letter-spacing: 0.1px; margin-bottom: 4px; padding-left: 2px; }
 .ei-dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .ei-dp-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; }
 .ei-dp-field:hover { border-color: rgba(255,255,255,0.10); }

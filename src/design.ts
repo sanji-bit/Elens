@@ -985,12 +985,20 @@ function createAlignButtons(value: string, onChange: (value: string) => void): H
     { key: 'right', css: 'right' },
   ]
 
+  // Normalize value: map 'start' to 'left', 'end' to 'right', default to 'left'
+  let normalizedValue = value
+  if (value === 'start' || value === '' || !aligns.some(a => a.css === value)) {
+    normalizedValue = 'left'
+  } else if (value === 'end') {
+    normalizedValue = 'right'
+  }
+
   for (const { key, css } of aligns) {
     const btn = el('button', 'ei-dp-align-btn')
     btn.type = 'button'
     btn.innerHTML = ALIGN_ICONS[key] ?? ''
     btn.setAttribute(IGNORE_ATTR, 'true')
-    if (value === css) btn.dataset.active = 'true'
+    if (normalizedValue === css) btn.dataset.active = 'true'
     btn.addEventListener('click', (e) => {
       e.stopPropagation()
       wrap.querySelectorAll('.ei-dp-align-btn').forEach(b => b.removeAttribute('data-active'))

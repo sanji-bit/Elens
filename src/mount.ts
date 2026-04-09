@@ -1,6 +1,6 @@
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode } from './types'
 import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
-import { buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
+import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
@@ -771,9 +771,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const children = getHTMLElementChildren(container).filter(child => child.getAttribute(IGNORE_ATTR) !== 'true')
-    if (children.length < 2) return 'y'
-    const first = children[0].getBoundingClientRect()
-    const second = children[1].getBoundingClientRect()
+    const firstChild = children[0]
+    const secondChild = children[1]
+    if (!firstChild || !secondChild) return 'y'
+    const first = firstChild.getBoundingClientRect()
+    const second = secondChild.getBoundingClientRect()
     const dx = Math.abs(second.left - first.left)
     const dy = Math.abs(second.top - first.top)
     return dx > dy ? 'x' : 'y'
@@ -1057,20 +1059,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const newIndex = insertion.index
 
     // Shift other elements with transform to make space (smooth visual feedback)
-    if (newIndex !== currentIndex) {
-      const draggedSize = moveDragState.axis === 'y'
-        ? moveDragState.elementRect.height
-        : moveDragState.elementRect.width
+    const axis = moveDragState.axis
+    const draggedElement = moveDragState.element
+    const draggedSize = axis === 'y'
+      ? moveDragState.elementRect.height
+      : moveDragState.elementRect.width
 
+    if (newIndex !== currentIndex) {
       siblings.forEach((sibling, idx) => {
-        if (sibling === moveDragState.element) return
+        if (sibling === draggedElement) return
         sibling.style.transition = 'transform 80ms ease-out'
 
         let shift = 0
         if (currentIndex < newIndex) {
           // Moving forward: elements between current and new shift back
           if (idx > currentIndex && idx < newIndex) {
-            shift = moveDragState.axis === 'y' ? -draggedSize : -draggedSize
+            shift = -draggedSize
           } else if (idx >= newIndex) {
             // No shift for elements after the new position
             shift = 0
@@ -1078,15 +1082,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         } else if (currentIndex > newIndex) {
           // Moving backward: elements between new and current shift forward
           if (idx >= newIndex && idx < currentIndex) {
-            shift = moveDragState.axis === 'y' ? draggedSize : draggedSize
+            shift = draggedSize
           }
         }
 
-        sibling.style.transform = shift !== 0 ? `translate${moveDragState.axis === 'y' ? 'Y' : 'X'}(${shift}px)` : ''
+        sibling.style.transform = shift !== 0 ? `translate${axis === 'y' ? 'Y' : 'X'}(${shift}px)` : ''
       })
     }
 
-    updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
+    updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, axis)
   }
 
   function scheduleMoveDrag(): void {
@@ -1234,14 +1238,27 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' | 'move' = 'annotation', diffs?: Change['diffs']): string {
     changeIdCounter++
+    const info = extractInspectorInfo(element)
+    const isoTimestamp = new Date().toISOString()
+    const snapshot = buildChangeSnapshot(info)
     const change: Change = {
       id: String(changeIdCounter),
       type,
       element,
       comment,
-      info: extractInspectorInfo(element),
+      info,
       diffs,
       timestamp: Date.now(),
+      target: buildChangeTarget(element, info),
+      patch: buildChangePatch(type, diffs, comment),
+      beforeSnapshot: snapshot,
+      afterSnapshot: snapshot,
+      meta: {
+        sourceMode: type === 'move' ? 'move' : type === 'design' ? 'design' : 'inspector',
+        status: 'confirmed',
+        createdAt: isoTimestamp,
+        updatedAt: isoTimestamp,
+      },
     }
     changes.push(change)
     options.onChangeAdd?.(change)
@@ -1252,10 +1269,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function updateChange(id: string, comment: string, diffs: Change['diffs']): void {
     const change = changes.find(c => c.id === id)
     if (!change) return
+    const info = extractInspectorInfo(change.element)
+    if (!change.beforeSnapshot) {
+      change.beforeSnapshot = buildChangeSnapshot(change.info)
+    }
     change.comment = comment
     change.diffs = diffs
-    change.info = extractInspectorInfo(change.element)
+    change.info = info
     change.timestamp = Date.now()
+    change.target = buildChangeTarget(change.element, info)
+    change.patch = buildChangePatch(change.type, diffs, comment)
+    change.afterSnapshot = buildChangeSnapshot(info)
+    change.meta.updatedAt = new Date().toISOString()
     options.onChangeAdd?.(change)
     renderMarkers()
   }
@@ -1401,7 +1426,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     copyAIBtn.type = 'button'
     copyAIBtn.setAttribute(IGNORE_ATTR, 'true')
     copyAIBtn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(buildMarkdownExport(changes))
+      await navigator.clipboard.writeText(buildAIPayload(changes))
       copyAIBtn.textContent = 'Copied!'
       setTimeout(() => { copyAIBtn.textContent = 'Copy AI' }, 1500)
     })

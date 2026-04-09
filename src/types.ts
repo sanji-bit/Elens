@@ -72,6 +72,94 @@ export type StyleDiff = {
   modified: string
 }
 
+export type ChangeSelector = {
+  primary: string
+  fallbacks: string[]
+}
+
+export type ChangeIdentity = {
+  id: string
+  className: string
+  role: string
+  accessibleName: string
+  dataAttributes: Record<string, string>
+}
+
+export type ChangeContext = {
+  parentTag: string
+  previousSiblingText: string
+  nextSiblingText: string
+}
+
+export type ChangeTarget = {
+  tagName: string
+  text: string
+  domPath: string
+  selector: ChangeSelector
+  identity: ChangeIdentity
+  context: ChangeContext
+  box: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+}
+
+export type TextDiff = {
+  from: string
+  to: string
+}
+
+export type MoveDiff = {
+  fromIndex: number
+  toIndex: number
+}
+
+export type ChangePatch = {
+  styleDiffs: StyleDiff[]
+  textDiff?: TextDiff
+  moveDiff?: MoveDiff
+}
+
+export type ChangeSnapshot = {
+  text: string
+  box: {
+    width: string
+    height: string
+    margin: string
+    padding: string
+    borderRadius: string
+  }
+  typography: {
+    fontFamily: string
+    fontSize: string
+    fontWeight: string
+    lineHeight: string
+    letterSpacing: string
+    color: string
+  }
+  layout: {
+    display: string
+    gap: string
+    justifyContent: string
+    alignItems: string
+  }
+  visual: {
+    backgroundColor: string
+    opacity: string
+    borderColor: string
+    boxShadow: string
+  }
+}
+
+export type ChangeMeta = {
+  sourceMode: 'inspector' | 'design' | 'move'
+  status: 'confirmed'
+  createdAt: string
+  updatedAt: string
+}
+
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'changes'
 
 export type Change = {
@@ -82,6 +170,11 @@ export type Change = {
   comment: string
   diffs?: StyleDiff[]
   timestamp: number
+  target: ChangeTarget
+  patch: ChangePatch
+  beforeSnapshot: ChangeSnapshot
+  afterSnapshot: ChangeSnapshot
+  meta: ChangeMeta
 }
 
 /** @deprecated Use Change instead */

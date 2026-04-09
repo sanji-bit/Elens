@@ -1,4 +1,4 @@
-import type { BoxEdges, Change, InspectorInfo } from './types'
+import type { BoxEdges, Change, ChangeContext, ChangeIdentity, ChangePatch, ChangeSnapshot, ChangeTarget, InspectorInfo, StyleDiff } from './types'
 
 export function truncate(value: string, max = 140): string {
   const trimmed = value.replace(/\s+/g, ' ').trim()
@@ -227,6 +227,157 @@ function formatEdges(edges: BoxEdges): string {
   return `${edges.top} ${edges.right} ${edges.bottom} ${edges.left}`
 }
 
+function buildSelectorCandidates(element: HTMLElement, info: InspectorInfo): { primary: string; fallbacks: string[] } {
+  const candidates: string[] = []
+
+  const push = (value: string | null | undefined): void => {
+    if (!value) return
+    const trimmed = value.trim()
+    if (!trimmed || candidates.includes(trimmed)) return
+    candidates.push(trimmed)
+  }
+
+  const testId = element.getAttribute('data-testid')
+  if (testId) push(`[data-testid="${testId}"]`)
+
+  const ariaLabel = element.getAttribute('aria-label')
+  if (ariaLabel) push(`${info.tagName}[aria-label="${ariaLabel}"]`)
+
+  if (element.id) push(`#${element.id}`)
+
+  const classList = Array.from(element.classList).filter(Boolean)
+  if (classList.length > 0) {
+    push(`${info.tagName}.${classList.slice(0, 2).join('.')}`)
+  }
+
+  if (info.accessibility.name && info.accessibility.name !== '—') {
+    push(`${info.tagName}[role="${info.accessibility.role}"]`)
+  }
+
+  push(info.domPath)
+
+  return {
+    primary: candidates[0] ?? info.domPath,
+    fallbacks: candidates.slice(1),
+  }
+}
+
+function getDataAttributes(element: HTMLElement): Record<string, string> {
+  return Array.from(element.attributes).reduce<Record<string, string>>((acc, attr) => {
+    if (attr.name.startsWith('data-')) acc[attr.name] = attr.value
+    return acc
+  }, {})
+}
+
+function getSiblingText(element: Element | null): string {
+  if (!(element instanceof HTMLElement)) return ''
+  return truncate((element.innerText || element.textContent || '').trim(), 80)
+}
+
+export function buildChangeIdentity(element: HTMLElement, info: InspectorInfo): ChangeIdentity {
+  return {
+    id: info.id === '—' ? '' : info.id,
+    className: info.className === '—' ? '' : info.className,
+    role: info.accessibility.role,
+    accessibleName: info.accessibility.name,
+    dataAttributes: getDataAttributes(element),
+  }
+}
+
+export function buildChangeContext(element: HTMLElement): ChangeContext {
+  return {
+    parentTag: element.parentElement?.tagName.toLowerCase() ?? '',
+    previousSiblingText: getSiblingText(element.previousElementSibling),
+    nextSiblingText: getSiblingText(element.nextElementSibling),
+  }
+}
+
+export function buildChangeTarget(element: HTMLElement, info: InspectorInfo): ChangeTarget {
+  return {
+    tagName: info.tagName,
+    text: info.text,
+    domPath: info.domPath,
+    selector: buildSelectorCandidates(element, info),
+    identity: buildChangeIdentity(element, info),
+    context: buildChangeContext(element),
+    box: {
+      x: Math.round(info.rect.left),
+      y: Math.round(info.rect.top),
+      width: Math.round(info.rect.width),
+      height: Math.round(info.rect.height),
+    },
+  }
+}
+
+export function buildChangePatch(type: Change['type'], diffs?: StyleDiff[], comment = ''): ChangePatch {
+  const styleDiffs = (diffs ?? []).filter(diff => diff.property !== 'textContent')
+  const textDiff = diffs?.find(diff => diff.property === 'textContent')
+  const moveMatch = type === 'move' ? comment.match(/position\s+(\d+)\s+→\s+(\d+)/) : null
+
+  return {
+    styleDiffs,
+    ...(textDiff ? {
+      textDiff: {
+        from: textDiff.original,
+        to: textDiff.modified,
+      },
+    } : {}),
+    ...(moveMatch ? {
+      moveDiff: {
+        fromIndex: Number(moveMatch[1]),
+        toIndex: Number(moveMatch[2]),
+      },
+    } : {}),
+  }
+}
+
+export function buildChangeSnapshot(info: InspectorInfo): ChangeSnapshot {
+  return {
+    text: info.text,
+    box: {
+      width: info.boxModel.width,
+      height: info.boxModel.height,
+      margin: formatEdges(info.boxModel.margin),
+      padding: formatEdges(info.boxModel.padding),
+      borderRadius: info.boxModel.borderRadius,
+    },
+    typography: {
+      fontFamily: info.typography.fontFamily,
+      fontSize: info.typography.fontSize,
+      fontWeight: info.typography.fontWeight,
+      lineHeight: info.typography.lineHeight,
+      letterSpacing: info.typography.letterSpacing,
+      color: info.typography.color,
+    },
+    layout: {
+      display: info.layout.display,
+      gap: info.layout.gap,
+      justifyContent: info.layout.justifyContent,
+      alignItems: info.layout.alignItems,
+    },
+    visual: {
+      backgroundColor: info.visual.backgroundColor,
+      opacity: info.visual.opacity,
+      borderColor: info.visual.borderColor,
+      boxShadow: info.visual.boxShadow,
+    },
+  }
+}
+
+function getPageState(): Record<string, string | boolean | number> {
+  return {
+    theme: document.documentElement.getAttribute('data-theme') || document.body.getAttribute('data-theme') || 'unknown',
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    hasOpenDialog: Boolean(document.querySelector('dialog[open], [aria-modal="true"], [role="dialog"]')),
+    hasPopover: Boolean(document.querySelector('[popover]:popover-open, [data-state="open"]')),
+  }
+}
+
+function getRoute(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
 function annotationHeading(idx: number, info: InspectorInfo): string {
   const tag = info.tagName
   const text = info.text && info.text !== '—' ? ` — "${truncate(info.text, 40)}"` : ''
@@ -272,39 +423,74 @@ export function buildMarkdownExport(changes: Change[]): string {
 }
 
 export function buildJSONExport(changes: Change[]): string {
+  const now = new Date().toISOString()
   const data = {
-    changes: changes.map((a, i) => ({
-      id: String(i + 1),
-      type: a.type,
-      comment: a.comment,
-      element: a.info.tagName,
-      selector: a.info.domPath,
-      boundingBox: {
-        x: Math.round(a.info.rect.left),
-        y: Math.round(a.info.rect.top),
-        width: Math.round(a.info.rect.width),
-        height: Math.round(a.info.rect.height),
+    session: {
+      url: window.location.href,
+      route: getRoute(),
+      title: document.title,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
       },
-      styles: {
-        fontSize: a.info.typography.fontSize,
-        fontWeight: a.info.typography.fontWeight,
-        fontFamily: a.info.typography.fontFamily,
-        color: a.info.typography.color,
-        backgroundColor: a.info.visual.backgroundColor,
-        margin: formatEdges(a.info.boxModel.margin),
-        padding: formatEdges(a.info.boxModel.padding),
-        display: a.info.layout.display,
-      },
-      ...(a.diffs && a.diffs.length > 0 ? {
-        diffs: a.diffs.map(d => ({
-          property: d.property,
-          from: d.original,
-          to: d.modified,
+      pageState: getPageState(),
+      timestamp: now,
+    },
+    changes: changes.map((change, index) => ({
+      id: change.id || String(index + 1),
+      kind: change.type,
+      comment: change.comment,
+      target: change.target,
+      patch: {
+        styleDiffs: change.patch.styleDiffs.map(diff => ({
+          property: diff.property,
+          from: diff.original,
+          to: diff.modified,
         })),
-      } : {}),
+        ...(change.patch.textDiff ? { textDiff: change.patch.textDiff } : {}),
+        ...(change.patch.moveDiff ? { moveDiff: change.patch.moveDiff } : {}),
+      },
+      beforeSnapshot: change.beforeSnapshot,
+      afterSnapshot: change.afterSnapshot,
+      snapshot: {
+        selector: change.info.domPath,
+        boundingBox: {
+          x: Math.round(change.info.rect.left),
+          y: Math.round(change.info.rect.top),
+          width: Math.round(change.info.rect.width),
+          height: Math.round(change.info.rect.height),
+        },
+      },
+      meta: change.meta,
     })),
-    url: window.location.href,
-    timestamp: new Date().toISOString(),
   }
   return JSON.stringify(data, null, 2)
 }
+
+export function buildAIPayload(changes: Change[]): string {
+  const payload = buildJSONExport(changes)
+
+  return [
+    'You are an AI coding assistant. Update the source code to match the approved UI changes below.',
+    '',
+    'What these fields mean:',
+    '- route/pageState: current page and UI state when the change was made.',
+    '- target: how to identify the element reliably.',
+    '- patch: the exact style/text/move change.',
+    '- beforeSnapshot/afterSnapshot: high-level visual state before and after the edit.',
+    '',
+    'Instructions:',
+    '1. Use target.selector, identity, text, and context together to locate the correct source element.',
+    '2. Prefer changing component styles, props, or source code rather than applying runtime-only fixes.',
+    '3. Treat these changes as intentional and already approved.',
+    '4. If a change looks local, keep it local; do not generalize without evidence.',
+    '5. Preserve existing architecture and coding style.',
+    '',
+    'Approved UI change payload:',
+    '```json',
+    payload,
+    '```',
+  ].join('\n')
+}
+
+export { getPageState, getRoute }

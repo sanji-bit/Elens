@@ -946,7 +946,7 @@ const COMMON_FONTS = [
 ]
 
 function createFontSelect(value: string, onChange: (value: string) => void): HTMLDivElement {
-  const wrap = el('div', 'ei-dp-font-select')
+  const wrap = el('div', 'ei-dp-font-select ei-dp-font-family-select')
   wrap.setAttribute(IGNORE_ATTR, 'true')
 
   const textEl = el('span', 'ei-dp-font-text', value || 'Inter')
@@ -2663,7 +2663,8 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
 .ei-dp-stroke-pos-arrow svg { display: block; }
 .ei-dp-stroke-sides-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.ei-dp-font-select { display: flex; align-items: center; justify-content: space-between; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); padding: 0 8px; cursor: pointer; margin-bottom: 8px; transition: background 0.12s ease; }
+.ei-dp-font-select { display: flex; align-items: center; justify-content: space-between; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); padding: 0 8px; cursor: pointer; transition: background 0.12s ease; }
+.ei-dp-font-family-select { margin-bottom: 8px; }
 .ei-dp-font-select:hover { background: rgba(255,255,255,0.1); }
 .ei-dp-font-text { font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ei-dp-font-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); flex-shrink: 0; margin-left: 8px; }
@@ -2702,6 +2703,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 .ei-dp-effects-panel { }
 .ei-dp-effects-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ei-dp-effects-row1 > * { min-width: 0; }
 .ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: 1px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; flex: 1; min-width: 0; transition: border-color 0.15s ease, background 0.12s ease; }
 .ei-dp-effects-type-btn:hover { border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.08); }
 .ei-dp-effects-type-btn:focus { outline: none; border-color: ${accentColor}; }

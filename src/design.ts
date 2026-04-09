@@ -181,6 +181,7 @@ const FIELD_ICONS: Record<string, string> = {
   gap: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 14.75c0 .138.112.25.25.25h.25a.5.5 0 0 1 0 1h-.25A1.25 1.25 0 0 1 14 14.75v-6.5C14 7.56 14.56 7 15.25 7h.25a.5.5 0 0 1 0 1h-.25a.25.25 0 0 0-.25.25v6.5ZM7 15.5a.5.5 0 0 1 .5-.5h.25a.25.25 0 0 0 .25-.25v-6.5A.25.25 0 0 0 7.75 8H7.5a.5.5 0 0 1 0-1h.25C8.44 7 9 7.56 9 8.25v6.5C9 15.44 8.44 16 7.75 16H7.5a.5.5 0 0 1-.5-.5Zm4-2a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-1 0v4Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   strokeWeight: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 8.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   lineHeight: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 4h14M5 8h14M5 12h14M5 16h14M5 20h14" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/></svg>`,
+  letterSpacing: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.5 7C5.36739 7 5.24021 7.05268 5.14645 7.14645C5.05268 7.24021 5 7.36739 5 7.5V16.5C5 16.6326 5.05268 16.7598 5.14645 16.8536C5.24021 16.9473 5.36739 17 5.5 17C5.63261 17 5.75979 16.9473 5.85355 16.8536C5.94732 16.7598 6 16.6326 6 16.5V7.5C6 7.36739 5.94732 7.24021 5.85355 7.14645C5.75979 7.05268 5.63261 7 5.5 7ZM18.5 7C18.3674 7 18.2402 7.05268 18.1464 7.14645C18.0527 7.24021 18 7.36739 18 7.5V16.5C18 16.6326 18.0527 16.7598 18.1464 16.8536C18.2402 16.9473 18.3674 17 18.5 17C18.6326 17 18.7598 16.9473 18.8536 16.8536C18.9473 16.7598 19 16.6326 19 16.5V7.5C19 7.36739 18.9473 7.24021 18.8536 7.14645C18.7598 7.05268 18.6326 7 18.5 7ZM8 8.5C8 8.36739 8.05268 8.24021 8.14645 8.14645C8.24021 8.05268 8.36739 8 8.5 8H9.5C9.63261 8 9.75979 8.05268 9.85355 8.14645C9.94732 8.24021 10 8.36739 10 8.5C10 8.63261 9.94732 8.75979 9.85355 8.85355C9.75979 8.94732 9.63261 9 9.5 9H8.5C8.36739 9 8.24021 8.94732 8.14645 8.85355C8.05268 8.75979 8 8.63261 8 8.5ZM8 11.5C8 11.3674 8.05268 11.2402 8.14645 11.1464C8.24021 11.0527 8.36739 11 8.5 11H9.5C9.63261 11 9.7598 11.0527 9.85355 11.1464C9.94732 11.2402 10 11.3674 10 11.5C10 11.6326 9.94732 11.7598 9.85355 11.8536C9.7598 11.9473 9.63261 12 9.5 12H8.5C8.36739 12 8.24021 11.9473 8.14645 11.8536C8.05268 11.7598 8 11.6326 8 11.5ZM8 15.5C8 15.3674 8.05268 15.2402 8.14645 15.1464C8.24021 15.0527 8.36739 15 8.5 15H9.5C9.63261 15 9.7598 15.0527 9.85355 15.1464C9.94732 15.2402 10 15.3674 10 15.5C10 15.6326 9.94732 15.7598 9.85355 15.8536C9.7598 15.9473 9.63261 16 9.5 16H8.5C8.36739 16 8.24021 15.9473 8.14645 15.8536C8.05268 15.7598 8 15.6326 8 15.5ZM14 8.5C14 8.36739 14.0527 8.24021 14.1464 8.14645C14.2402 8.05268 14.3674 8 14.5 8H15.5C15.6326 8 15.7598 8.05268 15.8536 8.14645C15.9473 8.24021 16 8.36739 16 8.5C16 8.63261 15.9473 8.75979 15.8536 8.85355C15.7598 8.94732 15.6326 9 15.5 9H14.5C14.3674 9 14.2402 8.94732 14.1464 8.85355C14.0527 8.75979 14 8.63261 14 8.5ZM14 11.5C14 11.3674 14.0527 11.2402 14.1464 11.1464C14.2402 11.0527 14.3674 11 14.5 11H15.5C15.6326 11 15.7598 11.0527 15.8536 11.1464C15.9473 11.2402 16 11.3674 16 11.5C16 11.6326 15.9473 11.7598 15.8536 11.8536C15.7598 11.9473 15.6326 12 15.5 12H14.5C14.3674 12 14.2402 11.9473 14.1464 11.8536C14.0527 11.7598 14 11.6326 14 11.5ZM14 15.5C14 15.3674 14.0527 15.2402 14.1464 15.1464C14.2402 15.0527 14.3674 15 14.5 15H15.5C15.6326 15 15.7598 15.0527 15.8536 15.1464C15.9473 15.2402 16 15.3674 16 15.5C16 15.6326 15.9473 15.7598 15.8536 15.8536C15.7598 15.9473 15.6326 16 15.5 16H14.5C14.3674 16 14.2402 15.9473 14.1464 15.8536C14.0527 15.7598 14 15.6326 14 15.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
 
 const CORNER_ICONS: Record<string, string> = {
@@ -1024,6 +1025,29 @@ function createLineHeightField(value: number, onChange: (value: number) => void)
   return wrap
 }
 
+// --- Letter Spacing Field ---
+
+function createLetterSpacingField(value: number, onChange: (value: number) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-field ei-dp-field-letter-spacing')
+  const iconEl = el('div', 'ei-dp-field-icon')
+  iconEl.innerHTML = FIELD_ICONS.letterSpacing ?? ''
+
+  const input = createNumberInput({
+    value,
+    min: -100,
+    max: 100,
+    step: 0.01,
+    onChange,
+  })
+  input.className = 'ei-dp-field-input'
+
+  const suffix = el('div', 'ei-dp-field-suffix', 'em')
+
+  wrap.append(iconEl, input, suffix)
+  wrap.addEventListener('click', () => input.focus())
+  return wrap
+}
+
 // --- Section Icons ---
 const SECTION_ADD_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
 const REMOVE_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
@@ -1826,7 +1850,7 @@ export function buildDesignPanel(
       createWeightSelect(info.typography.fontWeight, (v) => tracker.apply('font-weight', v)),
     ))
 
-    // Row 3: Line height + Text align
+    // Row 3: Line height + Letter spacing + Text align
     const row3 = el('div', 'ei-dp-typography-row')
 
     // Parse line height (could be "normal", "24px", "1.5", etc.)
@@ -1845,9 +1869,25 @@ export function buildDesignPanel(
     }
 
     row3.appendChild(createLineHeightField(lineHeightValue, (v) => {
-      const fontSize = parsePxValue(info.typography.fontSize) || 16
       tracker.apply('line-height', `${(v / 100).toFixed(2)}`)
     }))
+
+    // Parse letter spacing (could be "normal", "0.1em", "2px", etc.)
+    let letterSpacingValue = 0
+    const ls = info.typography.letterSpacing
+    if (ls && ls !== 'normal') {
+      if (ls.endsWith('em')) {
+        letterSpacingValue = parseFloat(ls)
+      } else if (ls.endsWith('px')) {
+        const fontSize = parsePxValue(info.typography.fontSize) || 16
+        letterSpacingValue = parseFloat(ls) / fontSize
+      }
+    }
+
+    row3.appendChild(createLetterSpacingField(letterSpacingValue, (v) => {
+      tracker.apply('letter-spacing', `${v.toFixed(2)}em`)
+    }))
+
     row3.appendChild(createAlignButtons(
       info.typography.textAlign || 'left',
       (v) => tracker.apply('text-align', v),
@@ -2059,12 +2099,13 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-font-option { display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; transition: background 0.1s ease; }
 .ei-dp-font-option:hover { background: rgba(255,255,255,0.08); }
 .ei-dp-font-option[data-active="true"] { background: rgba(255,255,255,0.12); }
-.ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .ei-dp-align-btns { display: flex; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; }
 .ei-dp-align-btn { flex: 1; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s ease; }
 .ei-dp-align-btn svg { display: block; }
 .ei-dp-align-btn:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-align-btn[data-active="true"] { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.05); }
 .ei-dp-field-line-height { gap: 4px; }
+.ei-dp-field-letter-spacing { gap: 4px; }
 `
 }

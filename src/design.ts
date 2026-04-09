@@ -179,6 +179,7 @@ const FIELD_ICONS: Record<string, string> = {
   radius: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.9 6h-.02c-.403 0-.735 0-1.006.022-.28.023-.54.072-.782.196a2 2 0 0 0-.874.874c-.124.243-.173.501-.196.782C6 8.144 6 8.477 6 8.88V9.5a.5.5 0 0 0 1 0V8.9c0-.428 0-.72.019-.944.018-.22.05-.332.09-.41a1 1 0 0 1 .437-.437c.078-.04.19-.072.41-.09C8.18 7 8.472 7 8.9 7H9.5a.5.5 0 0 0 0-1H8.9Zm6.2 0h.02c.403 0 .735 0 1.006.022.28.023.54.072.782.196a2 2 0 0 1 .874.874c.124.243.173.501.196.782.022.27.022.603.022 1.005V9.5a.5.5 0 0 1-1 0V8.9c0-.428 0-.72-.019-.944-.018-.22-.05-.332-.09-.41a1 1 0 0 0-.437-.437c-.078-.04-.19-.072-.41-.09A17 17 0 0 0 15.1 7H14.5a.5.5 0 0 1 0-1h.6Zm.02 12H14.5a.5.5 0 0 1 0-1h.6c.428 0 .72 0 .944-.019.22-.018.332-.05.41-.09a1 1 0 0 0 .437-.437c.04-.078.072-.19.09-.41.019-.225.019-.516.019-.944V14.5a.5.5 0 0 1 1 0v.62c0 .403 0 .735-.022 1.006-.023.281-.072.54-.196.782a2 2 0 0 1-.874.874c-.243.124-.5.173-.782.196-.27.022-.603.022-1.006.022M8.9 18h-.02c-.403 0-.735 0-1.006-.022-.28-.023-.541-.072-.782-.196a2 2 0 0 1-.874-.874c-.124-.243-.174-.501-.196-.782A18 18 0 0 1 6 15.12V14.5a.5.5 0 0 1 1 0v.6c0 .428 0 .82.019.944.018.22.05.332.09.41a1 1 0 0 0 .437.437c.078.04.19.072.41.09.225.019.516.019.944.019H9.5a.5.5 0 0 1 0 1H8.9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   radiusSettings: `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M 2.498505115509033 12 C 2.631113365292549 12 2.7582907006144524 11.947321958839893 2.8520588874816895 11.853553771972656 C 2.9458270743489265 11.75978558510542 2.998505115509033 11.632608249783516 2.998505115509033 11.5 L 2.998505115509033 9.949999809265137 C 3.563649356365204 9.835242375731468 4.07174214720726 9.528635561466217 4.4366936683654785 9.08212947845459 C 4.801645189523697 8.635623395442963 5.001011371612549 8.076677799224854 5.001011371612549 7.5 C 5.001011371612549 6.9233222007751465 4.801645189523697 6.364376604557037 4.4366936683654785 5.91787052154541 C 4.07174214720726 5.471364438533783 3.563649356365204 5.164757624268532 2.998505115509033 5.050000190734863 L 2.998505115509033 0.5 C 2.998505115509033 0.36739175021648407 2.9458270743489265 0.24021489173173904 2.8520588874816895 0.14644670486450195 C 2.7582907006144524 0.05267851799726486 2.631113365292549 0 2.498505115509033 0 C 2.3658968657255173 0 2.238719530403614 0.05267851799726486 2.144951343536377 0.14644670486450195 C 2.05118315666914 0.24021489173173904 1.9985051155090332 0.36739175021648407 1.9985051155090332 0.5 L 1.9985051155090332 5.050000190734863 C 1.434184968471527 5.165742203593254 0.9271209537982941 5.472745716571808 0.562993049621582 5.919136047363281 C 0.19886514544487 6.365526378154755 0 6.923932790756226 0 7.5 C -8.881784197001252e-16 8.076067209243774 0.19886514544487 8.634473621845245 0.562993049621582 9.080863952636719 C 0.9271209537982941 9.527254283428192 1.434184968471527 9.834257796406746 1.9985051155090332 9.949999809265137 L 1.9985051155090332 11.5 C 1.9985051155090332 11.632608249783516 2.05118315666914 11.75978558510542 2.144951343536377 11.853553771972656 C 2.238719530403614 11.947321958839893 2.3658968657255173 12 2.498505115509033 12 Z M 9.498504638671875 12 C 9.631112888455391 12 9.758290223777294 11.947321958839893 9.852058410644531 11.853553771972656 C 9.945826597511768 11.75978558510542 9.998504638671875 11.632608249783516 9.998504638671875 11.5 L 9.998504638671875 6.949999809265137 C 10.562824785709381 6.834257796406746 11.069889277219772 6.527254283428192 11.434017181396484 6.080863952636719 C 11.798145085573196 5.634473621845245 11.99700927734375 5.076067209243774 11.99700927734375 4.5 C 11.99700927734375 3.9239327907562256 11.798145085573196 3.3655263781547546 11.434017181396484 2.9191360473632812 C 11.069889277219772 2.472745716571808 10.562824785709381 2.165742203593254 9.998504638671875 2.0500001907348633 L 9.998504638671875 0.5 C 9.998504638671875 0.36739175021648407 9.945826597511768 0.24021489173173904 9.852058410644531 0.14644670486450195 C 9.758290223777294 0.05267851799726486 9.631112888455391 0 9.498504638671875 0 C 9.365896388888359 0 9.238719053566456 0.05267851799726486 9.144950866699219 0.14644670486450195 C 9.051182679831982 0.24021489173173904 8.998504638671875 0.36739175021648407 8.998504638671875 0.5 L 8.998504638671875 2.0500001907348633 C 8.433360397815704 2.164757624268532 7.925268083810806 2.471364438533783 7.560316562652588 2.91787052154541 C 7.1953650414943695 3.3643766045570374 6.995998859405518 3.9233222007751465 6.995998859405518 4.5 C 6.995998859405518 5.0766777992248535 7.1953650414943695 5.635623395442963 7.560316562652588 6.08212947845459 C 7.925268083810806 6.528635561466217 8.433360397815704 6.835242375731468 8.998504638671875 6.949999809265137 L 8.998504638671875 11.5 C 8.998504638671875 11.632608249783516 9.051182679831982 11.75978558510542 9.144950866699219 11.853553771972656 C 9.238719053566456 11.947321958839893 9.365896388888359 12 9.498504638671875 12 Z M 9.498504638671875 6 C 9.100679904222488 5.999999999999998 8.719149798154831 5.841964930295944 8.437845230102539 5.560660362243652 C 8.156540662050247 5.2793557941913605 7.998505115509033 4.897824734449387 7.998505115509033 4.5 C 7.998505115509033 4.102175265550613 8.156540662050247 3.7206442058086395 8.437845230102539 3.4393396377563477 C 8.719149798154831 3.158035069704056 9.100679904222488 3.0000000000000018 9.498504638671875 3 C 9.896329373121262 3.0000000000000018 10.277859479188919 3.158035069704056 10.559164047241211 3.4393396377563477 C 10.840468615293503 3.7206442058086395 10.998504638671875 4.102175265550613 10.998504638671875 4.5 C 10.998504638671875 4.897824734449387 10.840468615293503 5.2793557941913605 10.559164047241211 5.560660362243652 C 10.277859479188919 5.841964930295944 9.896329373121262 5.999999999999998 9.498504638671875 6 Z M 2.498505115509033 9 C 2.1006803810596466 8.999999999999998 1.7191493213176727 8.841964930295944 1.4378447532653809 8.560660362243652 C 1.156540185213089 8.27935579419136 0.9985051155090332 7.897824734449387 0.9985051155090332 7.5 C 0.9985051155090332 7.102175265550613 1.156540185213089 6.7206442058086395 1.4378447532653809 6.439339637756348 C 1.7191493213176727 6.158035069704056 2.1006803810596466 6.000000000000002 2.498505115509033 6 C 2.89632984995842 6.000000000000002 3.2778609097003937 6.158035069704056 3.5591654777526855 6.439339637756348 C 3.8404700458049774 6.7206442058086395 3.9985051155090314 7.102175265550613 3.998505115509033 7.5 C 3.9985051155090314 7.897824734449387 3.8404700458049774 8.27935579419136 3.5591654777526855 8.560660362243652 C 3.2778609097003937 8.841964930295944 2.89632984995842 8.999999999999998 2.498505115509033 9 Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   gap: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 14.75c0 .138.112.25.25.25h.25a.5.5 0 0 1 0 1h-.25A1.25 1.25 0 0 1 14 14.75v-6.5C14 7.56 14.56 7 15.25 7h.25a.5.5 0 0 1 0 1h-.25a.25.25 0 0 0-.25.25v6.5ZM7 15.5a.5.5 0 0 1 .5-.5h.25a.25.25 0 0 0 .25-.25v-6.5A.25.25 0 0 0 7.75 8H7.5a.5.5 0 0 1 0-1h.25C8.44 7 9 7.56 9 8.25v6.5C9 15.44 8.44 16 7.75 16H7.5a.5.5 0 0 1-.5-.5Zm4-2a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-1 0v4Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  strokeWeight: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 8.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
 
 const CORNER_ICONS: Record<string, string> = {
@@ -873,6 +874,461 @@ function createWeightSelect(value: string, onChange: (value: string) => void): H
   return wrap
 }
 
+// --- Section Icons ---
+const SECTION_ADD_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
+const REMOVE_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
+
+// --- Stroke constants ---
+const STROKE_SETTINGS_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.5 12c.133 0 .26-.053.354-.146a.5.5 0 0 0 .146-.354V9.95a2.5 2.5 0 0 0 1.438-.868A2.5 2.5 0 0 0 5 7.5a2.5 2.5 0 0 0-.562-1.582A2.5 2.5 0 0 0 3 5.05V.5a.5.5 0 0 0-.854-.354A.5.5 0 0 0 2 .5v4.55a2.5 2.5 0 0 0-1.437.869A2.5 2.5 0 0 0 0 7.5c0 .576.199 1.134.563 1.581A2.5 2.5 0 0 0 2 9.95v1.55a.5.5 0 0 0 .146.354c.094.093.221.146.354.146ZM9.5 12a.5.5 0 0 0 .352-.146.5.5 0 0 0 .148-.354V6.95a2.5 2.5 0 0 0 1.435-.869A2.5 2.5 0 0 0 12 4.5a2.5 2.5 0 0 0-.565-1.581A2.5 2.5 0 0 0 10 2.05V.5a.5.5 0 0 0-.146-.354A.5.5 0 0 0 9.5 0a.5.5 0 0 0-.354.146A.5.5 0 0 0 9 .5v1.55a2.5 2.5 0 0 0-1.44.868A2.5 2.5 0 0 0 7 4.5c0 .577.196 1.134.56 1.582A2.5 2.5 0 0 0 9 6.95v4.55a.5.5 0 0 0 .146.354c.094.093.22.146.354.146ZM9.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM2.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" fill="currentColor" fill-opacity="0.7"/></svg>`
+
+const DOWN_ARROW_ICON = `<svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M2 3l2 2 2-2" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+
+const STROKE_POSITION_ICONS: Record<string, string> = {
+  top: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9ZM11 11h2v2h-2v-2Zm-1 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  right: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M17 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0v-9ZM13 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  bottom: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M11 11h2v2h-2v-2Zm-1 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2ZM7.5 16a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  left: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 7.5a.5.5 0 0 0-1 0v9a.5.5 0 0 0 1 0v-9ZM13 11v2h-2v-2h2Zm0-1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+}
+
+type StrokePosition = 'inside' | 'center' | 'outside'
+
+const STROKE_POSITION_LABELS: Record<StrokePosition, string> = {
+  inside: 'Inside',
+  center: 'Center',
+  outside: 'Outside',
+}
+
+type StrokeValues = {
+  color: string
+  opacity: number
+  position: StrokePosition
+  width: number
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+// --- Stroke position dropdown ---
+let activePosDropdown: HTMLDivElement | null = null
+
+function closePosDropdown(): void {
+  if (activePosDropdown) {
+    activePosDropdown.remove()
+    activePosDropdown = null
+  }
+  document.removeEventListener('mousedown', handlePosDropdownOutside, true)
+}
+
+function handlePosDropdownOutside(e: MouseEvent): void {
+  if (activePosDropdown && e.target instanceof Element && !activePosDropdown.contains(e.target)) {
+    closePosDropdown()
+  }
+}
+
+function openPosDropdown(
+  anchor: HTMLElement,
+  currentPos: StrokePosition,
+  onSelect: (pos: StrokePosition) => void,
+  accentColor: string,
+  onClose?: () => void,
+): void {
+  closePosDropdown()
+  const dropdown = el('div', 'ei-dp-size-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  for (const pos of ['inside', 'center', 'outside'] as StrokePosition[]) {
+    const item = el('div', 'ei-dp-size-option')
+    item.setAttribute(IGNORE_ATTR, 'true')
+    const check = el('span', 'ei-dp-size-check')
+    if (pos === currentPos) {
+      check.innerHTML = SIZE_ICONS.checkmark ?? ''
+      check.style.color = accentColor
+    }
+    const label = el('span', 'ei-dp-size-option-label', STROKE_POSITION_LABELS[pos])
+    label.style.paddingLeft = '8px'
+    item.append(check, label)
+    item.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(pos)
+      closePosDropdown()
+      onClose?.()
+    })
+    dropdown.appendChild(item)
+  }
+
+  const panel = anchor.closest('.ei-panel')
+  if (panel) {
+    panel.appendChild(dropdown)
+    const anchorRect = anchor.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
+    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
+  }
+
+  activePosDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handlePosDropdownOutside, true)
+  })
+}
+
+// --- Stroke Panel ---
+
+function createStrokePanel(
+  initialValues: StrokeValues,
+  tracker: StyleTracker,
+  accentColor: string,
+  onRemove: () => void,
+  onChange: () => void,
+): HTMLDivElement {
+  const panel = el('div', 'ei-dp-stroke-panel')
+  panel.setAttribute(IGNORE_ATTR, 'true')
+
+  // Use shared values directly (mutated in place)
+  const values = initialValues
+
+  // Row 1: Color + Opacity (remove button outside)
+  const colorWrapper = el('div', 'ei-dp-stroke-color-wrapper')
+  const colorInputs = el('div', 'ei-dp-stroke-color-row')
+
+  // Color swatch
+  const swatch = el('div', 'ei-dp-swatch')
+  swatch.style.backgroundColor = values.color
+
+  const picker = document.createElement('input')
+  picker.type = 'color'
+  picker.className = 'ei-dp-picker'
+  picker.setAttribute(IGNORE_ATTR, 'true')
+  picker.value = values.color
+
+  // Hex input
+  const hexInput = document.createElement('input')
+  hexInput.type = 'text'
+  hexInput.className = 'ei-dp-hex'
+  hexInput.setAttribute(IGNORE_ATTR, 'true')
+  hexInput.value = values.color.replace('#', '').toUpperCase()
+
+  // Opacity input
+  const opacityInput = createNumberInput({
+    value: values.opacity,
+    min: 0, max: 100, step: 1,
+    onChange: (v) => {
+      values.opacity = v
+      applyStroke(tracker, values)
+      onChange()
+    },
+  })
+  opacityInput.className = 'ei-dp-fill-opacity'
+  const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
+
+
+  function applyColor(hex: string): void {
+    values.color = hex
+    swatch.style.backgroundColor = hex
+    hexInput.value = hex.replace('#', '').toUpperCase()
+    applyStroke(tracker, values)
+    onChange()
+  }
+
+  picker.addEventListener('input', (e) => {
+    e.stopPropagation()
+    applyColor(picker.value)
+  })
+
+  hexInput.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      let hex = hexInput.value.trim()
+      if (!hex.startsWith('#')) hex = '#' + hex
+      if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+        applyColor(hex)
+        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
+      }
+      hexInput.blur()
+    }
+  })
+
+  hexInput.addEventListener('blur', () => {
+    let hex = hexInput.value.trim()
+    if (!hex.startsWith('#')) hex = '#' + hex
+    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+      applyColor(hex)
+      picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
+    }
+  })
+
+  swatch.appendChild(picker)
+  colorInputs.append(swatch, hexInput, opacityInput, opacitySuffix)
+  colorWrapper.append(colorInputs)
+
+  // Row 2: Position dropdown + Stroke weight + Settings button
+  const settingsRow = el('div', 'ei-dp-stroke-settings-row')
+
+  // Position dropdown button
+  const posBtn = el('button', 'ei-dp-stroke-pos-btn')
+  posBtn.type = 'button'
+  posBtn.setAttribute(IGNORE_ATTR, 'true')
+  const posLabel = el('span', '', STROKE_POSITION_LABELS[values.position])
+  const posArrow = el('span', 'ei-dp-stroke-pos-arrow')
+  posArrow.innerHTML = DOWN_ARROW_ICON
+  posBtn.append(posLabel, posArrow)
+
+  // Stroke weight input (with embedded settings button, like radius field)
+  const weightWrap = el('div', 'ei-dp-field ei-dp-field-radius')
+  const weightIconEl = el('div', 'ei-dp-field-icon')
+  weightIconEl.innerHTML = FIELD_ICONS.strokeWeight ?? ''
+  const weightNumInput = createNumberInput({
+    value: values.width,
+    min: 0,
+    onChange: (v) => {
+      values.width = v
+      values.top = v
+      values.right = v
+      values.bottom = v
+      values.left = v
+      applyStroke(tracker, values)
+      topInput.querySelector('input')!.value = String(v)
+      rightInput.querySelector('input')!.value = String(v)
+      bottomInput.querySelector('input')!.value = String(v)
+      leftInput.querySelector('input')!.value = String(v)
+      onChange()
+    },
+  })
+  weightNumInput.className = 'ei-dp-field-input'
+
+  const settingsBtn = el('button', 'ei-dp-field-action')
+  settingsBtn.type = 'button'
+  settingsBtn.setAttribute(IGNORE_ATTR, 'true')
+  settingsBtn.title = 'Edit individual sides'
+  settingsBtn.innerHTML = STROKE_SETTINGS_ICON
+  let expanded = false
+
+  weightWrap.append(weightIconEl, weightNumInput, settingsBtn)
+  weightWrap.addEventListener('click', () => weightNumInput.focus())
+
+  settingsRow.append(posBtn, weightWrap)
+
+  // Row 3 & 4: Individual side inputs (hidden by default)
+  const sidesRow1 = el('div', 'ei-dp-stroke-sides-row')
+  const sidesRow2 = el('div', 'ei-dp-stroke-sides-row')
+  sidesRow1.style.display = 'none'
+  sidesRow2.style.display = 'none'
+
+  const topInput = createLabeledField({
+    icon: '',
+    iconHtml: STROKE_POSITION_ICONS.top ?? '',
+    value: values.top,
+    min: 0,
+    onChange: (v) => {
+      values.top = v
+      values.width = Math.max(values.top, values.right, values.bottom, values.left)
+      applyStroke(tracker, values)
+      onChange()
+    },
+  })
+
+  const rightInput = createLabeledField({
+    icon: '',
+    iconHtml: STROKE_POSITION_ICONS.right ?? '',
+    value: values.right,
+    min: 0,
+    onChange: (v) => {
+      values.right = v
+      values.width = Math.max(values.top, values.right, values.bottom, values.left)
+      applyStroke(tracker, values)
+      onChange()
+    },
+  })
+
+  const bottomInput = createLabeledField({
+    icon: '',
+    iconHtml: STROKE_POSITION_ICONS.bottom ?? '',
+    value: values.bottom,
+    min: 0,
+    onChange: (v) => {
+      values.bottom = v
+      values.width = Math.max(values.top, values.right, values.bottom, values.left)
+      applyStroke(tracker, values)
+      onChange()
+    },
+  })
+
+  const leftInput = createLabeledField({
+    icon: '',
+    iconHtml: STROKE_POSITION_ICONS.left ?? '',
+    value: values.left,
+    min: 0,
+    onChange: (v) => {
+      values.left = v
+      values.width = Math.max(values.top, values.right, values.bottom, values.left)
+      applyStroke(tracker, values)
+      onChange()
+    },
+  })
+
+  sidesRow1.append(topInput, rightInput)
+  sidesRow2.append(bottomInput, leftInput)
+
+  // Toggle individual sides
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    expanded = !expanded
+    sidesRow1.style.display = expanded ? 'grid' : 'none'
+    sidesRow2.style.display = expanded ? 'grid' : 'none'
+    settingsBtn.dataset.active = expanded ? 'true' : 'false'
+  })
+
+  // Position dropdown
+  let posDropdownOpen = false
+
+  posBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (posDropdownOpen) {
+      closePosDropdown()
+      return
+    }
+    openPosDropdown(posBtn, values.position, (pos) => {
+      values.position = pos
+      posLabel.textContent = STROKE_POSITION_LABELS[pos]
+      applyStroke(tracker, values)
+      onChange()
+    }, accentColor, () => {
+      posDropdownOpen = false
+    })
+    posDropdownOpen = true
+  })
+
+  panel.append(colorWrapper, settingsRow, sidesRow1, sidesRow2)
+  return panel
+}
+
+function applyStroke(tracker: StyleTracker, values: StrokeValues): void {
+  const { color, opacity, position, top, right, bottom, left } = values
+
+  let r = 0, g = 0, b = 0
+  const hex = color.replace('#', '')
+  if (hex.length >= 6) {
+    r = parseInt(hex.slice(0, 2), 16)
+    g = parseInt(hex.slice(2, 4), 16)
+    b = parseInt(hex.slice(4, 6), 16)
+  }
+  const alpha = opacity / 100
+  const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`
+
+  // Clear previous stroke styles
+  tracker.apply('border', '')
+  tracker.apply('border-style', '')
+  tracker.apply('border-color', '')
+  tracker.apply('border-width', '')
+  tracker.apply('outline', '')
+  tracker.apply('outline-offset', '')
+  tracker.apply('box-shadow', '')
+
+  const allSame = top === right && right === bottom && bottom === left
+
+  if (position === 'inside') {
+    if (allSame) {
+      tracker.apply('box-shadow', `inset 0 0 0 ${top}px ${rgba}`)
+    } else {
+      // 四边不同宽度：使用多个 inset box-shadow
+      const shadows = []
+      if (top > 0) shadows.push(`inset 0 ${top}px 0 0 ${rgba}`)
+      if (right > 0) shadows.push(`inset -${right}px 0 0 0 ${rgba}`)
+      if (bottom > 0) shadows.push(`inset 0 -${bottom}px 0 0 ${rgba}`)
+      if (left > 0) shadows.push(`inset ${left}px 0 0 0 ${rgba}`)
+      tracker.apply('box-shadow', shadows.join(', '))
+    }
+  } else if (position === 'outside') {
+    if (allSame) {
+      tracker.apply('outline', `${top}px solid ${rgba}`)
+      tracker.apply('outline-offset', '0')
+    } else {
+      // 四边不同宽度：使用多个 box-shadow
+      const shadows = []
+      if (top > 0) shadows.push(`0 -${top}px 0 0 ${rgba}`)
+      if (right > 0) shadows.push(`${right}px 0 0 0 ${rgba}`)
+      if (bottom > 0) shadows.push(`0 ${bottom}px 0 0 ${rgba}`)
+      if (left > 0) shadows.push(`-${left}px 0 0 0 ${rgba}`)
+      tracker.apply('box-shadow', shadows.join(', '))
+    }
+  } else {
+    // center: outline with negative offset
+    if (allSame) {
+      tracker.apply('outline', `${top}px solid ${rgba}`)
+      tracker.apply('outline-offset', `${-Math.round(top / 2)}px`)
+    } else {
+      // 四边不同宽度的 center 比较复杂，用 box-shadow 模拟
+      const shadows = []
+      if (top > 0) {
+        const offset = Math.round(top / 2)
+        shadows.push(`0 -${offset}px 0 ${offset}px ${rgba}`)
+      }
+      if (right > 0) {
+        const offset = Math.round(right / 2)
+        shadows.push(`${offset}px 0 0 ${offset}px ${rgba}`)
+      }
+      if (bottom > 0) {
+        const offset = Math.round(bottom / 2)
+        shadows.push(`0 ${offset}px 0 ${offset}px ${rgba}`)
+      }
+      if (left > 0) {
+        const offset = Math.round(left / 2)
+        shadows.push(`-${offset}px 0 0 ${offset}px ${rgba}`)
+      }
+      tracker.apply('box-shadow', shadows.join(', '))
+    }
+  }
+}
+
+function detectStrokeValues(element: HTMLElement): StrokeValues | null {
+  const style = window.getComputedStyle(element)
+
+  // Check outline first (center/outside)
+  const outline = style.getPropertyValue('outline')
+  const outlineStyle = style.getPropertyValue('outline-style')
+  const outlineWidth = parseFloat(style.getPropertyValue('outline-width'))
+
+  if (outlineStyle !== 'none' && outlineWidth > 0) {
+    const outlineColor = style.getPropertyValue('outline-color')
+    const outlineOffset = parseFloat(style.getPropertyValue('outline-offset')) || 0
+    const hex = rgbToHex(outlineColor)
+    const position: StrokePosition = outlineOffset < 0 ? 'center' : 'outside'
+    return {
+      color: hex, opacity: 100, position,
+      width: outlineWidth, top: outlineWidth, right: outlineWidth, bottom: outlineWidth, left: outlineWidth,
+    }
+  }
+
+  // Check box-shadow for inside stroke
+  const boxShadow = style.getPropertyValue('box-shadow')
+  if (boxShadow && boxShadow !== 'none' && boxShadow.includes('inset')) {
+    const match = boxShadow.match(/inset\s+0px?\s+0px?\s+0px?\s+([\d.]+)px\s+(.+)/)
+    if (match) {
+      const w = parseFloat(match[1]!)
+      const hex = rgbToHex(match[2]!)
+      return {
+        color: hex, opacity: 100, position: 'inside',
+        width: w, top: w, right: w, bottom: w, left: w,
+      }
+    }
+  }
+
+  // Check border
+  const borderStyle = style.getPropertyValue('border-style')
+  const borderWidth = parseFloat(style.getPropertyValue('border-width'))
+  if (borderStyle !== 'none' && borderWidth > 0) {
+    const borderColor = style.getPropertyValue('border-color')
+    const hex = rgbToHex(borderColor)
+    return {
+      color: hex, opacity: 100, position: 'center',
+      width: borderWidth, top: borderWidth, right: borderWidth, bottom: borderWidth, left: borderWidth,
+    }
+  }
+
+  return null
+}
+
 // --- Design Panel Builder ---
 
 export type DesignPanelCallbacks = {
@@ -890,23 +1346,75 @@ export function buildDesignPanel(
   closeSizingDropdown()
   const container = el('div', 'ei-dp')
 
-  function divider(): HTMLDivElement {
-    return el('div', 'ei-dp-divider')
-  }
-
-  function sectionTitle(title: string): HTMLDivElement {
-    return el('div', 'ei-dp-section-title', title)
-  }
-
   function grid(...children: HTMLElement[]): HTMLDivElement {
     const g = el('div', 'ei-dp-grid')
     children.forEach(c => g.appendChild(c))
     return g
   }
 
+  // --- createSection factory ---
+  type SectionHandle = {
+    container: HTMLDivElement
+    content: HTMLDivElement
+    setHasContent: (has: boolean) => void
+  }
+
+  let sectionIndex = 0
+  function createSection(title: string, opts?: {
+    isFirst?: boolean
+    addRemove?: { onAdd: () => void; onRemove: () => void }
+  }): SectionHandle {
+    const section = el('div', 'ei-dp-section')
+    if (sectionIndex > 0 && !opts?.isFirst) {
+      section.classList.add('ei-dp-section-border')
+    }
+    sectionIndex++
+
+    const header = el('div', 'ei-dp-section-header')
+    const label = el('span', 'ei-dp-section-label', title)
+    header.appendChild(label)
+
+    const content = el('div', 'ei-dp-section-content')
+
+    let setHasContent = (_has: boolean) => {}
+
+    if (opts?.addRemove) {
+      const btn = el('button', 'ei-dp-section-btn')
+      btn.type = 'button'
+      btn.setAttribute(IGNORE_ATTR, 'true')
+      btn.innerHTML = SECTION_ADD_ICON
+
+      let hasContent = false
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (hasContent) {
+          opts.addRemove!.onRemove()
+        } else {
+          opts.addRemove!.onAdd()
+        }
+      })
+
+      header.appendChild(btn)
+
+      setHasContent = (has: boolean) => {
+        hasContent = has
+        content.dataset.visible = has ? 'true' : 'false'
+        btn.innerHTML = has ? REMOVE_ICON : SECTION_ADD_ICON
+      }
+    }
+
+    section.append(header, content)
+    return { container: section, content, setHasContent }
+  }
+
+  // Fill/Stroke section handles (created later, referenced by add/remove callbacks)
+  let fillSection: SectionHandle
+  let strokeSection: SectionHandle
+
   // --- Padding helper ---
-  function appendPaddingFields(): void {
-    container.appendChild(grid(
+  function appendPaddingFields(target: HTMLElement): void {
+    target.appendChild(grid(
       createLabeledField({
         icon: '',
         iconHtml: PADDING_ICONS.left,
@@ -922,7 +1430,7 @@ export function buildDesignPanel(
         onChange: (v) => tracker.apply('padding-top', `${v}px`),
       }),
     ))
-    container.appendChild(grid(
+    target.appendChild(grid(
       createLabeledField({
         icon: '',
         iconHtml: PADDING_ICONS.right,
@@ -942,13 +1450,13 @@ export function buildDesignPanel(
 
   const display = info.layout.display
   const isLayoutElement = display.includes('flex') || display.includes('grid')
+  const showTypography = !!(info.typography.fontSize && info.typography.fontSize !== '0px')
 
   if (isLayoutElement) {
-    // === Unified "Layout" section: direction → W/H → justify/align → gap → padding ===
-    container.appendChild(sectionTitle('Auto layout'))
+    // === 1. Auto layout section ===
+    const layoutSec = createSection('Auto layout', { isFirst: true })
 
     if (display.includes('flex')) {
-      // Direction buttons (icon-only)
       const dirBtns = el('div', 'ei-dp-btn-group')
       for (const dir of ['row', 'column'] as const) {
         const btn = el('button', 'ei-dp-btn')
@@ -964,33 +1472,15 @@ export function buildDesignPanel(
         })
         dirBtns.appendChild(btn)
       }
-      container.appendChild(dirBtns)
+      layoutSec.content.appendChild(dirBtns)
     }
 
-    // W / H with sizing mode
-    container.appendChild(grid(
-      createSizeField({
-        icon: 'W',
-        dimension: 'width',
-        value: info.rect.width,
-        element,
-        tracker,
-        accentColor,
-        onChange: callbacks.onStyleChange,
-      }),
-      createSizeField({
-        icon: 'H',
-        dimension: 'height',
-        value: info.rect.height,
-        element,
-        tracker,
-        accentColor,
-        onChange: callbacks.onStyleChange,
-      }),
+    layoutSec.content.appendChild(grid(
+      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
     ))
 
     if (display.includes('flex')) {
-      // Linked alignment grid (3×3) + Gap field
       const alignRow = el('div', 'ei-dp-align-row')
       const alignGrid = el('div', 'ei-dp-align-grid')
 
@@ -998,13 +1488,11 @@ export function buildDesignPanel(
       const distJustify = ['space-between', 'space-around', 'space-evenly'] as const
       const alignVals = ['flex-start', 'center', 'flex-end'] as const
 
-      // Detect initial auto mode: if current justify is a distribution value
       const currentJustify = info.layout.justifyContent
       const isDistMode = distJustify.includes(currentJustify as typeof distJustify[number])
       let autoGap = isDistMode
       const isRow = info.layout.flexDirection !== 'column'
 
-      // Gap field elements (created early so grid can reference them)
       const gapWrap = el('div', 'ei-dp-gap-field')
       const gapIconEl = el('div', 'ei-dp-field-icon')
       gapIconEl.innerHTML = autoGap ? GAP_ICON_DISTRIBUTE : (FIELD_ICONS.gap ?? '')
@@ -1061,13 +1549,9 @@ export function buildDesignPanel(
       gapWrap.append(gapIconEl, gapInput, gapTrigger)
       gapWrap.addEventListener('click', () => { if (!autoGap) gapInput.focus() })
 
-      // Track current active align/justify for grid rendering
       let activeAlign = info.layout.alignItems
       let activeJustify = currentJustify
 
-      // Build/rebuild grid cells based on current mode
-      // For horizontal flex: row=align(cross), col=justify(main)
-      // For vertical flex: row=justify(main), col=align(cross) — transposed
       function rebuildGrid(): void {
         alignGrid.innerHTML = ''
         const justifyVals = autoGap ? distJustify : packedJustify
@@ -1089,7 +1573,6 @@ export function buildDesignPanel(
               cell.dataset.active = 'true'
               cell.innerHTML = generateCellSvg(gridRow, gridCol, isRow, autoGap)
             } else if (autoGap && alignMatch) {
-              // Auto mode: entire active align axis shows bar icons (dimmer)
               cell.dataset.rowActive = 'true'
               cell.innerHTML = generateCellSvg(gridRow, gridCol, isRow, true)
             } else {
@@ -1112,57 +1595,34 @@ export function buildDesignPanel(
 
       alignRow.appendChild(alignGrid)
       alignRow.appendChild(gapWrap)
-      container.appendChild(alignRow)
+      layoutSec.content.appendChild(alignRow)
     } else {
-      // Non-flex layout: just gap
-      container.appendChild(grid(
-        createGapField({
-          value: parsePxValue(info.layout.gap),
-          tracker,
-          accentColor,
-          onChange: callbacks.onStyleChange,
-        }),
+      layoutSec.content.appendChild(grid(
+        createGapField({ value: parsePxValue(info.layout.gap), tracker, accentColor, onChange: callbacks.onStyleChange }),
         el('div'),
       ))
     }
 
-    // Padding (part of layout section)
-    appendPaddingFields()
+    appendPaddingFields(layoutSec.content)
+    container.appendChild(layoutSec.container)
 
   } else {
-    // === Non-layout: separate Size + Spacing sections ===
-
-    // Size with sizing mode
-    container.appendChild(grid(
-      createSizeField({
-        icon: 'W',
-        dimension: 'width',
-        value: info.rect.width,
-        element,
-        tracker,
-        accentColor,
-        onChange: callbacks.onStyleChange,
-      }),
-      createSizeField({
-        icon: 'H',
-        dimension: 'height',
-        value: info.rect.height,
-        element,
-        tracker,
-        accentColor,
-        onChange: callbacks.onStyleChange,
-      }),
+    // === 1. Size section (non-layout) ===
+    const sizeSec = createSection('Size', { isFirst: true })
+    sizeSec.content.appendChild(grid(
+      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
     ))
+    container.appendChild(sizeSec.container)
 
-    // Spacing
-    container.appendChild(divider())
-    container.appendChild(sectionTitle('Spacing'))
-    appendPaddingFields()
+    // === 2. Spacing section (non-layout) ===
+    const spacingSec = createSection('Spacing')
+    appendPaddingFields(spacingSec.content)
+    container.appendChild(spacingSec.container)
   }
 
-  // === 4. Appearance ===
-  container.appendChild(divider())
-  container.appendChild(sectionTitle('Appearance'))
+  // === 3. Appearance ===
+  const appearanceSec = createSection('Appearance')
   const radiusField = createRadiusField({
     icon: '',
     iconHtml: FIELD_ICONS.radius,
@@ -1183,63 +1643,135 @@ export function buildDesignPanel(
       })
     },
   })
-  container.appendChild(grid(
+  appearanceSec.content.appendChild(grid(
     createLabeledField({
       icon: '',
       iconHtml: FIELD_ICONS.opacity,
       value: Math.round(parseFloat(info.visual.opacity) * 100),
-      min: 0,
-      max: 100,
-      step: 1,
-      suffix: '%',
+      min: 0, max: 100, step: 1, suffix: '%',
       onChange: (v) => tracker.apply('opacity', String(v / 100)),
     }),
     radiusField,
   ))
+  container.appendChild(appearanceSec.container)
+
+  // === 4. Typography ===
+  if (showTypography) {
+    const typoSec = createSection('Typography')
+    typoSec.content.appendChild(grid(
+      createLabeledField({
+        icon: 'Aa',
+        value: parsePxValue(info.typography.fontSize),
+        min: 0,
+        onChange: (v) => tracker.apply('font-size', `${v}px`),
+      }),
+      createWeightSelect(info.typography.fontWeight, (v) => tracker.apply('font-weight', v)),
+    ))
+    typoSec.content.appendChild(createFillRow({
+      value: info.typography.color,
+      onChange: (v) => tracker.apply('color', v),
+    }))
+    container.appendChild(typoSec.container)
+  }
 
   // === 5. Fill ===
-  container.appendChild(divider())
-  container.appendChild(sectionTitle('Fill'))
   const bgIsGradient = info.visual.backgroundColor.includes('gradient(')
-  container.appendChild(createFillRow({
-    value: info.visual.backgroundColor,
-    opacity: Number(info.visual.backgroundOpacity),
-    onChange: (v) => {
-      if (bgIsGradient) {
-        tracker.apply('background', v)
-        tracker.apply('background-image', 'none')
-      } else {
-        tracker.apply('background-color', v)
-      }
-    },
-    onOpacityChange: (opacity, hex) => {
-      const alpha = opacity / 100
-      const r = parseInt(hex.slice(1, 3), 16)
-      const g = parseInt(hex.slice(3, 5), 16)
-      const b = parseInt(hex.slice(5, 7), 16)
-      tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
-    },
-  }))
+  const hasFill = info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
 
-  // === 6. Typography ===
-  container.appendChild(divider())
-  container.appendChild(sectionTitle('Typography'))
-  container.appendChild(grid(
-    createLabeledField({
-      icon: 'Aa',
-      value: parsePxValue(info.typography.fontSize),
-      min: 0,
-      onChange: (v) => tracker.apply('font-size', `${v}px`),
-    }),
-    createWeightSelect(
-      info.typography.fontWeight,
-      (v) => tracker.apply('font-weight', v),
-    ),
-  ))
-  container.appendChild(createFillRow({
-    value: info.typography.color,
-    onChange: (v) => tracker.apply('color', v),
-  }))
+  function populateFillContent(contentEl: HTMLDivElement, bgColor: string, bgOpacity: number): void {
+    contentEl.innerHTML = ''
+    contentEl.appendChild(createFillRow({
+      value: bgColor,
+      opacity: bgOpacity,
+      onChange: (v) => {
+        if (bgIsGradient) {
+          tracker.apply('background', v)
+          tracker.apply('background-image', 'none')
+        } else {
+          tracker.apply('background-color', v)
+        }
+      },
+      onOpacityChange: (opacity, hex) => {
+        const alpha = opacity / 100
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
+      },
+    }))
+  }
+
+  fillSection = createSection('Fill', {
+    addRemove: {
+      onAdd: () => {
+        tracker.apply('background-color', '#FFFFFF')
+        populateFillContent(fillSection.content, '#FFFFFF', 100)
+        fillSection.setHasContent(true)
+        callbacks.onStyleChange()
+      },
+      onRemove: () => {
+        tracker.apply('background-color', 'transparent')
+        fillSection.content.innerHTML = ''
+        fillSection.setHasContent(false)
+        callbacks.onStyleChange()
+      },
+    },
+  })
+  if (hasFill) {
+    populateFillContent(fillSection.content, info.visual.backgroundColor, Number(info.visual.backgroundOpacity))
+  } else {
+    fillSection.setHasContent(false)
+  }
+  container.appendChild(fillSection.container)
+
+  // === 6. Stroke ===
+  const existingStroke = detectStrokeValues(element)
+
+  function populateStrokeContent(contentEl: HTMLDivElement, values: StrokeValues): void {
+    contentEl.innerHTML = ''
+    contentEl.appendChild(createStrokePanel(
+      values,
+      tracker,
+      accentColor,
+      () => {
+        // Remove via section button, not stroke panel's internal remove
+      },
+      callbacks.onStyleChange,
+    ))
+  }
+
+  strokeSection = createSection('Stroke', {
+    addRemove: {
+      onAdd: () => {
+        const defaultStroke: StrokeValues = {
+          color: '#000000', opacity: 100, position: 'center',
+          width: 1, top: 1, right: 1, bottom: 1, left: 1,
+        }
+        applyStroke(tracker, defaultStroke)
+        populateStrokeContent(strokeSection.content, defaultStroke)
+        strokeSection.setHasContent(true)
+        callbacks.onStyleChange()
+      },
+      onRemove: () => {
+        tracker.apply('border', '')
+        tracker.apply('border-style', '')
+        tracker.apply('border-color', '')
+        tracker.apply('border-width', '')
+        tracker.apply('outline', '')
+        tracker.apply('outline-offset', '')
+        tracker.apply('box-shadow', '')
+        strokeSection.content.innerHTML = ''
+        strokeSection.setHasContent(false)
+        callbacks.onStyleChange()
+      },
+    },
+  })
+  if (existingStroke) {
+    populateStrokeContent(strokeSection.content, existingStroke)
+  } else {
+    strokeSection.setHasContent(false)
+  }
+  container.appendChild(strokeSection.container)
 
   return container
 }
@@ -1249,9 +1781,17 @@ export function buildDesignPanel(
 export function getDesignStyles(accentColor: string): string {
   return `
 .ei-dp { padding: 4px 0 0; }
-.ei-dp-divider { height: 0; margin: 0; }
-.ei-dp-section-title { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.85); margin-top: 16px; margin-bottom: 8px; letter-spacing: 0.11px; }
-.ei-dp-section-title:first-child { margin-top: 0; }
+.ei-dp-section { }
+.ei-dp-section-border { border-top: 0.5px solid rgba(255,255,255,0.08); }
+.ei-dp-section-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
+.ei-dp-section-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: 0.11px; }
+.ei-dp-section-btn { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; transition: color 0.12s ease; }
+.ei-dp-section-btn:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-section-btn:focus { outline: none; }
+.ei-dp-section-btn svg { display: block; }
+.ei-dp-section-content { padding-bottom: 16px; }
+.ei-dp-section-content[data-visible="false"] { display: none; }
+.ei-dp-section-content > :last-child { margin-bottom: 0; }
 .ei-dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .ei-dp-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; }
 .ei-dp-field:focus-within { border-color: ${accentColor}; }
@@ -1306,5 +1846,19 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-size-option-icon { flex-shrink: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85); }
 .ei-dp-size-option-icon svg { display: block; }
 .ei-dp-size-option-label { font-size: 11px; letter-spacing: 0.055px; white-space: nowrap; }
+.ei-dp-stroke-panel { }
+.ei-dp-stroke-color-wrapper { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.ei-dp-stroke-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; }
+.ei-dp-stroke-remove { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; flex-shrink: 0; transition: color 0.12s ease; }
+.ei-dp-stroke-remove:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-stroke-remove:focus { outline: none; }
+.ei-dp-stroke-remove svg { display: block; }
+.ei-dp-stroke-settings-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
+.ei-dp-stroke-pos-btn { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; white-space: nowrap; transition: background 0.12s ease; }
+.ei-dp-stroke-pos-btn:hover { background: rgba(255,255,255,0.1); }
+.ei-dp-stroke-pos-btn:focus { outline: none; }
+.ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
+.ei-dp-stroke-pos-arrow svg { display: block; }
+.ei-dp-stroke-sides-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 `
 }

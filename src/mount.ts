@@ -38,14 +38,14 @@ const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="no
 const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 1.66663V18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 15.8334L10 18.3334L7.5 15.8334" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8334 7.5L18.3334 10L15.8334 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.66663 10H18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.16663 7.5L1.66663 10L4.16663 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 4.16663L10 1.66663L12.5 4.16663" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M1.667 6.981c0-.292 0-.438.012-.561a2.5 2.5 0 0 1 2.241-2.241c.123-.013.277-.013.585-.013.118 0 .178 0 .228-.003a1.667 1.667 0 0 0 1.446-1.042l.071-.204c.035-.106.053-.158.072-.205a1.667 1.667 0 0 1 1.445-1.042c.05-.003.106-.003.217-.003h4.032c.111 0 .167 0 .217.003a1.667 1.667 0 0 1 1.446 1.042c.018.047.036.1.071.205l.072.204a1.667 1.667 0 0 0 1.445 1.042c.05.003.11.003.228.003.308 0 .462 0 .585.013a2.5 2.5 0 0 1 2.241 2.241c.013.123.013.269.013.561V13.5c0 1.4 0 2.1-.273 2.635a2.5 2.5 0 0 1-1.092 1.092c-.535.273-1.235.273-2.635.273H5.667c-1.4 0-2.1 0-2.635-.273a2.5 2.5 0 0 1-1.093-1.092c-.272-.535-.272-1.235-.272-2.635V6.981Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="10.417" r="3.333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.99996 1.25H7.08329C5.47246 1.25 4.16663 2.55584 4.16663 4.16667C4.16663 5.7775 5.47246 7.08333 7.08329 7.08333M9.99996 1.25V7.08333M9.99996 1.25H12.9166C14.5275 1.25 15.8333 2.55584 15.8333 4.16667C15.8333 5.7775 14.5275 7.08333 12.9166 7.08333M9.99996 7.08333H7.08329M9.99996 7.08333V12.9167M9.99996 7.08333H12.9166M7.08329 7.08333C5.47246 7.08333 4.16663 8.38917 4.16663 10C4.16663 11.6108 5.47246 12.9167 7.08329 12.9167M9.99996 12.9167H7.08329M9.99996 12.9167V15.8333C9.99996 17.4442 8.69412 18.75 7.08329 18.75C5.47246 18.75 4.16663 17.4442 4.16663 15.8333C4.16663 14.2225 5.47246 12.9167 7.08329 12.9167M12.9166 7.08333C14.5275 7.08333 15.8333 8.38917 15.8333 10C15.8333 11.6108 14.5275 12.9167 12.9166 12.9167C11.3058 12.9167 9.99996 11.6108 9.99996 10C9.99996 8.38917 11.3058 7.08333 12.9166 7.08333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHEVRON_DOWN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`
 const ICON_CAPTURE_SCREEN = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.16675 4.88667C1.16675 4.68232 1.16675 4.58014 1.17527 4.49408C1.25752 3.66403 1.91415 3.00739 2.7442 2.92515C2.83027 2.91663 2.93796 2.91663 3.15334 2.91663C3.23633 2.91663 3.27782 2.91663 3.31306 2.91449C3.76294 2.88725 4.15689 2.6033 4.325 2.18513C4.33816 2.15238 4.35047 2.11546 4.37508 2.04163C4.39969 1.96779 4.412 1.93088 4.42516 1.89813C4.59328 1.47995 4.98722 1.19601 5.43711 1.16876C5.47234 1.16663 5.51125 1.16663 5.58908 1.16663H8.41108C8.48891 1.16663 8.52782 1.16663 8.56306 1.16876C9.01294 1.19601 9.40689 1.47995 9.575 1.89813C9.58816 1.93088 9.60047 1.96779 9.62508 2.04163C9.64969 2.11546 9.662 2.15238 9.67516 2.18513C9.84328 2.6033 10.2372 2.88725 10.6871 2.91449C10.7223 2.91663 10.7638 2.91663 10.8468 2.91663C11.0622 2.91663 11.1699 2.91663 11.256 2.92515C12.086 3.00739 12.7426 3.66403 12.8249 4.49408C12.8334 4.58014 12.8334 4.68232 12.8334 4.88667V9.44996C12.8334 10.4301 12.8334 10.9201 12.6427 11.2944C12.4749 11.6237 12.2072 11.8914 11.8779 12.0592C11.5036 12.25 11.0135 12.25 10.0334 12.25H3.96675C2.98666 12.25 2.49661 12.25 2.12226 12.0592C1.79298 11.8914 1.52527 11.6237 1.35749 11.2944C1.16675 10.9201 1.16675 10.4301 1.16675 9.44996V4.88667Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.00008 9.62496C8.28875 9.62496 9.33341 8.58029 9.33341 7.29163C9.33341 6.00296 8.28875 4.95829 7.00008 4.95829C5.71142 4.95829 4.66675 6.00296 4.66675 7.29163C4.66675 8.58029 5.71142 9.62496 7.00008 9.62496Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CAPTURE_WINDOW = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.6666 2.33337H2.33329C1.68896 2.33337 1.16663 2.85571 1.16663 3.50004V10.5C1.16663 11.1444 1.68896 11.6667 2.33329 11.6667H11.6666C12.311 11.6667 12.8333 11.1444 12.8333 10.5V3.50004C12.8333 2.85571 12.311 2.33337 11.6666 2.33337Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 4.66663H3.50583" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.83337 4.66663H5.83921" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.16663 4.66663H8.17246" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_SELECT_ELEMENT = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.25 5.54167V4.55C12.25 3.56991 12.25 3.07986 12.0593 2.70552C11.8915 2.37623 11.6238 2.10852 11.2945 1.94074C10.9201 1.75 10.4301 1.75 9.45 1.75H4.55C3.56991 1.75 3.07986 1.75 2.70552 1.94074C2.37623 2.10852 2.10852 2.37623 1.94074 2.70552C1.75 3.07986 1.75 3.56991 1.75 4.55V9.45C1.75 10.4301 1.75 10.9201 1.94074 11.2945C2.10852 11.6238 2.37623 11.8915 2.70552 12.0593C3.07986 12.25 3.56991 12.25 4.55 12.25H5.54167M10.142 10.3316L9.15128 12.1714C8.98934 12.4721 8.90838 12.6225 8.80969 12.6618C8.72402 12.6958 8.62728 12.6874 8.5488 12.639C8.45842 12.5832 8.40474 12.4211 8.29738 12.0968L6.70856 7.29826C6.61455 7.01432 6.56754 6.87235 6.60134 6.7778C6.63076 6.69552 6.69552 6.63076 6.7778 6.60134C6.87235 6.56754 7.01432 6.61455 7.29826 6.70857L12.0968 8.29739C12.4211 8.40475 12.5832 8.45843 12.639 8.54882C12.6874 8.6273 12.6958 8.72404 12.6617 8.80971C12.6225 8.90839 12.4721 8.98936 12.1714 9.15129L10.3316 10.142C10.2858 10.1666 10.2629 10.179 10.2428 10.1948C10.225 10.2089 10.2089 10.225 10.1948 10.2428C10.179 10.2629 10.1666 10.2858 10.142 10.3316Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_STATE_CAPTURE = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_icon)"><path d="M5.24996 2.04163V1.16663M2.95201 2.95201L2.33329 2.33329M2.95201 7.58329L2.33329 8.20201M7.58329 2.95201L8.20201 2.33329M2.04163 5.24996H1.16663M9.25424 9.44388L7.80072 12.1432C7.63467 12.4516 7.55164 12.6058 7.45175 12.6448C7.36506 12.6786 7.26743 12.6691 7.18894 12.6191C7.09851 12.5614 7.04696 12.3941 6.94385 12.0594L4.92632 5.50969C4.84209 5.23625 4.79998 5.09954 4.83386 5.0072C4.86338 4.92677 4.92677 4.86338 5.0072 4.83387C5.09954 4.79998 5.23625 4.84209 5.50969 4.92632L12.0593 6.94387C12.3941 7.04698 12.5614 7.09853 12.619 7.18897C12.6691 7.26745 12.6786 7.36509 12.6448 7.45177C12.6058 7.55167 12.4516 7.63469 12.1432 7.80074L9.44388 9.25424C9.39805 9.27891 9.37514 9.29125 9.35508 9.3071C9.33728 9.32117 9.32117 9.33728 9.3071 9.35508C9.29125 9.37514 9.27891 9.39805 9.25424 9.44388Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></g><defs><clipPath id="clip0_icon"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>`
 const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_OUTLINES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="2.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="11.5" y="2.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="2.5" y="11.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><rect x="11.5" y="11.5" width="6" height="6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_OUTLINES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.12" d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 9.99996C13.3333 8.15901 11.8409 6.66663 9.99996 6.66663C8.15901 6.66663 6.66663 8.15901 6.66663 9.99996C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" fill="currentColor"/><path d="M1.66663 6.5C1.66663 5.09987 1.66663 4.3998 1.93911 3.86502C2.17879 3.39462 2.56124 3.01217 3.03165 2.77248C3.56643 2.5 4.26649 2.5 5.66663 2.5H14.3333C15.7334 2.5 16.4335 2.5 16.9683 2.77248C17.4387 3.01217 17.8211 3.39462 18.0608 3.86502C18.3333 4.3998 18.3333 5.09987 18.3333 6.5V13.5C18.3333 14.9001 18.3333 15.6002 18.0608 16.135C17.8211 16.6054 17.4387 16.9878 16.9683 17.2275C16.4335 17.5 15.7334 17.5 14.3333 17.5H5.66663C4.26649 17.5 3.56643 17.5 3.03165 17.2275C2.56124 16.9878 2.17879 16.6054 1.93911 16.135C1.66663 15.6002 1.66663 14.9001 1.66663 13.5V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 10C13.3333 8.15905 11.8409 6.66667 9.99996 6.66667C8.15901 6.66667 6.66663 8.15905 6.66663 10C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 function styleRow(label: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-row')
@@ -222,6 +222,9 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-design="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
+.ei-highlight[data-outlines="true"] .ei-hl-margin { background: transparent; }
+.ei-highlight[data-outlines="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
+.ei-highlight[data-outlines="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
 .ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; background: transparent; }
 .ei-highlight[data-move="true"] .ei-hl-content { background: transparent; }
 .ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; pointer-events: none; }
@@ -261,6 +264,12 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-hl-pad-line { position: absolute; display: none; }
 .ei-hl-pad-line-h { border-top: 1px solid ${accentColor}; }
 .ei-hl-pad-line-v { border-left: 1px solid ${accentColor}; }
+.ei-hl-margin-badge { position: absolute; background: #E17055; color: rgba(255,255,255,0.95); font-size: 9px; font-weight: 500; padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; z-index: 1; }
+.ei-hl-margin-line { position: absolute; display: none; }
+.ei-hl-margin-line-h { border-top: 1px dashed #E17055; }
+.ei-hl-margin-line-v { border-left: 1px dashed #E17055; }
+.ei-highlight[data-design="true"] .ei-hl-margin-badge,
+.ei-highlight[data-design="true"] .ei-hl-margin-line { display: block; }
 .ei-toolbar { position: fixed; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 9999px; background: black; box-shadow: 0px 2px 8px rgba(0,0,0,0.24), 0px 1px 24px rgba(0,0,0,0.24); pointer-events: auto; cursor: grab; user-select: none; }
 .ei-toolbar:active { cursor: grabbing; }
 .ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0px 0.5px 0px rgba(255,255,255,0.04), inset 0px 0px 0.5px rgba(255,255,255,0.08); pointer-events: none; }
@@ -389,6 +398,7 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.6); font-family: monospace; line-height: 1.5; padding-left: 4px; border-left: 2px solid ${accentColor}; margin-bottom: 2px; }
 [data-ei-outlines="true"] * { outline: 1px solid rgba(0, 0, 0, 0.6); outline-offset: -1px; }
 [data-ei-outlines="true"] *:hover { outline-color: rgba(0, 0, 0, 0.9); }
+[data-ei-outlines="true"] .ei-hover-highlight { outline: 2px solid ${accentColor}; outline-offset: -1px; }
 ${getDesignStyles(accentColor)}
 `
 }
@@ -402,6 +412,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let lockedElement: HTMLElement | null = null
   let currentInfo: InspectorInfo | null = null
   let outlinesEnabled = false
+  let outlinesHoverElement: Element | null = null
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
   let rafId: number | null = null
   let latestPoint: { x: number; y: number } | null = null
@@ -514,11 +525,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const hlCode = el('div', 'ei-hl-code', '</>')
   const hlPadBadges: Record<string, HTMLDivElement> = {}
   const hlPadLines: Record<string, HTMLDivElement> = {}
+  const hlMarginBadges: Record<string, HTMLDivElement> = {}
+  const hlMarginLines: Record<string, HTMLDivElement> = {}
   for (const side of ['top', 'right', 'bottom', 'left'] as const) {
     hlPadBadges[side] = el('div', 'ei-hl-pad-badge')
     hlPadLines[side] = el('div', `ei-hl-pad-line ei-hl-pad-line-${side === 'top' || side === 'bottom' ? 'v' : 'h'}`)
     hlPadding.appendChild(hlPadLines[side])
     hlPadding.appendChild(hlPadBadges[side])
+    // Margin badges and lines (attached to margin layer)
+    hlMarginBadges[side] = el('div', 'ei-hl-margin-badge')
+    hlMarginLines[side] = el('div', `ei-hl-margin-line ei-hl-margin-line-${side === 'top' || side === 'bottom' ? 'v' : 'h'}`)
+    hlMargin.appendChild(hlMarginLines[side])
+    hlMargin.appendChild(hlMarginBadges[side])
   }
   hlPadding.appendChild(hlLabel)
   hlPadding.appendChild(hlCode)
@@ -1431,12 +1449,25 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function updateHighlight(info: InspectorInfo | null): void {
-    if (outlinesEnabled) return // Outlines mode: no highlight
     // Support capture selection mode (element/state) when currentMode is 'off'
+    // Also support outlines mode for hover highlight
     const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
-    if ((currentMode === 'off' && !isCaptureSelection) || currentMode === 'changes' || !info) {
+    if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info) {
       setHighlightVisible(false)
+      // Remove hover highlight class from previous element in outlines mode
+      if (outlinesHoverElement) {
+        outlinesHoverElement.classList.remove('ei-hover-highlight')
+        outlinesHoverElement = null
+      }
       return
+    }
+    // Update hover highlight class for outlines mode
+    if (outlinesEnabled && info.element !== outlinesHoverElement) {
+      if (outlinesHoverElement) {
+        outlinesHoverElement.classList.remove('ei-hover-highlight')
+      }
+      outlinesHoverElement = info.element
+      outlinesHoverElement.classList.add('ei-hover-highlight')
     }
     const px = (v: string) => parseFloat(v) || 0
     const m = info.boxModel.margin
@@ -1465,8 +1496,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const isMove = currentMode === 'move'
     highlight.dataset.design = isDesign ? 'true' : 'false'
     highlight.dataset.move = isMove ? 'true' : 'false'
+    highlight.dataset.outlines = outlinesEnabled ? 'true' : 'false'
 
-    if (isDesign) {
+    if (isDesign || outlinesEnabled) {
       // Element name label
       const tag = info.tagName.toLowerCase()
       const cls = info.element.className && typeof info.element.className === 'string'
@@ -1503,12 +1535,47 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           line.style.display = 'none'
         }
       }
+
+      // Margin badges + measurement lines (in margin layer coordinates)
+      const marginSides: [string, number][] = [['top', mt], ['right', mr], ['bottom', mb], ['left', ml]]
+      for (const [side, val] of marginSides) {
+        const badge = hlMarginBadges[side]!
+        const line = hlMarginLines[side]!
+        if (val > 0) {
+          badge.textContent = String(Math.round(val))
+          badge.style.display = 'block'
+          line.style.display = 'block'
+
+          // Total dimensions including padding
+          const fullW = w + ml + mr
+          const fullH = h + mt + mb
+
+          if (side === 'top') {
+            badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;top:${mt / 2 - 7}px;`
+            line.style.cssText = `display:block;left:${fullW / 2}px;top:0;height:${mt}px;width:0;border-left:1px dashed #E17055;`
+          } else if (side === 'bottom') {
+            badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;bottom:${mb / 2 - 7}px;`
+            line.style.cssText = `display:block;left:${fullW / 2}px;bottom:0;height:${mb}px;width:0;border-left:1px dashed #E17055;`
+          } else if (side === 'left') {
+            badge.style.cssText = `display:block;left:${ml / 2 - 10}px;top:${fullH / 2 - 7}px;`
+            line.style.cssText = `display:block;top:${fullH / 2}px;left:0;width:${ml}px;height:0;border-top:1px dashed #E17055;`
+          } else {
+            badge.style.cssText = `display:block;right:${mr / 2 - 10}px;top:${fullH / 2 - 7}px;`
+            line.style.cssText = `display:block;top:${fullH / 2}px;right:0;width:${mr}px;height:0;border-top:1px dashed #E17055;`
+          }
+        } else {
+          badge.style.display = 'none'
+          line.style.display = 'none'
+        }
+      }
     } else {
       hlLabel.style.display = 'none'
       hlCode.style.display = 'none'
       for (const side of ['top', 'right', 'bottom', 'left']) {
         hlPadBadges[side]!.style.display = 'none'
         hlPadLines[side]!.style.display = 'none'
+        hlMarginBadges[side]!.style.display = 'none'
+        hlMarginLines[side]!.style.display = 'none'
       }
     }
 
@@ -1762,7 +1829,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Inspect logic ---
 
   function inspectPoint(x: number, y: number): void {
-    if (!isInteractiveMode() || lockedElement) return
+    if (!isInteractiveMode() && !outlinesEnabled) return
+    if (lockedElement) return
     const element = getInspectableElementFromPoint(x, y, IGNORE_ATTR)
     if (!element) {
       hideTooltip()
@@ -1771,7 +1839,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const info = extractInspectorInfo(element)
     currentInfo = info
     updateHighlight(info)
-    showTooltip(info, x, y)
+    if (outlinesEnabled) {
+      // In outlines mode, only show highlight, no tooltip
+      hideTooltip()
+    } else {
+      showTooltip(info, x, y)
+    }
     options.onInspect?.(info)
   }
 
@@ -1819,8 +1892,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Event handlers ---
 
   function onMouseMove(event: MouseEvent): void {
-    if (outlinesEnabled) return // Outlines mode: no interaction
-    if (!isInteractiveMode() || isIgnoredEvent(event)) return
+    if (!isInteractiveMode() && !outlinesEnabled) return
+    if (isIgnoredEvent(event)) return
     if (currentMode === 'move' && updateMoveDrag(event)) return
     if (currentMode === 'move' && lockedElement) {
       hideTooltip()
@@ -2292,6 +2365,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     outlinesEnabled = false
     outlinesBtn.dataset.active = ''
     document.body.dataset.eiOutlines = ''
+    // Clear hover highlight class
+    if (outlinesHoverElement) {
+      outlinesHoverElement.classList.remove('ei-hover-highlight')
+      outlinesHoverElement = null
+    }
+    // Unbind events when closing toolbar with outlines mode
+    unbindEvents()
     collapseToolbar()
     requestAnimationFrame(initToolbarPosition)
   })
@@ -2304,6 +2384,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (outlinesEnabled) {
       // Clear mode when entering outlines mode
       setMode('off')
+      // Re-bind events for hover highlight in outlines mode
+      bindEvents()
+    } else {
+      // Clear hover highlight class
+      if (outlinesHoverElement) {
+        outlinesHoverElement.classList.remove('ei-hover-highlight')
+        outlinesHoverElement = null
+      }
+      // Unbind events when disabling outlines (if mode is off)
+      if (currentMode === 'off') unbindEvents()
     }
   })
 

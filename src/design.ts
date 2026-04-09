@@ -1850,7 +1850,7 @@ export function buildDesignPanel(
       createWeightSelect(info.typography.fontWeight, (v) => tracker.apply('font-weight', v)),
     ))
 
-    // Row 3: Line height + Letter spacing + Text align
+    // Row 3: Line height + Letter spacing
     const row3 = el('div', 'ei-dp-typography-row')
 
     // Parse line height (could be "normal", "24px", "1.5", etc.)
@@ -1888,14 +1888,18 @@ export function buildDesignPanel(
       tracker.apply('letter-spacing', `${v.toFixed(2)}em`)
     }))
 
-    row3.appendChild(createAlignButtons(
+    typoSec.content.appendChild(row3)
+
+    // Row 4: Text align
+    const row4 = el('div', 'ei-dp-typography-row')
+    row4.appendChild(createAlignButtons(
       info.typography.textAlign || 'left',
       (v) => tracker.apply('text-align', v),
     ))
 
-    typoSec.content.appendChild(row3)
+    typoSec.content.appendChild(row4)
 
-    // Row 4: Text color
+    // Row 5: Text color
     typoSec.content.appendChild(createFillRow({
       value: info.typography.color,
       onChange: (v) => tracker.apply('color', v),
@@ -2099,7 +2103,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-font-option { display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; transition: background 0.1s ease; }
 .ei-dp-font-option:hover { background: rgba(255,255,255,0.08); }
 .ei-dp-font-option[data-active="true"] { background: rgba(255,255,255,0.12); }
-.ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .ei-dp-align-btns { display: flex; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; }
 .ei-dp-align-btn { flex: 1; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s ease; }
 .ei-dp-align-btn svg { display: block; }

@@ -72,11 +72,11 @@ export type StyleDiff = {
   modified: string
 }
 
-export type InspectorMode = 'off' | 'inspector' | 'design' | 'changes'
+export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'changes'
 
 export type Change = {
   id: string
-  type: 'annotation' | 'design'
+  type: 'annotation' | 'design' | 'move'
   element: HTMLElement
   info: InspectorInfo
   comment: string

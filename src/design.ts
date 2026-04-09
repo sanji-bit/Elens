@@ -2722,14 +2722,14 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-text-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 .ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 .ei-dp-effects-panel { }
-.ei-dp-effects-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.ei-dp-effects-row1 > * { min-width: 0; }
-.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: 1px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; flex: 1; min-width: 0; transition: border-color 0.15s ease, background 0.12s ease; }
+.ei-dp-effects-row1 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 8px; }
+.ei-dp-effects-row1 > * { min-width: 0; width: 100%; }
+.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: 1px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; min-width: 0; transition: border-color 0.15s ease, background 0.12s ease; }
 .ei-dp-effects-type-btn:hover { border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.08); }
 .ei-dp-effects-type-btn:focus { outline: none; border-color: ${accentColor}; }
 .ei-dp-effects-type-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
 .ei-dp-effects-type-arrow svg { display: block; }
-.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; transition: border-color 0.15s ease; }
+.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; min-width: 0; transition: border-color 0.15s ease; }
 .ei-dp-effects-color-row:hover { border-color: rgba(255,255,255,0.10); }
 .ei-dp-effects-color-row:focus-within { border-color: ${accentColor}; }
 .ei-dp-effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }

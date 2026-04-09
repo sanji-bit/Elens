@@ -38,6 +38,7 @@ const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="no
 const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CLEAR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 2.5h5M2.5 5h15m-1.667 0-.584 8.766c-.088 1.315-.132 1.973-.416 2.471a2.5 2.5 0 0 1-1.082 1.013c-.516.25-1.175.25-2.493.25H8.742c-1.318 0-1.977 0-2.493-.25a2.5 2.5 0 0 1-1.082-1.013c-.284-.498-.328-1.156-.416-2.471L4.167 5m4.166 3.75v4.167m3.334-4.167v4.167" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2.5L12.5 5H11V9H15V7.5L17.5 10L15 12.5V11H11V15H12.5L10 17.5L7.5 15H9V11H5V12.5L2.5 10L5 7.5V9H9V5H7.5L10 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M1.667 6.981c0-.292 0-.438.012-.561a2.5 2.5 0 0 1 2.241-2.241c.123-.013.277-.013.585-.013.118 0 .178 0 .228-.003a1.667 1.667 0 0 0 1.446-1.042l.071-.204c.035-.106.053-.158.072-.205a1.667 1.667 0 0 1 1.445-1.042c.05-.003.106-.003.217-.003h4.032c.111 0 .167 0 .217.003a1.667 1.667 0 0 1 1.446 1.042c.018.047.036.1.071.205l.072.204a1.667 1.667 0 0 0 1.445 1.042c.05.003.11.003.228.003.308 0 .462 0 .585.013a2.5 2.5 0 0 1 2.241 2.241c.013.123.013.269.013.561V13.5c0 1.4 0 2.1-.273 2.635a2.5 2.5 0 0 1-1.092 1.092c-.535.273-1.235.273-2.635.273H5.667c-1.4 0-2.1 0-2.635-.273a2.5 2.5 0 0 1-1.093-1.092c-.272-.535-.272-1.235-.272-2.635V6.981Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="10.417" r="3.333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
@@ -216,6 +217,25 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-design="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
+.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; }
+.ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; }
+.ei-move-indicator { position: fixed; display: none; pointer-events: none; z-index: 2; }
+.ei-move-indicator[data-visible="true"] { display: block; }
+.ei-move-indicator-line { position: absolute; background: ${accentColor}; box-shadow: 0 0 0 1px color-mix(in srgb, ${accentColor} 35%, transparent); }
+.ei-move-indicator-dot { position: absolute; width: 8px; height: 8px; border-radius: 999px; background: ${accentColor}; box-shadow: 0 0 0 2px rgba(17,17,19,0.96); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: rgba(0, 206, 201, 0.3); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: rgba(225, 112, 85, 0.25); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: rgba(0, 184, 148, 0.2); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-label,
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-code,
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-badge,
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-line { display: none !important; }
+.ei-root[data-mode="move"] .ei-panel { user-select: none; }
+.ei-root[data-mode="move"] .ei-empty { line-height: 1.6; color: rgba(255,255,255,0.72); }
+.ei-root[data-mode="move"] .ei-badge-lock { background: color-mix(in srgb, ${accentColor} 22%, #111113); }
+.ei-root[data-mode="move"] .ei-copy-color,
+.ei-root[data-mode="move"] .ei-annotate { display: none; }
+.ei-root[data-mode="move"] [data-ei-moving="true"] { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; }
 .ei-hl-label { position: absolute; bottom: 100%; left: 0; background: transparent; color: ${accentColor}; font-size: 11px; font-weight: 500; white-space: nowrap; padding: 0 0 2px; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .ei-hl-code { position: absolute; bottom: 100%; right: 0; color: ${accentColor}; font-size: 12px; font-weight: 600; padding: 0 0 2px; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .ei-hl-pad-badge { position: absolute; background: ${accentColor}; color: rgba(255,255,255,0.95); font-size: 9px; font-weight: 500; padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; z-index: 1; }
@@ -361,6 +381,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let annotateInput: HTMLTextAreaElement | null = null
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
+  let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
+  let moveDragState: {
+    element: HTMLElement
+    container: HTMLElement
+    siblings: HTMLElement[]
+    startX: number
+    startY: number
+    started: boolean
+    initialIndex: number
+    lastIndex: number
+    axis: 'x' | 'y'
+    placement: 'before' | 'after'
+    target: HTMLElement | null
+  } | null = null
+  let suppressNextClick = false
 
   // --- DOM ---
 
@@ -380,6 +415,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   hlPadding.appendChild(hlContent)
   hlMargin.appendChild(hlPadding)
   highlight.appendChild(hlMargin)
+
+  const moveIndicator = el('div', 'ei-move-indicator')
+  moveIndicator.setAttribute(IGNORE_ATTR, 'true')
+  moveIndicator.dataset.visible = 'false'
+  const moveIndicatorLine = el('div', 'ei-move-indicator-line')
+  const moveIndicatorDotStart = el('div', 'ei-move-indicator-dot')
+  const moveIndicatorDotEnd = el('div', 'ei-move-indicator-dot')
+  moveIndicator.append(moveIndicatorLine, moveIndicatorDotStart, moveIndicatorDotEnd)
 
   // Design mode overlay elements
   const hlLabel = el('div', 'ei-hl-label')
@@ -418,6 +461,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, 'Inspector')
   const designBtn = makeToolbarBtn(ICON_DESIGN, 'Design')
   designBtn.classList.add('ei-toolbar-extra')
+  const moveBtn = makeToolbarBtn(ICON_MOVE, 'Move')
+  moveBtn.classList.add('ei-toolbar-extra')
   const changesBtn = makeToolbarBtn(ICON_CHANGES, 'Changes')
   changesBtn.classList.add('ei-toolbar-extra')
   const clearBtn = makeToolbarBtn(ICON_CLEAR, 'Clear All')
@@ -431,7 +476,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const exitBtn = makeToolbarBtn(ICON_EXIT, 'Exit')
   exitBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, changesBtn, clearBtn, screenshotBtn, toolbarDivider, exitBtn)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, clearBtn, screenshotBtn, toolbarDivider, exitBtn)
 
   // Panel
   const panel = el('div', 'ei-panel')
@@ -465,13 +510,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const body = el('div', 'ei-body')
   panel.append(dragHandle, header, body)
 
-  root.append(styleEl, highlight, tooltip, panel, markersContainer, toolbar)
+  root.append(styleEl, highlight, moveIndicator, tooltip, panel, markersContainer, toolbar)
   document.body.appendChild(root)
 
   // --- Helpers ---
 
   function isInteractiveMode(): boolean {
-    return currentMode === 'inspector' || currentMode === 'design'
+    return currentMode === 'inspector' || currentMode === 'design' || currentMode === 'move'
   }
 
   function isIgnoredEvent(event: Event): boolean {
@@ -562,6 +607,160 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function cleanupPanelExtras(): void {
     panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
+  }
+
+  function getReorderContainer(element: HTMLElement): HTMLElement | null {
+    const container = element.parentElement
+    if (!container) return null
+    const display = window.getComputedStyle(container).display
+    return display === 'flex' || display === 'grid' ? container : null
+  }
+
+  function getReorderableSiblings(element: HTMLElement): HTMLElement[] {
+    const container = element.parentElement
+    if (!container) return []
+    return getHTMLElementChildren(container).filter(child => child.getAttribute(IGNORE_ATTR) !== 'true')
+  }
+
+  function getReorderAxis(container: HTMLElement): 'x' | 'y' {
+    const style = window.getComputedStyle(container)
+    if (style.display === 'grid') {
+      const columns = style.gridTemplateColumns.split(/\s+/).filter(Boolean)
+      return columns.length > 1 ? 'x' : 'y'
+    }
+    return style.flexDirection.startsWith('column') ? 'y' : 'x'
+  }
+
+  function getInsertionTarget(
+    siblings: HTMLElement[],
+    pointerX: number,
+    pointerY: number,
+    dragged: HTMLElement,
+    axis: 'x' | 'y',
+  ): { target: HTMLElement | null; placement: 'before' | 'after'; index: number } {
+    const otherSiblings = siblings.filter(sibling => sibling !== dragged)
+    if (otherSiblings.length === 0) {
+      return { target: null, placement: 'after', index: 0 }
+    }
+
+    const pointer = axis === 'x' ? pointerX : pointerY
+    const threshold = 6
+
+    for (const sibling of otherSiblings) {
+      const rect = sibling.getBoundingClientRect()
+      const start = axis === 'x' ? rect.left : rect.top
+      const size = axis === 'x' ? rect.width : rect.height
+      const midpoint = start + size / 2
+      if (pointer <= midpoint - threshold) {
+        return { target: sibling, placement: 'before', index: siblings.indexOf(sibling) }
+      }
+      if (pointer < midpoint + threshold) {
+        return {
+          target: sibling,
+          placement: pointer < midpoint ? 'before' : 'after',
+          index: siblings.indexOf(sibling) + (pointer < midpoint ? 0 : 1),
+        }
+      }
+    }
+
+    return { target: null, placement: 'after', index: siblings.length - (siblings.includes(dragged) ? 1 : 0) }
+  }
+
+  function applyMoveInsertion(
+    container: HTMLElement,
+    dragged: HTMLElement,
+    target: HTMLElement | null,
+    placement: 'before' | 'after',
+  ): void {
+    if (target) {
+      if (placement === 'before') {
+        if (dragged.nextElementSibling === target) return
+        container.insertBefore(dragged, target)
+        return
+      }
+      const nextSibling = target.nextElementSibling
+      if (target === dragged || nextSibling === dragged) return
+      container.insertBefore(dragged, nextSibling)
+      return
+    }
+
+    if (container.lastElementChild !== dragged) {
+      container.appendChild(dragged)
+    }
+  }
+
+  function updateMoveIndicator(
+    container: HTMLElement,
+    target: HTMLElement | null,
+    placement: 'before' | 'after',
+    axis: 'x' | 'y',
+  ): void {
+    const containerRect = container.getBoundingClientRect()
+    const referenceRect = target?.getBoundingClientRect() ?? containerRect
+    const thickness = 2
+    const dotOffset = 3
+
+    moveIndicator.dataset.visible = 'true'
+
+    if (axis === 'x') {
+      const x = target
+        ? placement === 'before' ? referenceRect.left : referenceRect.right
+        : containerRect.right
+      const top = containerRect.top
+      const height = Math.max(containerRect.height, 12)
+      moveIndicator.style.left = `${x - thickness / 2}px`
+      moveIndicator.style.top = `${top}px`
+      moveIndicator.style.width = `${thickness}px`
+      moveIndicator.style.height = `${height}px`
+      moveIndicatorLine.style.left = '0px'
+      moveIndicatorLine.style.top = '0px'
+      moveIndicatorLine.style.width = `${thickness}px`
+      moveIndicatorLine.style.height = `${height}px`
+      moveIndicatorDotStart.style.left = `${-dotOffset}px`
+      moveIndicatorDotStart.style.top = `${-dotOffset}px`
+      moveIndicatorDotEnd.style.left = `${-dotOffset}px`
+      moveIndicatorDotEnd.style.top = `${height - dotOffset - 2}px`
+    } else {
+      const y = target
+        ? placement === 'before' ? referenceRect.top : referenceRect.bottom
+        : containerRect.bottom
+      const left = containerRect.left
+      const width = Math.max(containerRect.width, 12)
+      moveIndicator.style.left = `${left}px`
+      moveIndicator.style.top = `${y - thickness / 2}px`
+      moveIndicator.style.width = `${width}px`
+      moveIndicator.style.height = `${thickness}px`
+      moveIndicatorLine.style.left = '0px'
+      moveIndicatorLine.style.top = '0px'
+      moveIndicatorLine.style.width = `${width}px`
+      moveIndicatorLine.style.height = `${thickness}px`
+      moveIndicatorDotStart.style.left = `${-dotOffset}px`
+      moveIndicatorDotStart.style.top = `${-dotOffset}px`
+      moveIndicatorDotEnd.style.left = `${width - dotOffset - 2}px`
+      moveIndicatorDotEnd.style.top = `${-dotOffset}px`
+    }
+  }
+
+  function hideMoveIndicator(): void {
+    moveIndicator.dataset.visible = 'false'
+  }
+
+  function describeMoveChange(element: HTMLElement, initialIndex: number, nextIndex: number): string {
+    const from = initialIndex + 1
+    const to = nextIndex + 1
+    return `reorder: position ${from} → ${to}`
+  }
+
+  function saveMoveChange(element: HTMLElement, initialIndex: number, nextIndex: number): void {
+    if (initialIndex === nextIndex) return
+    const comment = describeMoveChange(element, initialIndex, nextIndex)
+    const existingId = moveChangeIdByElement.get(element)
+    if (existingId) {
+      updateChange(existingId, comment, [])
+      return
+    }
+    const changeId = addChange(element, comment, 'move', [])
+    moveChangeIdByElement.set(element, changeId)
   }
 
   // --- Tooltip ---
@@ -667,7 +866,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return changes.find(c => c.element === element)
   }
 
-  function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' = 'annotation', diffs?: Change['diffs']): string {
+  function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' | 'move' = 'annotation', diffs?: Change['diffs']): string {
     changeIdCounter++
     const change: Change = {
       id: String(changeIdCounter),
@@ -795,7 +994,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
       const num = el('div', 'ei-ann-num', String(i + 1))
       const bodyDiv = el('div', 'ei-ann-body')
-      const typeBadge = el('span', 'ei-ann-type', c.type === 'design' ? 'Design' : 'Note')
+      const typeBadge = el('span', 'ei-ann-type', c.type === 'design' ? 'Design' : c.type === 'move' ? 'Move' : 'Note')
       const selector = el('div', 'ei-ann-selector')
       selector.append(typeBadge, document.createTextNode(` ${c.info.domPath}`))
 
@@ -870,11 +1069,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Inspector rendering ---
 
   function renderEmpty(): void {
-    const modeLabel = currentMode === 'inspector' ? 'Inspect' : currentMode === 'design' ? 'Design' : ''
+    const modeLabel = currentMode === 'inspector' ? 'Inspect' : currentMode === 'design' ? 'Design' : currentMode === 'move' ? 'Move' : ''
     subtitle.textContent = modeLabel ? `${modeLabel} mode \u2014 \u70B9\u51FB\u5143\u7D20\uFF0CEsc \u9000\u51FA` : 'Ready'
     body.innerHTML = currentMode === 'design'
       ? `<div class="ei-empty">\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\u5F00\u59CB\u7F16\u8F91\u6837\u5F0F\u3002\u4FEE\u6539\u5373\u65F6\u751F\u6548\uFF0C\u5B8C\u6210\u540E\u70B9 Done \u4FDD\u5B58\u53D8\u66F4\u3002</div>`
-      : `<div class="ei-empty">\u5F00\u542F\u540E\u5148\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u663E\u793A\u4FE1\u606F\u9762\u677F\u3002\u79FB\u52A8\u9F20\u6807\u53EA\u9AD8\u4EAE\u5143\u7D20\uFF0C\u4E0D\u4F1A\u7ACB\u523B\u6253\u5F00\u4FE1\u606F\u6846\u3002\u9501\u5B9A\u540E\u53EF\u7528\u65B9\u5411\u952E\u5207\u7236/\u5B50/\u5144\u5F1F\u5143\u7D20\uFF0C\u4E5F\u53EF\u4EE5\u76F4\u63A5\u70B9 breadcrumbs \u8DF3\u5C42\u3002</div>`
+      : currentMode === 'move'
+        ? `<div class="ei-empty">\u5148\u70B9\u51FB\u9501\u5B9A\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u62D6\u52A8\u5B83\u8C03\u6574\u540C\u7EA7\u987A\u5E8F\u3002\u5F53\u524D\u4EC5\u652F\u6301\u7236\u5BB9\u5668\u4E3A flex \u6216 grid \u7684\u5E03\u5C40\u3002</div>`
+        : `<div class="ei-empty">\u5F00\u542F\u540E\u5148\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u663E\u793A\u4FE1\u606F\u9762\u677F\u3002\u79FB\u52A8\u9F20\u6807\u53EA\u9AD8\u4EAE\u5143\u7D20\uFF0C\u4E0D\u4F1A\u7ACB\u523B\u6253\u5F00\u4FE1\u606F\u6846\u3002\u9501\u5B9A\u540E\u53EF\u7528\u65B9\u5411\u952E\u5207\u7236/\u5B50/\u5144\u5F1F\u5143\u7D20\uFF0C\u4E5F\u53EF\u4EE5\u76F4\u63A5\u70B9 breadcrumbs \u8DF3\u5C42\u3002</div>`
     copyBtn.style.display = 'none'
     unlockBtn.style.display = lockedElement ? 'inline-block' : 'none'
     setPanelVisible(false)
@@ -910,7 +1111,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hlContent.style.height = `${Math.max(h - pt - pb, 0)}px`
 
     const isDesign = currentMode === 'design'
+    const isMove = currentMode === 'move'
     highlight.dataset.design = isDesign ? 'true' : 'false'
+    highlight.dataset.move = isMove ? 'true' : 'false'
 
     if (isDesign) {
       // Element name label
@@ -1172,11 +1375,43 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     updateHighlight(info)
   }
 
+  function renderMove(info: InspectorInfo | null): void {
+    currentInfo = info
+    annotateInput = null
+    cleanupPanelExtras()
+
+    titleEl.textContent = 'Move'
+    subtitle.textContent = 'Move mode — 拖动以调整顺序，Esc 退出'
+    copyBtn.style.display = 'none'
+
+    if (!info || !lockedElement) {
+      unlockBtn.style.display = 'none'
+      renderEmpty()
+      return
+    }
+
+    unlockBtn.style.display = 'inline-block'
+    setPanelVisible(true)
+    positionPanel(panelAnchor, info)
+
+    const container = getReorderContainer(info.element)
+    if (container) {
+      const axis = getReorderAxis(container)
+      body.innerHTML = `<div class="ei-empty">拖动当前元素可以在同级节点间调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排，并显示插入指示线。</div>`
+    } else {
+      body.innerHTML = '<div class="ei-empty">当前父容器不是 flex 或 grid，暂时不能重排。</div>'
+    }
+
+    updateHighlight(info)
+  }
+
   function renderForCurrentMode(info: InspectorInfo | null): void {
     if (currentMode === 'inspector') {
       renderInfo(info)
     } else if (currentMode === 'design') {
       renderDesign(info)
+    } else if (currentMode === 'move') {
+      renderMove(info)
     }
   }
 
@@ -1226,12 +1461,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     if (currentMode === 'inspector') {
       renderInfo(extractInspectorInfo(lockedElement))
-    } else if (currentMode === 'design') {
-      // Only update highlight position, don't re-render design panel
+    } else if (currentMode === 'design' || currentMode === 'move') {
       const info = extractInspectorInfo(lockedElement)
       currentInfo = info
       updateHighlight(info)
       if (panelPosition) positionPanel(panelAnchor, info)
+      if (currentMode === 'move') renderMove(info)
     }
   }
 
@@ -1239,6 +1474,36 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function onMouseMove(event: MouseEvent): void {
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
+    if (currentMode === 'move' && moveDragState) {
+      hideTooltip()
+      const dx = event.clientX - moveDragState.startX
+      const dy = event.clientY - moveDragState.startY
+      if (!moveDragState.started && Math.hypot(dx, dy) >= 6) {
+        moveDragState.started = true
+        suppressNextClick = true
+        moveDragState.element.dataset.eiMoving = 'true'
+      }
+      if (!moveDragState.started) return
+      const siblings = getReorderableSiblings(moveDragState.element)
+      moveDragState.siblings = siblings
+      const insertion = getInsertionTarget(
+        siblings,
+        event.clientX,
+        event.clientY,
+        moveDragState.element,
+        moveDragState.axis,
+      )
+      moveDragState.target = insertion.target
+      moveDragState.placement = insertion.placement
+      updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
+      applyMoveInsertion(moveDragState.container, moveDragState.element, insertion.target, insertion.placement)
+      const nextIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
+      moveDragState.lastIndex = nextIndex
+      const info = extractInspectorInfo(moveDragState.element)
+      currentInfo = info
+      updateHighlight(info)
+      return
+    }
     if (lockedElement) {
       hideTooltip()
       return
@@ -1246,13 +1511,63 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     queueInspect(event.clientX, event.clientY)
   }
 
+  function onMouseDown(event: MouseEvent): void {
+    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (currentMode !== 'move' || !lockedElement || event.button !== 0) return
+    const element = getInspectableElementFromPoint(event.clientX, event.clientY, IGNORE_ATTR)
+    if (element !== lockedElement) return
+    const container = getReorderContainer(lockedElement)
+    if (!container) return
+    const siblings = getReorderableSiblings(lockedElement)
+    moveDragState = {
+      element: lockedElement,
+      container,
+      siblings,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: false,
+      initialIndex: siblings.indexOf(lockedElement),
+      lastIndex: siblings.indexOf(lockedElement),
+      axis: getReorderAxis(container),
+      placement: 'before',
+      target: null,
+    }
+    hideMoveIndicator()
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  function onMouseUp(event: MouseEvent): void {
+    if (!moveDragState) return
+    hideMoveIndicator()
+    if (moveDragState.started) {
+      delete moveDragState.element.dataset.eiMoving
+      saveMoveChange(moveDragState.element, moveDragState.initialIndex, moveDragState.lastIndex)
+      const info = extractInspectorInfo(moveDragState.element)
+      currentInfo = info
+      renderMove(info)
+      setTimeout(() => {
+        suppressNextClick = false
+      }, 0)
+    }
+    moveDragState = null
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   function blockMouse(event: Event): void {
     if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (currentMode === 'move' && (event.type === 'mousedown' || event.type === 'mouseup')) return
     event.preventDefault()
     event.stopPropagation()
   }
 
   function onClick(event: MouseEvent): void {
+    if (suppressNextClick) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
     if (isPanelEvent(event)) return
     event.preventDefault()
@@ -1291,6 +1606,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
+      if (moveDragState?.element) {
+        delete moveDragState.element.dataset.eiMoving
+        hideMoveIndicator()
+        moveDragState = null
+        return
+      }
       if (lockedElement) {
         resetDesignTracker()
         lockedElement = null
@@ -1401,7 +1722,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const wheelOptions: AddEventListenerOptions = { capture: true, passive: false }
     const captureOptions: AddEventListenerOptions = { capture: true }
     window.addEventListener('mousemove', onMouseMove, captureOptions)
+    window.addEventListener('mousedown', onMouseDown, captureOptions)
     window.addEventListener('mousedown', blockMouse, captureOptions)
+    window.addEventListener('mouseup', onMouseUp, captureOptions)
     window.addEventListener('mouseup', blockMouse, captureOptions)
     window.addEventListener('dblclick', blockMouse, captureOptions)
     window.addEventListener('contextmenu', blockMouse, captureOptions)
@@ -1416,7 +1739,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const wheelOptions: AddEventListenerOptions = { capture: true }
     const captureOptions: AddEventListenerOptions = { capture: true }
     window.removeEventListener('mousemove', onMouseMove, captureOptions)
+    window.removeEventListener('mousedown', onMouseDown, captureOptions)
     window.removeEventListener('mousedown', blockMouse, captureOptions)
+    window.removeEventListener('mouseup', onMouseUp, captureOptions)
     window.removeEventListener('mouseup', blockMouse, captureOptions)
     window.removeEventListener('dblclick', blockMouse, captureOptions)
     window.removeEventListener('contextmenu', blockMouse, captureOptions)
@@ -1469,6 +1794,31 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hideTooltip()
   }
 
+  function activateMove(): void {
+    document.body.style.cursor = 'grab'
+    suppressNextClick = false
+    bindEvents()
+    renderMove(null)
+  }
+
+  function deactivateMove(): void {
+    if (moveDragState?.element) {
+      delete moveDragState.element.dataset.eiMoving
+    }
+    hideMoveIndicator()
+    suppressNextClick = false
+    moveDragState = null
+    lockedElement = null
+    currentInfo = null
+    panelAnchor = null
+    panelPosition = null
+    unbindEvents()
+    document.body.style.cursor = ''
+    setHighlightVisible(false)
+    setPanelVisible(false)
+    hideTooltip()
+  }
+
   function activateChanges(): void {
     cleanupPanelExtras()
     panelPosition = null
@@ -1488,6 +1838,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     switch (currentMode) {
       case 'inspector': deactivateInspector(); break
       case 'design': deactivateDesign(); break
+      case 'move': deactivateMove(); break
       case 'changes': deactivateChanges(); break
     }
 
@@ -1498,6 +1849,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     switch (currentMode) {
       case 'inspector': activateInspector(); break
       case 'design': activateDesign(); break
+      case 'move': activateMove(); break
       case 'changes': activateChanges(); break
     }
 
@@ -1506,8 +1858,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function updateToolbar(): void {
+    root.dataset.mode = currentMode
     inspectorBtn.dataset.active = currentMode === 'inspector' ? 'true' : 'false'
     designBtn.dataset.active = currentMode === 'design' ? 'true' : 'false'
+    moveBtn.dataset.active = currentMode === 'move' ? 'true' : 'false'
     changesBtn.dataset.active = currentMode === 'changes' ? 'true' : 'false'
   }
 
@@ -1601,6 +1955,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   })
   designBtn.addEventListener('click', () => setMode('design'))
+  moveBtn.addEventListener('click', () => setMode('move'))
   changesBtn.addEventListener('click', () => setMode('changes'))
   clearBtn.addEventListener('click', () => {
     changes.forEach(c => {

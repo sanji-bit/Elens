@@ -222,10 +222,13 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-moving { opacity: 0.72; outline: 1px solid #6C5CE7; outline-offset: 2px; }
 .ei-move-indicator { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; }
 .ei-move-indicator[data-visible="true"] { display: block; }
-.ei-move-bounds { position: absolute; border: 1px solid #6C5CE7; border-radius: 8px; background: color-mix(in srgb, #6C5CE7 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #6C5CE7 18%, transparent); }
-.ei-move-bounds-label { position: absolute; top: 0; left: 0; transform: translateY(calc(-100% - 6px)); display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; background: #6C5CE7; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 8px 24px rgba(108,92,231,0.3); }
-.ei-move-indicator-line { position: absolute; background: #6C5CE7; box-shadow: 0 0 0 1px color-mix(in srgb, #6C5CE7 35%, transparent); }
-.ei-move-indicator-dot { position: absolute; width: 8px; height: 8px; border-radius: 999px; background: #6C5CE7; box-shadow: 0 0 0 2px rgba(17,17,19,0.96); }
+.ei-move-bounds { position: absolute; border: 1px solid #6C5CE7; border-radius: 0; background: color-mix(in srgb, #6C5CE7 5%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #6C5CE7 16%, transparent); }
+.ei-move-handles { position: absolute; inset: 0; }
+.ei-move-handle { position: absolute; pointer-events: auto; width: 22px; height: 8px; margin: -4px 0 0 -11px; border: 0; border-radius: 0; background: rgba(255,255,255,0.28); box-shadow: 0 0 0 1px rgba(108,92,231,0.32); cursor: grab; transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.ei-move-handle:hover,
+.ei-move-handle[data-active="true"] { background: #6C5CE7; box-shadow: 0 0 0 1px rgba(108,92,231,0.9), 0 0 0 4px color-mix(in srgb, #6C5CE7 18%, transparent); }
+.ei-move-handle:hover { transform: scaleX(1.05); }
+.ei-move-handle[data-active="true"] { cursor: grabbing; transform: scaleX(1.08); }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: color-mix(in srgb, #6C5CE7 10%, transparent); }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: transparent; }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: color-mix(in srgb, #6C5CE7 10%, transparent); border: 1px solid #6C5CE7; }
@@ -385,6 +388,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
+  let moveHandleEntries: Array<{ handle: HTMLButtonElement; element: HTMLElement }> = []
   let moveDragState: {
     element: HTMLElement
     container: HTMLElement
@@ -397,6 +401,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     axis: 'x' | 'y'
     placement: 'before' | 'after'
     target: HTMLElement | null
+    bounds: DOMRect
   } | null = null
   let suppressNextClick = false
 
@@ -423,12 +428,51 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   moveIndicator.setAttribute(IGNORE_ATTR, 'true')
   moveIndicator.dataset.visible = 'false'
   const moveBounds = el('div', 'ei-move-bounds')
-  const moveBoundsLabel = el('div', 'ei-move-bounds-label', 'Drag Bounds')
-  const moveIndicatorLine = el('div', 'ei-move-indicator-line')
-  const moveIndicatorDotStart = el('div', 'ei-move-indicator-dot')
-  const moveIndicatorDotEnd = el('div', 'ei-move-indicator-dot')
-  moveBounds.appendChild(moveBoundsLabel)
-  moveIndicator.append(moveBounds, moveIndicatorLine, moveIndicatorDotStart, moveIndicatorDotEnd)
+  const moveHandles = el('div', 'ei-move-handles')
+  moveIndicator.append(moveBounds, moveHandles)
+
+  function clearMoveHandles(): void {
+    moveHandleEntries = []
+    moveHandles.innerHTML = ''
+  }
+
+  function updateMoveHandles(container: HTMLElement, siblings: HTMLElement[], activeElement: HTMLElement | null = null): void {
+    clearMoveHandles()
+    const containerRect = container.getBoundingClientRect()
+    moveBounds.style.left = `${containerRect.left}px`
+    moveBounds.style.top = `${containerRect.top}px`
+    moveBounds.style.width = `${Math.max(containerRect.width, 0)}px`
+    moveBounds.style.height = `${Math.max(containerRect.height, 0)}px`
+
+    siblings.forEach((sibling) => {
+      const rect = sibling.getBoundingClientRect()
+      const handle = el('button', 'ei-move-handle')
+      handle.type = 'button'
+      handle.dataset.active = sibling === activeElement ? 'true' : 'false'
+      handle.dataset.elementPath = extractInspectorInfo(sibling).domPath
+      handle.style.left = `${rect.left + rect.width / 2}px`
+      handle.style.top = `${rect.top + rect.height / 2}px`
+      moveHandles.appendChild(handle)
+      moveHandleEntries.push({ handle, element: sibling })
+    })
+  }
+
+  function getMoveHandleEntryFromTarget(target: EventTarget | null): { handle: HTMLButtonElement; element: HTMLElement } | null {
+    if (!(target instanceof Element)) return null
+    const handle = target.closest('.ei-move-handle') as HTMLButtonElement | null
+    if (!handle) return null
+    return moveHandleEntries.find(entry => entry.handle === handle) ?? null
+  }
+
+  function showMoveOverlay(element: HTMLElement): void {
+    const container = getReorderContainer(element)
+    if (!container) {
+      hideMoveIndicator()
+      return
+    }
+    moveIndicator.dataset.visible = 'true'
+    updateMoveHandles(container, getReorderableSiblings(element), moveDragState?.element ?? null)
+  }
 
   // Design mode overlay elements
   const hlLabel = el('div', 'ei-hl-label')
@@ -527,7 +571,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function isIgnoredEvent(event: Event): boolean {
     const target = event.target
-    return target instanceof Element && Boolean(target.closest(`[${IGNORE_ATTR}="true"]`))
+    if (!(target instanceof Element)) return false
+    if (target.closest('.ei-move-handle')) return false
+    return Boolean(target.closest(`[${IGNORE_ATTR}="true"]`))
   }
 
   function isPanelEvent(event: Event): boolean {
@@ -649,23 +695,42 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return { target: null, placement: 'after', index: 0 }
     }
 
-    const pointer = axis === 'x' ? pointerX : pointerY
-    const threshold = 6
+    if (axis === 'y') {
+      const rows = otherSiblings
+        .slice()
+        .sort((a, b) => {
+          const rectA = a.getBoundingClientRect()
+          const rectB = b.getBoundingClientRect()
+          const topDiff = rectA.top - rectB.top
+          if (Math.abs(topDiff) > 8) return topDiff
+          return rectA.left - rectB.left
+        })
 
-    for (const sibling of otherSiblings) {
-      const rect = sibling.getBoundingClientRect()
-      const start = axis === 'x' ? rect.left : rect.top
-      const size = axis === 'x' ? rect.width : rect.height
-      const midpoint = start + size / 2
-      if (pointer <= midpoint - threshold) {
-        return { target: sibling, placement: 'before', index: siblings.indexOf(sibling) }
-      }
-      if (pointer < midpoint + threshold) {
-        return {
-          target: sibling,
-          placement: pointer < midpoint ? 'before' : 'after',
-          index: siblings.indexOf(sibling) + (pointer < midpoint ? 0 : 1),
+      for (const sibling of rows) {
+        const rect = sibling.getBoundingClientRect()
+        const midpoint = rect.top + rect.height / 2
+        if (pointerY <= midpoint) {
+          return { target: sibling, placement: 'before', index: siblings.indexOf(sibling) }
         }
+      }
+      return { target: null, placement: 'after', index: siblings.length - (siblings.includes(dragged) ? 1 : 0) }
+    }
+
+    const columns = otherSiblings
+      .slice()
+      .sort((a, b) => {
+        const rectA = a.getBoundingClientRect()
+        const rectB = b.getBoundingClientRect()
+        const leftDiff = rectA.left - rectB.left
+        if (Math.abs(leftDiff) > 8) return leftDiff
+        return rectA.top - rectB.top
+      })
+
+    for (const sibling of columns) {
+      const rect = sibling.getBoundingClientRect()
+      const midpoint = rect.left + rect.width / 2
+      if (pointerX <= midpoint) {
+        return { target: sibling, placement: 'before', index: siblings.indexOf(sibling) }
       }
     }
 
@@ -697,59 +762,150 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function updateMoveIndicator(
     container: HTMLElement,
-    target: HTMLElement | null,
-    placement: 'before' | 'after',
-    axis: 'x' | 'y',
+    _target: HTMLElement | null,
+    _placement: 'before' | 'after',
+    _axis: 'x' | 'y',
   ): void {
-    const containerRect = container.getBoundingClientRect()
-    const referenceRect = target?.getBoundingClientRect() ?? containerRect
-    const thickness = 2
-    const dotOffset = 4
-
     moveIndicator.dataset.visible = 'true'
-
-    moveBounds.style.left = `${containerRect.left}px`
-    moveBounds.style.top = `${containerRect.top}px`
-    moveBounds.style.width = `${Math.max(containerRect.width, 0)}px`
-    moveBounds.style.height = `${Math.max(containerRect.height, 0)}px`
-
-    if (axis === 'x') {
-      const x = target
-        ? placement === 'before' ? referenceRect.left : referenceRect.right
-        : containerRect.right
-      const top = containerRect.top
-      const height = Math.max(containerRect.height, 12)
-      moveIndicatorLine.style.left = `${x - thickness / 2}px`
-      moveIndicatorLine.style.top = `${top}px`
-      moveIndicatorLine.style.width = `${thickness}px`
-      moveIndicatorLine.style.height = `${height}px`
-      moveIndicatorDotStart.style.left = `${x - dotOffset}px`
-      moveIndicatorDotStart.style.top = `${top - dotOffset}px`
-      moveIndicatorDotEnd.style.left = `${x - dotOffset}px`
-      moveIndicatorDotEnd.style.top = `${top + height - dotOffset - 2}px`
-    } else {
-      const y = target
-        ? placement === 'before' ? referenceRect.top : referenceRect.bottom
-        : containerRect.bottom
-      const left = containerRect.left
-      const width = Math.max(containerRect.width, 12)
-      moveIndicatorLine.style.left = `${left}px`
-      moveIndicatorLine.style.top = `${y - thickness / 2}px`
-      moveIndicatorLine.style.width = `${width}px`
-      moveIndicatorLine.style.height = `${thickness}px`
-      moveIndicatorDotStart.style.left = `${left - dotOffset}px`
-      moveIndicatorDotStart.style.top = `${y - dotOffset}px`
-      moveIndicatorDotEnd.style.left = `${left + width - dotOffset - 2}px`
-      moveIndicatorDotEnd.style.top = `${y - dotOffset}px`
-    }
+    updateMoveHandles(container, getReorderableSiblings(moveDragState?.element ?? lockedElement ?? container), moveDragState?.element ?? null)
   }
 
   function hideMoveIndicator(): void {
     moveIndicator.dataset.visible = 'false'
     moveBounds.style.width = '0px'
     moveBounds.style.height = '0px'
-    moveIndicatorLine.style.width = '0px'
-    moveIndicatorLine.style.height = '0px'
+    clearMoveHandles()
+  }
+
+  function clampPointerToBounds(x: number, y: number, bounds: DOMRect): { x: number; y: number } {
+    return {
+      x: Math.max(bounds.left + 1, Math.min(x, bounds.right - 1)),
+      y: Math.max(bounds.top + 1, Math.min(y, bounds.bottom - 1)),
+    }
+  }
+
+  function getMoveBounds(container: HTMLElement): DOMRect {
+    return container.getBoundingClientRect()
+  }
+
+  function isPointInsideBounds(x: number, y: number, bounds: DOMRect): boolean {
+    return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
+  }
+
+  function updateMovePanelText(info: InspectorInfo): void {
+    const container = getReorderContainer(info.element)
+    if (!container) {
+      body.innerHTML = '<div class="ei-empty">当前父容器不是 flex 或 grid，暂时不能重排。</div>'
+      return
+    }
+    const axis = getReorderAxis(container)
+    body.innerHTML = `<div class="ei-empty">锁定后会显示 Drag Bounds。拖动每个元素中间的小横条即可调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排。</div>`
+  }
+
+  function syncMoveOverlay(): void {
+    if (currentMode !== 'move' || !lockedElement) {
+      hideMoveIndicator()
+      return
+    }
+    showMoveOverlay(lockedElement)
+  }
+
+  function resetMoveDragHandleState(): void {
+    moveHandleEntries.forEach(({ handle }) => {
+      handle.dataset.active = 'false'
+    })
+  }
+
+  function setActiveMoveHandle(element: HTMLElement | null): void {
+    moveHandleEntries.forEach(({ handle, element: entryElement }) => {
+      handle.dataset.active = element != null && entryElement === element ? 'true' : 'false'
+    })
+  }
+
+  function startMoveDragFromHandle(entry: { handle: HTMLButtonElement; element: HTMLElement }, event: MouseEvent): void {
+    const container = getReorderContainer(entry.element)
+    if (!container) return
+    const siblings = getReorderableSiblings(entry.element)
+    const bounds = getMoveBounds(container)
+    lockedElement = entry.element
+    panelAnchor = { x: event.clientX, y: event.clientY }
+    moveDragState = {
+      element: entry.element,
+      container,
+      siblings,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: false,
+      initialIndex: siblings.indexOf(entry.element),
+      lastIndex: siblings.indexOf(entry.element),
+      axis: getReorderAxis(container),
+      placement: 'before',
+      target: null,
+      bounds,
+    }
+    showMoveOverlay(entry.element)
+    setActiveMoveHandle(entry.element)
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  function finishMoveDrag(): void {
+    if (!moveDragState) return
+    hideMoveIndicator()
+    if (moveDragState.started) {
+      delete moveDragState.element.dataset.eiMoving
+      saveMoveChange(moveDragState.element, moveDragState.initialIndex, moveDragState.lastIndex)
+      const info = extractInspectorInfo(moveDragState.element)
+      currentInfo = info
+      renderMove(info)
+      setTimeout(() => {
+        suppressNextClick = false
+      }, 0)
+    }
+    moveDragState = null
+    resetMoveDragHandleState()
+  }
+
+  function cancelMoveDrag(): void {
+    if (!moveDragState) return
+    delete moveDragState.element.dataset.eiMoving
+    moveDragState = null
+    resetMoveDragHandleState()
+    syncMoveOverlay()
+  }
+
+  function updateMoveDrag(event: MouseEvent): boolean {
+    if (!moveDragState) return false
+    hideTooltip()
+    const dx = event.clientX - moveDragState.startX
+    const dy = event.clientY - moveDragState.startY
+    if (!moveDragState.started && Math.hypot(dx, dy) >= 2) {
+      moveDragState.started = true
+      suppressNextClick = true
+      moveDragState.element.dataset.eiMoving = 'true'
+    }
+    if (!moveDragState.started) return true
+
+    const pointer = clampPointerToBounds(event.clientX, event.clientY, moveDragState.bounds)
+    const siblings = getReorderableSiblings(moveDragState.element)
+    moveDragState.siblings = siblings
+    const insertion = getInsertionTarget(
+      siblings,
+      pointer.x,
+      pointer.y,
+      moveDragState.element,
+      moveDragState.axis,
+    )
+    moveDragState.target = insertion.target
+    moveDragState.placement = insertion.placement
+    applyMoveInsertion(moveDragState.container, moveDragState.element, insertion.target, insertion.placement)
+    updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
+    const nextIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
+    moveDragState.lastIndex = nextIndex
+    const info = extractInspectorInfo(moveDragState.element)
+    currentInfo = info
+    updateHighlight(info)
+    return true
   }
 
   function describeMoveChange(element: HTMLElement, initialIndex: number, nextIndex: number): string {
@@ -1081,7 +1237,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     body.innerHTML = currentMode === 'design'
       ? `<div class="ei-empty">\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\u5F00\u59CB\u7F16\u8F91\u6837\u5F0F\u3002\u4FEE\u6539\u5373\u65F6\u751F\u6548\uFF0C\u5B8C\u6210\u540E\u70B9 Done \u4FDD\u5B58\u53D8\u66F4\u3002</div>`
       : currentMode === 'move'
-        ? `<div class="ei-empty">\u5148\u70B9\u51FB\u9501\u5B9A\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u62D6\u52A8\u5B83\u8C03\u6574\u540C\u7EA7\u987A\u5E8F\u3002\u5F53\u524D\u4EC5\u652F\u6301\u7236\u5BB9\u5668\u4E3A flex \u6216 grid \u7684\u5E03\u5C40\u3002</div>`
+        ? `<div class="ei-empty">\u5148\u70B9\u51FB\u9501\u5B9A\u4E00\u4E2A\u5143\u7D20\u3002\u9501\u5B9A\u540E\u4F1A\u51FA\u73B0 Drag Bounds \u548C\u6BCF\u4E2A\u5143\u7D20\u4E2D\u95F4\u7684\u5C0F\u6A2A\u6761\uFF0C\u6309\u4F4F\u6A2A\u6761\u5373\u53EF\u5728 bounds \u5185\u8C03\u6574\u540C\u7EA7\u987A\u5E8F\u3002</div>`
         : `<div class="ei-empty">\u5F00\u542F\u540E\u5148\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u663E\u793A\u4FE1\u606F\u9762\u677F\u3002\u79FB\u52A8\u9F20\u6807\u53EA\u9AD8\u4EAE\u5143\u7D20\uFF0C\u4E0D\u4F1A\u7ACB\u523B\u6253\u5F00\u4FE1\u606F\u6846\u3002\u9501\u5B9A\u540E\u53EF\u7528\u65B9\u5411\u952E\u5207\u7236/\u5B50/\u5144\u5F1F\u5143\u7D20\uFF0C\u4E5F\u53EF\u4EE5\u76F4\u63A5\u70B9 breadcrumbs \u8DF3\u5C42\u3002</div>`
     copyBtn.style.display = 'none'
     unlockBtn.style.display = lockedElement ? 'inline-block' : 'none'
@@ -1388,10 +1544,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     cleanupPanelExtras()
 
     titleEl.textContent = 'Move'
-    subtitle.textContent = 'Move mode — 拖动以调整顺序，Esc 退出'
+    subtitle.textContent = 'Move mode — 拖动 handle 调整顺序，Esc 退出'
     copyBtn.style.display = 'none'
 
     if (!info || !lockedElement) {
+      hideMoveIndicator()
       unlockBtn.style.display = 'none'
       renderEmpty()
       return
@@ -1400,16 +1557,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     unlockBtn.style.display = 'inline-block'
     setPanelVisible(true)
     positionPanel(panelAnchor, info)
-
-    const container = getReorderContainer(info.element)
-    if (container) {
-      const axis = getReorderAxis(container)
-      body.innerHTML = `<div class="ei-empty">拖动当前元素可以在同级节点间调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排，并显示 Drag Bounds 与插入指示线。</div>`
-    } else {
-      body.innerHTML = '<div class="ei-empty">当前父容器不是 flex 或 grid，暂时不能重排。</div>'
-    }
-
+    updateMovePanelText(info)
     updateHighlight(info)
+    syncMoveOverlay()
   }
 
   function renderForCurrentMode(info: InspectorInfo | null): void {
@@ -1452,6 +1602,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderMarkers()
     if (!lockedElement) {
       updateHighlight(currentInfo)
+      hideMoveIndicator()
       if (panelPosition) {
         positionPanel(panelAnchor, currentInfo)
       } else if (currentInfo && panelAnchor) {
@@ -1481,35 +1632,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function onMouseMove(event: MouseEvent): void {
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
-    if (currentMode === 'move' && moveDragState) {
-      hideTooltip()
-      const dx = event.clientX - moveDragState.startX
-      const dy = event.clientY - moveDragState.startY
-      if (!moveDragState.started && Math.hypot(dx, dy) >= 6) {
-        moveDragState.started = true
-        suppressNextClick = true
-        moveDragState.element.dataset.eiMoving = 'true'
+    if (currentMode === 'move' && updateMoveDrag(event)) return
+    if (currentMode === 'move' && lockedElement) {
+      const container = getReorderContainer(lockedElement)
+      if (container) {
+        const bounds = getMoveBounds(container)
+        if (isPointInsideBounds(event.clientX, event.clientY, bounds)) {
+          showMoveOverlay(lockedElement)
+        }
       }
-      if (!moveDragState.started) return
-      const siblings = getReorderableSiblings(moveDragState.element)
-      moveDragState.siblings = siblings
-      const insertion = getInsertionTarget(
-        siblings,
-        event.clientX,
-        event.clientY,
-        moveDragState.element,
-        moveDragState.axis,
-      )
-      moveDragState.target = insertion.target
-      moveDragState.placement = insertion.placement
-      updateMoveIndicator(moveDragState.container, insertion.target, insertion.placement, moveDragState.axis)
-      applyMoveInsertion(moveDragState.container, moveDragState.element, insertion.target, insertion.placement)
-      const nextIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
-      moveDragState.lastIndex = nextIndex
-      const info = extractInspectorInfo(moveDragState.element)
-      currentInfo = info
-      updateHighlight(info)
-      return
     }
     if (lockedElement) {
       hideTooltip()
@@ -1519,45 +1650,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function onMouseDown(event: MouseEvent): void {
-    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
-    if (currentMode !== 'move' || !lockedElement || event.button !== 0) return
-    const element = getInspectableElementFromPoint(event.clientX, event.clientY, IGNORE_ATTR)
-    if (element !== lockedElement) return
-    const container = getReorderContainer(lockedElement)
-    if (!container) return
-    const siblings = getReorderableSiblings(lockedElement)
-    moveDragState = {
-      element: lockedElement,
-      container,
-      siblings,
-      startX: event.clientX,
-      startY: event.clientY,
-      started: false,
-      initialIndex: siblings.indexOf(lockedElement),
-      lastIndex: siblings.indexOf(lockedElement),
-      axis: getReorderAxis(container),
-      placement: 'before',
-      target: null,
-    }
-    hideMoveIndicator()
-    event.preventDefault()
-    event.stopPropagation()
+    if (!isInteractiveMode() || isPanelEvent(event)) return
+    if (currentMode !== 'move' || event.button !== 0) return
+    const handleEntry = getMoveHandleEntryFromTarget(event.target)
+    if (!handleEntry) return
+    startMoveDragFromHandle(handleEntry, event)
   }
 
   function onMouseUp(event: MouseEvent): void {
     if (!moveDragState) return
-    hideMoveIndicator()
-    if (moveDragState.started) {
-      delete moveDragState.element.dataset.eiMoving
-      saveMoveChange(moveDragState.element, moveDragState.initialIndex, moveDragState.lastIndex)
-      const info = extractInspectorInfo(moveDragState.element)
-      currentInfo = info
-      renderMove(info)
-      setTimeout(() => {
-        suppressNextClick = false
-      }, 0)
-    }
-    moveDragState = null
+    finishMoveDrag()
     event.preventDefault()
     event.stopPropagation()
   }
@@ -1614,9 +1716,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       event.preventDefault()
       event.stopPropagation()
       if (moveDragState?.element) {
-        delete moveDragState.element.dataset.eiMoving
-        hideMoveIndicator()
-        moveDragState = null
+        cancelMoveDrag()
         return
       }
       if (lockedElement) {
@@ -1813,6 +1913,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       delete moveDragState.element.dataset.eiMoving
     }
     hideMoveIndicator()
+    resetMoveDragHandleState()
     suppressNextClick = false
     moveDragState = null
     lockedElement = null
@@ -1932,9 +2033,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function unlockCurrent(): void {
     resetDesignTracker()
+    cancelMoveDrag()
     lockedElement = null
     panelAnchor = null
     panelPosition = null
+    hideMoveIndicator()
     renderForCurrentMode(null)
   }
 

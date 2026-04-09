@@ -158,6 +158,7 @@ export type ChangeMeta = {
   status: 'confirmed'
   createdAt: string
   updatedAt: string
+  route?: string
 }
 
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'changes'

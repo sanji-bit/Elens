@@ -1,6 +1,6 @@
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode } from './types'
 import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
-import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, rgbToHex, truncate } from './utils'
+import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, getRoute, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
@@ -219,12 +219,12 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-hl-margin { position: relative; width: 100%; height: 100%; background: rgba(225, 112, 85, 0.45); }
 .ei-hl-padding { position: absolute; background: rgba(0, 184, 148, 0.50); }
 .ei-hl-content { position: absolute; background: rgba(0, 206, 201, 0.50); }
-.ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; }
+.ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; outline: none; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-highlight[data-design="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
+.ei-highlight[data-design="true"] .ei-hl-content { background: transparent; }
 .ei-highlight[data-outlines="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-outlines="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-highlight[data-outlines="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
+.ei-highlight[data-outlines="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
 .ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; background: transparent; }
 .ei-highlight[data-move="true"] .ei-hl-content { background: transparent; }
 .ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; pointer-events: none; }
@@ -264,12 +264,15 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-hl-pad-line { position: absolute; display: none; }
 .ei-hl-pad-line-h { border-top: 1px solid ${accentColor}; }
 .ei-hl-pad-line-v { border-left: 1px solid ${accentColor}; }
+.ei-hl-pad-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
 .ei-hl-margin-badge { position: absolute; background: #E17055; color: rgba(255,255,255,0.95); font-size: 9px; font-weight: 500; padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; z-index: 1; }
 .ei-hl-margin-line { position: absolute; display: none; }
 .ei-hl-margin-line-h { border-top: 1px dashed #E17055; }
 .ei-hl-margin-line-v { border-left: 1px dashed #E17055; }
+.ei-hl-margin-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px); }
 .ei-highlight[data-design="true"] .ei-hl-margin-badge,
-.ei-highlight[data-design="true"] .ei-hl-margin-line { display: block; }
+.ei-highlight[data-design="true"] .ei-hl-margin-line,
+.ei-highlight[data-design="true"] .ei-hl-margin-edge { display: block; }
 .ei-toolbar { position: fixed; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 9999px; background: black; box-shadow: 0px 2px 8px rgba(0,0,0,0.24), 0px 1px 24px rgba(0,0,0,0.24); pointer-events: auto; cursor: grab; user-select: none; }
 .ei-toolbar:active { cursor: grabbing; }
 .ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0px 0.5px 0px rgba(255,255,255,0.04), inset 0px 0px 0.5px rgba(255,255,255,0.08); pointer-events: none; }
@@ -381,21 +384,48 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-annotate-btn { height: 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 11px; font-weight: 600; padding: 0 12px; }
 .ei-annotate-btn-primary { background: ${accentColor}; border-color: ${accentColor}; color: #fff; }
 .ei-marker { position: fixed; pointer-events: auto; width: 24px; height: 24px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.22); border: none; z-index: 1; }
-.ei-ann-list { padding: 0; }
-.ei-ann-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
-.ei-ann-item:last-child { border-bottom: 0; }
+.ei-ann-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 10px; }
+.ei-ann-filter { height: 26px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.68); cursor: pointer; font-size: 10px; font-weight: 700; padding: 0 10px; }
+.ei-ann-filter.is-active { background: rgba(108,92,231,0.22); border-color: rgba(108,92,231,0.45); color: #fff; }
+.ei-ann-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.ei-ann-group:last-of-type { margin-bottom: 0; }
+.ei-ann-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px; }
+.ei-ann-group-title { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.86); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-group-meta { font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+.ei-ann-list { padding: 4px 0; display: flex; flex-direction: column; gap: 10px; }
+.ei-ann-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.04); cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+.ei-ann-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); transform: translateY(-1px); }
+.ei-ann-item.is-expanded { border-color: rgba(108,92,231,0.32); background: rgba(108,92,231,0.06); }
 .ei-ann-num { width: 20px; height: 20px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
-.ei-ann-body { flex: 1; min-width: 0; }
+.ei-ann-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ei-ann-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ei-ann-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.ei-ann-expand-hint { font-size: 10px; color: rgba(255,255,255,0.36); }
+.ei-ann-route { font-size: 10px; color: rgba(255,255,255,0.42); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-title { font-size: 12px; font-weight: 600; color: #f4f4f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ei-ann-selector { font-size: 11px; color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-comment { font-size: 12px; color: #e8e8ec; margin-top: 2px; }
+.ei-ann-comment { font-size: 11px; color: rgba(255,255,255,0.72); }
+.ei-ann-more { font-size: 10px; color: rgba(255,255,255,0.42); }
+.ei-ann-actions { display: flex; gap: 6px; margin-top: 4px; }
+.ei-ann-action { height: 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.82); cursor: pointer; font-size: 10px; font-weight: 700; padding: 0 8px; }
+.ei-ann-action:hover, .ei-ann-filter:hover { background: rgba(255,255,255,0.08); }
 .ei-ann-del { flex-shrink: 0; width: 20px; height: 20px; border: 0; background: transparent; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
 .ei-ann-del:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); }
 .ei-ann-export { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
 .ei-ann-export-btn { flex: 1; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 11px; font-weight: 600; }
+.ei-ann-export-btn:hover { background: rgba(255,255,255,0.12); }
 .ei-ann-empty { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; padding: 24px 16px; }
-.ei-ann-type { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); vertical-align: middle; }
-.ei-ann-diffs { margin-top: 4px; }
-.ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.6); font-family: monospace; line-height: 1.5; padding-left: 4px; border-left: 2px solid ${accentColor}; margin-bottom: 2px; }
+.ei-ann-type { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 999px; background: rgba(108,92,231,0.22); color: rgba(255,255,255,0.92); vertical-align: middle; }
+.ei-ann-badge { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.62); }
+.ei-ann-badge-muted { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.58); }
+.ei-ann-diffs { display: flex; flex-direction: column; gap: 4px; }
+.ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.68); font-family: monospace; line-height: 1.45; padding-left: 6px; border-left: 2px solid ${accentColor}; }
+.ei-ann-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
+.ei-ann-compare-col { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px; min-width: 0; }
+.ei-ann-compare-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.42); margin-bottom: 6px; }
+.ei-ann-compare-row { font-size: 10px; color: rgba(255,255,255,0.72); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-change-flash-target { animation: ei-change-flash 1.2s ease-out 1; }
+@keyframes ei-change-flash { 0% { outline: 2px solid rgba(108,92,231,0.95); outline-offset: 3px; } 100% { outline: 2px solid rgba(108,92,231,0); outline-offset: 8px; } }
 [data-ei-outlines="true"] * { outline: 1px solid rgba(0, 0, 0, 0.6); outline-offset: -1px; }
 [data-ei-outlines="true"] *:hover { outline-color: rgba(0, 0, 0, 0.9); }
 [data-ei-outlines="true"] .ei-hover-highlight { outline: 2px solid ${accentColor}; outline-offset: -1px; }
@@ -422,6 +452,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let changes: Change[] = []
   let changeIdCounter = 0
   let annotateInput: HTMLTextAreaElement | null = null
+  let changesFilter: 'all' | 'style' | 'text' | 'move' | 'note' = 'all'
+  let expandedChangeIds = new Set<string>()
+  let changeFlashTimeout: number | null = null
+  let changeFlashElement: HTMLElement | null = null
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
@@ -525,16 +559,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const hlCode = el('div', 'ei-hl-code', '</>')
   const hlPadBadges: Record<string, HTMLDivElement> = {}
   const hlPadLines: Record<string, HTMLDivElement> = {}
+  const hlPadEdges: Record<string, HTMLDivElement> = {}
   const hlMarginBadges: Record<string, HTMLDivElement> = {}
   const hlMarginLines: Record<string, HTMLDivElement> = {}
+  const hlMarginEdges: Record<string, HTMLDivElement> = {}
   for (const side of ['top', 'right', 'bottom', 'left'] as const) {
     hlPadBadges[side] = el('div', 'ei-hl-pad-badge')
     hlPadLines[side] = el('div', `ei-hl-pad-line ei-hl-pad-line-${side === 'top' || side === 'bottom' ? 'v' : 'h'}`)
+    hlPadEdges[side] = el('div', `ei-hl-pad-edge ei-hl-pad-edge-${side}`)
+    hlPadding.appendChild(hlPadEdges[side])
     hlPadding.appendChild(hlPadLines[side])
     hlPadding.appendChild(hlPadBadges[side])
     // Margin badges and lines (attached to margin layer)
     hlMarginBadges[side] = el('div', 'ei-hl-margin-badge')
     hlMarginLines[side] = el('div', `ei-hl-margin-line ei-hl-margin-line-${side === 'top' || side === 'bottom' ? 'v' : 'h'}`)
+    hlMarginEdges[side] = el('div', `ei-hl-margin-edge ei-hl-margin-edge-${side}`)
+    hlMargin.appendChild(hlMarginEdges[side])
     hlMargin.appendChild(hlMarginLines[side])
     hlMargin.appendChild(hlMarginBadges[side])
   }
@@ -1258,6 +1298,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         status: 'confirmed',
         createdAt: isoTimestamp,
         updatedAt: isoTimestamp,
+        route: getRoute(),
       },
     }
     changes.push(change)
@@ -1281,6 +1322,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     change.patch = buildChangePatch(change.type, diffs, comment)
     change.afterSnapshot = buildChangeSnapshot(info)
     change.meta.updatedAt = new Date().toISOString()
+    change.meta.route = getRoute()
     options.onChangeAdd?.(change)
     renderMarkers()
   }
@@ -1367,9 +1409,105 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     body.innerHTML = ''
     cleanupPanelExtras()
     titleEl.textContent = 'Changes'
-    subtitle.textContent = `${changes.length} item${changes.length !== 1 ? 's' : ''}`
     copyBtn.style.display = 'none'
     unlockBtn.style.display = 'none'
+
+    const currentRoute = getRoute()
+
+    const typeKey = (change: Change): 'style' | 'text' | 'move' | 'note' => {
+      if (change.type === 'move') return 'move'
+      if (change.type === 'annotation') return 'note'
+      return change.patch.textDiff ? 'text' : 'style'
+    }
+
+    const typeLabel = (change: Change): string => {
+      const key = typeKey(change)
+      if (key === 'text') return 'Text'
+      if (key === 'style') return 'Style'
+      if (key === 'move') return 'Move'
+      return 'Note'
+    }
+
+    const sourceLabel = (change: Change): string => change.meta.sourceMode === 'design'
+      ? 'Design'
+      : change.meta.sourceMode === 'move'
+        ? 'Move'
+        : 'Inspector'
+
+    const selectorText = (change: Change): string => change.target?.selector?.primary || change.target?.domPath || change.info.domPath
+    const routeText = (change: Change): string => change.meta.route || currentRoute
+    const visibleChanges = changes.filter(change => changesFilter === 'all' || typeKey(change) === changesFilter)
+    subtitle.textContent = `${visibleChanges.length} / ${changes.length} item${changes.length !== 1 ? 's' : ''}`
+
+    const flashChangeTarget = (element: HTMLElement): void => {
+      if (changeFlashTimeout != null) {
+        window.clearTimeout(changeFlashTimeout)
+        changeFlashTimeout = null
+      }
+      if (changeFlashElement) {
+        changeFlashElement.classList.remove('ei-change-flash-target')
+      }
+      changeFlashElement = element
+      element.classList.add('ei-change-flash-target')
+      changeFlashTimeout = window.setTimeout(() => {
+        element.classList.remove('ei-change-flash-target')
+        if (changeFlashElement === element) changeFlashElement = null
+        changeFlashTimeout = null
+      }, 1400)
+    }
+
+    const elementSummary = (change: Change): string => {
+      const text = change.target?.text || change.info.text
+      const cleanText = text && text !== '—' ? truncate(text, 48) : ''
+      return cleanText ? `${change.info.tagName} “${cleanText}”` : change.info.tagName
+    }
+
+    const formatSnapshotValue = (value: string): string => value && value !== '—' ? truncate(value, 32) : '—'
+
+    const collectSnapshotRows = (change: Change): Array<{ label: string; before: string; after: string }> => {
+      const rows = [
+        { label: 'Text', before: change.beforeSnapshot.text, after: change.afterSnapshot.text },
+        { label: 'Font', before: change.beforeSnapshot.typography.fontSize, after: change.afterSnapshot.typography.fontSize },
+        { label: 'Color', before: change.beforeSnapshot.typography.color, after: change.afterSnapshot.typography.color },
+        { label: 'Background', before: change.beforeSnapshot.visual.backgroundColor, after: change.afterSnapshot.visual.backgroundColor },
+        { label: 'Radius', before: change.beforeSnapshot.box.borderRadius, after: change.afterSnapshot.box.borderRadius },
+        { label: 'Padding', before: change.beforeSnapshot.box.padding, after: change.afterSnapshot.box.padding },
+        { label: 'Gap', before: change.beforeSnapshot.layout.gap, after: change.afterSnapshot.layout.gap },
+      ]
+
+      return rows
+        .filter(row => row.before !== row.after)
+        .slice(0, 6)
+        .map(row => ({
+          label: row.label,
+          before: formatSnapshotValue(row.before),
+          after: formatSnapshotValue(row.after),
+        }))
+    }
+
+    const buildSummaryLines = (change: Change): string[] => {
+      if (change.patch.textDiff) {
+        return [`Text: ${truncate(change.patch.textDiff.from, 28)} → ${truncate(change.patch.textDiff.to, 28)}`]
+      }
+
+      if (change.patch.moveDiff) {
+        return [`Position: ${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`]
+      }
+
+      if (change.type === 'design' && change.diffs && change.diffs.length > 0) {
+        return change.diffs.slice(0, 5).map(diff => `${diff.property}: ${truncate(diff.original, 18)} → ${truncate(diff.modified, 18)}`)
+      }
+
+      return change.comment ? [change.comment] : ['No extra notes']
+    }
+
+    const filterOptions: Array<{ key: typeof changesFilter; label: string }> = [
+      { key: 'all', label: 'All' },
+      { key: 'style', label: 'Style' },
+      { key: 'text', label: 'Text' },
+      { key: 'move', label: 'Move' },
+      { key: 'note', label: 'Note' },
+    ]
 
     if (changes.length === 0) {
       body.innerHTML = '<div class="ei-ann-empty">\u8FD8\u6CA1\u6709\u53D8\u66F4\u8BB0\u5F55\u3002\u5728 Inspector \u6216 Design \u6A21\u5F0F\u4E2D\u6DFB\u52A0\u3002</div>'
@@ -1378,48 +1516,144 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    const list = el('div', 'ei-ann-list')
-    changes.forEach((c, i) => {
-      const item = el('div', 'ei-ann-item')
-      item.setAttribute(IGNORE_ATTR, 'true')
-
-      const num = el('div', 'ei-ann-num', String(i + 1))
-      const bodyDiv = el('div', 'ei-ann-body')
-      const typeBadge = el('span', 'ei-ann-type', c.type === 'design' ? 'Design' : c.type === 'move' ? 'Move' : 'Note')
-      const selector = el('div', 'ei-ann-selector')
-      selector.append(typeBadge, document.createTextNode(` ${c.info.domPath}`))
-
-      if (c.type === 'design' && c.diffs && c.diffs.length > 0) {
-        const diffList = el('div', 'ei-ann-diffs')
-        for (const d of c.diffs) {
-          diffList.appendChild(el('div', 'ei-ann-diff', `${d.property}: ${d.original} → ${d.modified}`))
-        }
-        bodyDiv.append(selector, diffList)
-        if (c.comment) bodyDiv.appendChild(el('div', 'ei-ann-comment', c.comment))
-      } else {
-        const comment = el('div', 'ei-ann-comment', c.comment)
-        bodyDiv.append(selector, comment)
-      }
-
-      const delBtn = el('button', 'ei-ann-del', '\u00D7')
-      delBtn.type = 'button'
-      delBtn.setAttribute(IGNORE_ATTR, 'true')
-      delBtn.addEventListener('click', (e) => {
+    const filters = el('div', 'ei-ann-filters')
+    for (const option of filterOptions) {
+      const btn = el('button', `ei-ann-filter${changesFilter === option.key ? ' is-active' : ''}`, option.label)
+      btn.type = 'button'
+      btn.setAttribute(IGNORE_ATTR, 'true')
+      btn.addEventListener('click', (e) => {
         e.stopPropagation()
-        removeChange(c.id)
+        changesFilter = option.key
         renderChangesList()
       })
+      filters.appendChild(btn)
+    }
+    body.appendChild(filters)
 
-      item.append(num, bodyDiv, delBtn)
-      item.addEventListener('click', () => {
-        setMode('inspector')
-        lockedElement = c.element
-        panelAnchor = null
-        renderInfo(extractInspectorInfo(c.element))
-      })
-      list.appendChild(item)
-    })
-    body.appendChild(list)
+    if (visibleChanges.length === 0) {
+      body.appendChild(el('div', 'ei-ann-empty', '当前筛选下没有记录。'))
+    } else {
+      const groupedChanges = visibleChanges.reduce<Record<string, Change[]>>((acc, change) => {
+        const key = routeText(change)
+        if (!acc[key]) acc[key] = []
+        acc[key].push(change)
+        return acc
+      }, {})
+
+      let visibleIndex = 0
+      for (const [groupRoute, groupItems] of Object.entries(groupedChanges)) {
+        const group = el('section', 'ei-ann-group')
+        const groupHeader = el('div', 'ei-ann-group-header')
+        const groupTitle = el('div', 'ei-ann-group-title', groupRoute)
+        const groupMeta = el('div', 'ei-ann-group-meta', `${groupItems.length} item${groupItems.length !== 1 ? 's' : ''}`)
+        groupHeader.append(groupTitle, groupMeta)
+        group.appendChild(groupHeader)
+
+        const list = el('div', 'ei-ann-list')
+        groupItems.forEach((c) => {
+          visibleIndex += 1
+          const expanded = expandedChangeIds.has(c.id)
+          const item = el('div', `ei-ann-item${expanded ? ' is-expanded' : ''}`)
+          item.setAttribute(IGNORE_ATTR, 'true')
+
+          const num = el('div', 'ei-ann-num', String(visibleIndex))
+          const bodyDiv = el('div', 'ei-ann-body')
+          const header = el('div', 'ei-ann-header')
+          const badges = el('div', 'ei-ann-badges')
+          const typeBadge = el('span', 'ei-ann-type', typeLabel(c))
+          const sourceBadge = el('span', 'ei-ann-badge ei-ann-badge-muted', sourceLabel(c))
+          const expandHint = el('span', 'ei-ann-expand-hint', expanded ? 'Collapse' : 'Expand')
+          badges.append(typeBadge, sourceBadge)
+          header.append(badges, expandHint)
+
+          const routeRow = el('div', 'ei-ann-route', routeText(c))
+          const title = el('div', 'ei-ann-title', elementSummary(c))
+          const selector = el('div', 'ei-ann-selector', selectorText(c))
+          const summaryList = el('div', 'ei-ann-diffs')
+          const summaryLines = buildSummaryLines(c)
+          for (const line of (expanded ? summaryLines : summaryLines.slice(0, 2))) {
+            summaryList.appendChild(el('div', 'ei-ann-diff', line))
+          }
+
+          bodyDiv.append(header, routeRow, title, selector, summaryList)
+
+          if (summaryLines.length > 2 && !expanded) {
+            bodyDiv.appendChild(el('div', 'ei-ann-more', `+${summaryLines.length - 2} more`))
+          }
+
+          if (c.comment && !summaryLines.includes(c.comment)) {
+            bodyDiv.appendChild(el('div', 'ei-ann-comment', c.comment))
+          }
+
+          const snapshotRows = collectSnapshotRows(c)
+          if (snapshotRows.length > 0 && c.type !== 'move') {
+            const compare = el('div', 'ei-ann-compare')
+            const beforeCol = el('div', 'ei-ann-compare-col')
+            const afterCol = el('div', 'ei-ann-compare-col')
+            beforeCol.appendChild(el('div', 'ei-ann-compare-label', 'Before'))
+            afterCol.appendChild(el('div', 'ei-ann-compare-label', 'After'))
+            const rowsToShow = expanded ? snapshotRows : snapshotRows.slice(0, 3)
+            for (const row of rowsToShow) {
+              beforeCol.appendChild(el('div', 'ei-ann-compare-row', `${row.label}: ${row.before}`))
+              afterCol.appendChild(el('div', 'ei-ann-compare-row', `${row.label}: ${row.after}`))
+            }
+            compare.append(beforeCol, afterCol)
+            bodyDiv.appendChild(compare)
+            if (snapshotRows.length > rowsToShow.length) {
+              bodyDiv.appendChild(el('div', 'ei-ann-more', `+${snapshotRows.length - rowsToShow.length} more fields`))
+            }
+          }
+
+          const actions = el('div', 'ei-ann-actions')
+          const jumpBtn = el('button', 'ei-ann-action', 'Jump')
+          jumpBtn.type = 'button'
+          jumpBtn.setAttribute(IGNORE_ATTR, 'true')
+          jumpBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            setMode('inspector')
+            lockedElement = c.element
+            panelAnchor = null
+            c.element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+            flashChangeTarget(c.element)
+            renderInfo(extractInspectorInfo(c.element))
+          })
+
+          const expandBtn = el('button', 'ei-ann-action', expanded ? 'Collapse' : 'Expand')
+          expandBtn.type = 'button'
+          expandBtn.setAttribute(IGNORE_ATTR, 'true')
+          expandBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            if (expanded) expandedChangeIds.delete(c.id)
+            else expandedChangeIds.add(c.id)
+            renderChangesList()
+          })
+
+          const delBtn = el('button', 'ei-ann-del', '\u00D7')
+          delBtn.type = 'button'
+          delBtn.setAttribute(IGNORE_ATTR, 'true')
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            expandedChangeIds.delete(c.id)
+            removeChange(c.id)
+            renderChangesList()
+          })
+
+          actions.append(jumpBtn, expandBtn)
+          bodyDiv.appendChild(actions)
+
+          item.append(num, bodyDiv, delBtn)
+          item.addEventListener('click', () => {
+            if (expanded) expandedChangeIds.delete(c.id)
+            else expandedChangeIds.add(c.id)
+            renderChangesList()
+          })
+          list.appendChild(item)
+        })
+
+        group.appendChild(list)
+        body.appendChild(group)
+      }
+    }
 
     const exportRow = el('div', 'ei-ann-export')
     const copyAIBtn = el('button', 'ei-ann-export-btn', 'Copy AI')
@@ -1537,27 +1771,34 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       for (const [side, val] of sides) {
         const badge = hlPadBadges[side]!
         const line = hlPadLines[side]!
+        const edge = hlPadEdges[side]!
         if (val > 0) {
           badge.textContent = String(Math.round(val))
           badge.style.display = 'block'
           line.style.display = 'block'
+          edge.style.display = 'block'
 
           if (side === 'top') {
             badge.style.cssText = `display:block;left:${w / 2 - 10}px;top:${pt / 2 - 7}px;`
             line.style.cssText = `display:block;left:${w / 2}px;top:0;height:${pt}px;width:0;border-left:1px solid ${accentColor};`
+            edge.style.cssText = `display:block;left:0;top:0;width:${w}px;height:${pt}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'bottom') {
             badge.style.cssText = `display:block;left:${w / 2 - 10}px;bottom:${pb / 2 - 7}px;`
             line.style.cssText = `display:block;left:${w / 2}px;bottom:0;height:${pb}px;width:0;border-left:1px solid ${accentColor};`
+            edge.style.cssText = `display:block;left:0;bottom:0;width:${w}px;height:${pb}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'left') {
             badge.style.cssText = `display:block;left:${pl / 2 - 10}px;top:${h / 2 - 7}px;`
             line.style.cssText = `display:block;top:${h / 2}px;left:0;width:${pl}px;height:0;border-top:1px solid ${accentColor};`
+            edge.style.cssText = `display:block;left:0;top:0;width:${pl}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else {
             badge.style.cssText = `display:block;right:${pr / 2 - 10}px;top:${h / 2 - 7}px;`
             line.style.cssText = `display:block;top:${h / 2}px;right:0;width:${pr}px;height:0;border-top:1px solid ${accentColor};`
+            edge.style.cssText = `display:block;right:0;top:0;width:${pr}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
           }
         } else {
           badge.style.display = 'none'
           line.style.display = 'none'
+          edge.style.display = 'none'
         }
       }
 
@@ -1566,10 +1807,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       for (const [side, val] of marginSides) {
         const badge = hlMarginBadges[side]!
         const line = hlMarginLines[side]!
+        const edge = hlMarginEdges[side]!
         if (val > 0) {
           badge.textContent = String(Math.round(val))
           badge.style.display = 'block'
           line.style.display = 'block'
+          edge.style.display = 'block'
 
           // Total dimensions including padding
           const fullW = w + ml + mr
@@ -1578,19 +1821,24 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           if (side === 'top') {
             badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;top:${mt / 2 - 7}px;`
             line.style.cssText = `display:block;left:${fullW / 2}px;top:0;height:${mt}px;width:0;border-left:1px dashed #E17055;`
+            edge.style.cssText = `display:block;left:0;top:0;width:${fullW}px;height:${mt}px;border-top:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'bottom') {
             badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;bottom:${mb / 2 - 7}px;`
             line.style.cssText = `display:block;left:${fullW / 2}px;bottom:0;height:${mb}px;width:0;border-left:1px dashed #E17055;`
+            edge.style.cssText = `display:block;left:0;bottom:0;width:${fullW}px;height:${mb}px;border-bottom:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'left') {
             badge.style.cssText = `display:block;left:${ml / 2 - 10}px;top:${fullH / 2 - 7}px;`
             line.style.cssText = `display:block;top:${fullH / 2}px;left:0;width:${ml}px;height:0;border-top:1px dashed #E17055;`
+            edge.style.cssText = `display:block;left:0;top:0;width:${ml}px;height:${fullH}px;border-left:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
           } else {
             badge.style.cssText = `display:block;right:${mr / 2 - 10}px;top:${fullH / 2 - 7}px;`
             line.style.cssText = `display:block;top:${fullH / 2}px;right:0;width:${mr}px;height:0;border-top:1px dashed #E17055;`
+            edge.style.cssText = `display:block;right:0;top:0;width:${mr}px;height:${fullH}px;border-right:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
           }
         } else {
           badge.style.display = 'none'
           line.style.display = 'none'
+          edge.style.display = 'none'
         }
       }
     } else {
@@ -1599,8 +1847,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       for (const side of ['top', 'right', 'bottom', 'left']) {
         hlPadBadges[side]!.style.display = 'none'
         hlPadLines[side]!.style.display = 'none'
+        hlPadEdges[side]!.style.display = 'none'
         hlMarginBadges[side]!.style.display = 'none'
         hlMarginLines[side]!.style.display = 'none'
+        hlMarginEdges[side]!.style.display = 'none'
       }
     }
 

@@ -784,9 +784,8 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   hexInput.setAttribute(IGNORE_ATTR, 'true')
 
   if (isGradient) {
-    hexInput.value = 'Gradient'
-    hexInput.readOnly = true
-    hexInput.style.color = 'rgba(255,255,255,0.45)'
+    hexInput.value = value
+    hexInput.style.color = 'rgba(255,255,255,0.85)'
     picker.value = '#000000'
   } else {
     hexInput.value = currentHex.replace('#', '')
@@ -799,6 +798,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     max: 100,
     step: 1,
     onChange: (v) => {
+      if (hexInput.value.includes('gradient(')) return
       currentHex = picker.value || currentHex
       onOpacityChange?.(v, currentHex)
     },
@@ -810,9 +810,15 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     currentHex = hex
     swatch.style.background = hex
     hexInput.value = hex.replace('#', '').toUpperCase()
-    hexInput.readOnly = false
     hexInput.style.color = ''
     onChange(hex)
+  }
+
+  function applyGradient(gradient: string): void {
+    swatch.style.background = gradient
+    hexInput.value = gradient
+    hexInput.style.color = 'rgba(255,255,255,0.85)'
+    onChange(gradient)
   }
 
   picker.addEventListener('input', (e) => {
@@ -824,17 +830,26 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     e.stopPropagation()
     if (e.key === 'Enter') {
       e.preventDefault()
-      let hex = hexInput.value.trim()
-      if (!hex.startsWith('#')) hex = '#' + hex
-      applyColor(hex)
-      picker.value = hex
+      const raw = hexInput.value.trim()
+      if (raw.includes('gradient(')) {
+        applyGradient(raw)
+      } else {
+        let hex = raw
+        if (!hex.startsWith('#')) hex = '#' + hex
+        applyColor(hex)
+        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
+      }
       hexInput.blur()
     }
   })
 
   hexInput.addEventListener('blur', () => {
-    if (hexInput.readOnly) return
-    let hex = hexInput.value.trim()
+    const raw = hexInput.value.trim()
+    if (raw.includes('gradient(')) {
+      applyGradient(raw)
+      return
+    }
+    let hex = raw
     if (!hex.startsWith('#')) hex = '#' + hex
     if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
       currentHex = hex
@@ -2431,6 +2446,11 @@ export function buildDesignPanel(
       value: bgColor,
       opacity: bgOpacity,
       onChange: (v) => {
+        if (v.includes('gradient(')) {
+          tracker.apply('background', v)
+          tracker.apply('background-image', 'none')
+          return
+        }
         if (bgIsGradient) {
           tracker.apply('background', v)
           tracker.apply('background-image', 'none')

@@ -180,6 +180,7 @@ const FIELD_ICONS: Record<string, string> = {
   radiusSettings: `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M 2.498505115509033 12 C 2.631113365292549 12 2.7582907006144524 11.947321958839893 2.8520588874816895 11.853553771972656 C 2.9458270743489265 11.75978558510542 2.998505115509033 11.632608249783516 2.998505115509033 11.5 L 2.998505115509033 9.949999809265137 C 3.563649356365204 9.835242375731468 4.07174214720726 9.528635561466217 4.4366936683654785 9.08212947845459 C 4.801645189523697 8.635623395442963 5.001011371612549 8.076677799224854 5.001011371612549 7.5 C 5.001011371612549 6.9233222007751465 4.801645189523697 6.364376604557037 4.4366936683654785 5.91787052154541 C 4.07174214720726 5.471364438533783 3.563649356365204 5.164757624268532 2.998505115509033 5.050000190734863 L 2.998505115509033 0.5 C 2.998505115509033 0.36739175021648407 2.9458270743489265 0.24021489173173904 2.8520588874816895 0.14644670486450195 C 2.7582907006144524 0.05267851799726486 2.631113365292549 0 2.498505115509033 0 C 2.3658968657255173 0 2.238719530403614 0.05267851799726486 2.144951343536377 0.14644670486450195 C 2.05118315666914 0.24021489173173904 1.9985051155090332 0.36739175021648407 1.9985051155090332 0.5 L 1.9985051155090332 5.050000190734863 C 1.434184968471527 5.165742203593254 0.9271209537982941 5.472745716571808 0.562993049621582 5.919136047363281 C 0.19886514544487 6.365526378154755 0 6.923932790756226 0 7.5 C -8.881784197001252e-16 8.076067209243774 0.19886514544487 8.634473621845245 0.562993049621582 9.080863952636719 C 0.9271209537982941 9.527254283428192 1.434184968471527 9.834257796406746 1.9985051155090332 9.949999809265137 L 1.9985051155090332 11.5 C 1.9985051155090332 11.632608249783516 2.05118315666914 11.75978558510542 2.144951343536377 11.853553771972656 C 2.238719530403614 11.947321958839893 2.3658968657255173 12 2.498505115509033 12 Z M 9.498504638671875 12 C 9.631112888455391 12 9.758290223777294 11.947321958839893 9.852058410644531 11.853553771972656 C 9.945826597511768 11.75978558510542 9.998504638671875 11.632608249783516 9.998504638671875 11.5 L 9.998504638671875 6.949999809265137 C 10.562824785709381 6.834257796406746 11.069889277219772 6.527254283428192 11.434017181396484 6.080863952636719 C 11.798145085573196 5.634473621845245 11.99700927734375 5.076067209243774 11.99700927734375 4.5 C 11.99700927734375 3.9239327907562256 11.798145085573196 3.3655263781547546 11.434017181396484 2.9191360473632812 C 11.069889277219772 2.472745716571808 10.562824785709381 2.165742203593254 9.998504638671875 2.0500001907348633 L 9.998504638671875 0.5 C 9.998504638671875 0.36739175021648407 9.945826597511768 0.24021489173173904 9.852058410644531 0.14644670486450195 C 9.758290223777294 0.05267851799726486 9.631112888455391 0 9.498504638671875 0 C 9.365896388888359 0 9.238719053566456 0.05267851799726486 9.144950866699219 0.14644670486450195 C 9.051182679831982 0.24021489173173904 8.998504638671875 0.36739175021648407 8.998504638671875 0.5 L 8.998504638671875 2.0500001907348633 C 8.433360397815704 2.164757624268532 7.925268083810806 2.471364438533783 7.560316562652588 2.91787052154541 C 7.1953650414943695 3.3643766045570374 6.995998859405518 3.9233222007751465 6.995998859405518 4.5 C 6.995998859405518 5.0766777992248535 7.1953650414943695 5.635623395442963 7.560316562652588 6.08212947845459 C 7.925268083810806 6.528635561466217 8.433360397815704 6.835242375731468 8.998504638671875 6.949999809265137 L 8.998504638671875 11.5 C 8.998504638671875 11.632608249783516 9.051182679831982 11.75978558510542 9.144950866699219 11.853553771972656 C 9.238719053566456 11.947321958839893 9.365896388888359 12 9.498504638671875 12 Z M 9.498504638671875 6 C 9.100679904222488 5.999999999999998 8.719149798154831 5.841964930295944 8.437845230102539 5.560660362243652 C 8.156540662050247 5.2793557941913605 7.998505115509033 4.897824734449387 7.998505115509033 4.5 C 7.998505115509033 4.102175265550613 8.156540662050247 3.7206442058086395 8.437845230102539 3.4393396377563477 C 8.719149798154831 3.158035069704056 9.100679904222488 3.0000000000000018 9.498504638671875 3 C 9.896329373121262 3.0000000000000018 10.277859479188919 3.158035069704056 10.559164047241211 3.4393396377563477 C 10.840468615293503 3.7206442058086395 10.998504638671875 4.102175265550613 10.998504638671875 4.5 C 10.998504638671875 4.897824734449387 10.840468615293503 5.2793557941913605 10.559164047241211 5.560660362243652 C 10.277859479188919 5.841964930295944 9.896329373121262 5.999999999999998 9.498504638671875 6 Z M 2.498505115509033 9 C 2.1006803810596466 8.999999999999998 1.7191493213176727 8.841964930295944 1.4378447532653809 8.560660362243652 C 1.156540185213089 8.27935579419136 0.9985051155090332 7.897824734449387 0.9985051155090332 7.5 C 0.9985051155090332 7.102175265550613 1.156540185213089 6.7206442058086395 1.4378447532653809 6.439339637756348 C 1.7191493213176727 6.158035069704056 2.1006803810596466 6.000000000000002 2.498505115509033 6 C 2.89632984995842 6.000000000000002 3.2778609097003937 6.158035069704056 3.5591654777526855 6.439339637756348 C 3.8404700458049774 6.7206442058086395 3.9985051155090314 7.102175265550613 3.998505115509033 7.5 C 3.9985051155090314 7.897824734449387 3.8404700458049774 8.27935579419136 3.5591654777526855 8.560660362243652 C 3.2778609097003937 8.841964930295944 2.89632984995842 8.999999999999998 2.498505115509033 9 Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   gap: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M15 14.75c0 .138.112.25.25.25h.25a.5.5 0 0 1 0 1h-.25A1.25 1.25 0 0 1 14 14.75v-6.5C14 7.56 14.56 7 15.25 7h.25a.5.5 0 0 1 0 1h-.25a.25.25 0 0 0-.25.25v6.5ZM7 15.5a.5.5 0 0 1 .5-.5h.25a.25.25 0 0 0 .25-.25v-6.5A.25.25 0 0 0 7.75 8H7.5a.5.5 0 0 1 0-1h.25C8.44 7 9 7.56 9 8.25v6.5C9 15.44 8.44 16 7.75 16H7.5a.5.5 0 0 1-.5-.5Zm4-2a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-1 0v4Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   strokeWeight: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 8.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  lineHeight: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 4h14M5 8h14M5 12h14M5 16h14M5 20h14" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/></svg>`,
 }
 
 const CORNER_ICONS: Record<string, string> = {
@@ -871,6 +872,155 @@ function createWeightSelect(value: string, onChange: (value: string) => void): H
   select.addEventListener('keydown', (e) => e.stopPropagation())
 
   wrap.append(iconEl, select)
+  return wrap
+}
+
+// --- Font Family Select ---
+
+const COMMON_FONTS = [
+  'Inter',
+  'SF Pro',
+  'Roboto',
+  'Helvetica Neue',
+  'Arial',
+  'Georgia',
+  'Times New Roman',
+  'Courier New',
+  'Menlo',
+  'Monaco',
+]
+
+function createFontSelect(value: string, onChange: (value: string) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-font-select')
+  wrap.setAttribute(IGNORE_ATTR, 'true')
+
+  const textEl = el('span', 'ei-dp-font-text', value || 'Inter')
+
+  const arrowEl = el('span', 'ei-dp-font-arrow')
+  arrowEl.innerHTML = DOWN_ARROW_ICON
+
+  wrap.append(textEl, arrowEl)
+
+  wrap.addEventListener('click', (e) => {
+    e.stopPropagation()
+    openFontDropdown(wrap, textEl.textContent || '', (font) => {
+      textEl.textContent = font
+      onChange(font)
+    })
+  })
+
+  return wrap
+}
+
+let activeFontDropdown: HTMLDivElement | null = null
+
+function closeFontDropdown(): void {
+  if (activeFontDropdown) {
+    activeFontDropdown.remove()
+    activeFontDropdown = null
+  }
+  document.removeEventListener('mousedown', handleFontDropdownOutside, true)
+}
+
+function handleFontDropdownOutside(e: MouseEvent): void {
+  if (activeFontDropdown && e.target instanceof Element && !activeFontDropdown.contains(e.target)) {
+    closeFontDropdown()
+  }
+}
+
+function openFontDropdown(
+  anchor: HTMLElement,
+  currentFont: string,
+  onSelect: (font: string) => void,
+): void {
+  closeFontDropdown()
+
+  const dropdown = el('div', 'ei-dp-font-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  for (const font of COMMON_FONTS) {
+    const item = el('div', 'ei-dp-font-option', font)
+    item.setAttribute(IGNORE_ATTR, 'true')
+    if (font === currentFont) {
+      item.dataset.active = 'true'
+    }
+    item.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(font)
+      closeFontDropdown()
+    })
+    dropdown.appendChild(item)
+  }
+
+  const panel = anchor.closest('.ei-panel')
+  if (panel) {
+    panel.appendChild(dropdown)
+    const anchorRect = anchor.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
+    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
+  }
+
+  activeFontDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleFontDropdownOutside, true)
+  })
+}
+
+// --- Text Align Button Group ---
+
+const ALIGN_ICONS: Record<string, string> = {
+  left: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5h14M5 9h10M5 13h14M5 17h10" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/></svg>`,
+  center: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5h14M7 9h10M5 13h14M7 17h10" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/></svg>`,
+  right: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5h14M9 9h10M5 13h14M9 17h10" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-opacity="0.7"/></svg>`,
+}
+
+function createAlignButtons(value: string, onChange: (value: string) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-align-btns')
+
+  const aligns: Array<{ key: string; css: string }> = [
+    { key: 'left', css: 'left' },
+    { key: 'center', css: 'center' },
+    { key: 'right', css: 'right' },
+  ]
+
+  for (const { key, css } of aligns) {
+    const btn = el('button', 'ei-dp-align-btn')
+    btn.type = 'button'
+    btn.innerHTML = ALIGN_ICONS[key] ?? ''
+    btn.setAttribute(IGNORE_ATTR, 'true')
+    if (value === css) btn.dataset.active = 'true'
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      wrap.querySelectorAll('.ei-dp-align-btn').forEach(b => b.removeAttribute('data-active'))
+      btn.dataset.active = 'true'
+      onChange(css)
+    })
+    wrap.appendChild(btn)
+  }
+
+  return wrap
+}
+
+// --- Line Height Field ---
+
+function createLineHeightField(value: number, onChange: (value: number) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-field ei-dp-field-line-height')
+  const iconEl = el('div', 'ei-dp-field-icon')
+  iconEl.innerHTML = FIELD_ICONS.lineHeight ?? ''
+
+  const input = createNumberInput({
+    value,
+    min: 0,
+    step: 1,
+    onChange,
+  })
+  input.className = 'ei-dp-field-input'
+
+  const suffix = el('div', 'ei-dp-field-suffix', '%')
+
+  wrap.append(iconEl, input, suffix)
+  wrap.addEventListener('click', () => input.focus())
   return wrap
 }
 
@@ -1658,6 +1808,14 @@ export function buildDesignPanel(
   // === 4. Typography ===
   if (showTypography) {
     const typoSec = createSection('Typography')
+
+    // Row 1: Font family
+    typoSec.content.appendChild(createFontSelect(
+      info.typography.fontFamily.split(',')[0]?.replace(/['"]/g, '').trim() || 'Inter',
+      (v) => tracker.apply('font-family', v),
+    ))
+
+    // Row 2: Font size + Font weight
     typoSec.content.appendChild(grid(
       createLabeledField({
         icon: 'Aa',
@@ -1667,10 +1825,42 @@ export function buildDesignPanel(
       }),
       createWeightSelect(info.typography.fontWeight, (v) => tracker.apply('font-weight', v)),
     ))
+
+    // Row 3: Line height + Text align
+    const row3 = el('div', 'ei-dp-typography-row')
+
+    // Parse line height (could be "normal", "24px", "1.5", etc.)
+    let lineHeightValue = 100
+    const lh = info.typography.lineHeight
+    if (lh && lh !== 'normal') {
+      if (lh.endsWith('px')) {
+        const fontSize = parsePxValue(info.typography.fontSize) || 16
+        lineHeightValue = Math.round((parseFloat(lh) / fontSize) * 100)
+      } else if (lh.endsWith('%')) {
+        lineHeightValue = parseFloat(lh)
+      } else {
+        // Unitless number (relative to font size)
+        lineHeightValue = Math.round(parseFloat(lh) * 100)
+      }
+    }
+
+    row3.appendChild(createLineHeightField(lineHeightValue, (v) => {
+      const fontSize = parsePxValue(info.typography.fontSize) || 16
+      tracker.apply('line-height', `${(v / 100).toFixed(2)}`)
+    }))
+    row3.appendChild(createAlignButtons(
+      info.typography.textAlign || 'left',
+      (v) => tracker.apply('text-align', v),
+    ))
+
+    typoSec.content.appendChild(row3)
+
+    // Row 4: Text color
     typoSec.content.appendChild(createFillRow({
       value: info.typography.color,
       onChange: (v) => tracker.apply('color', v),
     }))
+
     container.appendChild(typoSec.container)
   }
 
@@ -1860,5 +2050,21 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
 .ei-dp-stroke-pos-arrow svg { display: block; }
 .ei-dp-stroke-sides-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.ei-dp-font-select { display: flex; align-items: center; justify-content: space-between; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); padding: 0 8px; cursor: pointer; margin-bottom: 8px; transition: background 0.12s ease; }
+.ei-dp-font-select:hover { background: rgba(255,255,255,0.1); }
+.ei-dp-font-text { font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ei-dp-font-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); flex-shrink: 0; margin-left: 8px; }
+.ei-dp-font-arrow svg { display: block; }
+.ei-dp-font-dropdown { position: absolute; z-index: 100; background: rgba(30,30,30,1); border-radius: 13px; padding: 8px; box-shadow: 0px 10px 16px rgba(0,0,0,0.35), 0px 2px 5px rgba(0,0,0,0.35), inset 0px 0.5px 0px rgba(255,255,255,0.08), inset 0px 0px 0.5px rgba(255,255,255,0.35); min-width: 180px; max-height: 200px; overflow-y: auto; }
+.ei-dp-font-option { display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; transition: background 0.1s ease; }
+.ei-dp-font-option:hover { background: rgba(255,255,255,0.08); }
+.ei-dp-font-option[data-active="true"] { background: rgba(255,255,255,0.12); }
+.ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.ei-dp-align-btns { display: flex; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.ei-dp-align-btn { flex: 1; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s ease; }
+.ei-dp-align-btn svg { display: block; }
+.ei-dp-align-btn:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-align-btn[data-active="true"] { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.05); }
+.ei-dp-field-line-height { gap: 4px; }
 `
 }

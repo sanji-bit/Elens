@@ -1206,8 +1206,8 @@ type ShadowValues = {
 
 // Shadow field icons (from Figma)
 const EFFECTS_ICONS: Record<string, string> = {
-  blur: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm8-4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm-5 4a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
-  spread: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 12a7 7 0 1 0 14 0 7 7 0 0 0-14 0ZM4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm5-4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-4 4a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  blur: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M13 9C13 9.26522 12.8946 9.51957 12.7071 9.70711C12.5196 9.89464 12.2652 10 12 10C11.7348 10 11.4804 9.89464 11.2929 9.70711C11.1054 9.51957 11 9.26522 11 9C11 8.73478 11.1054 8.48043 11.2929 8.29289C11.4804 8.10536 11.7348 8 12 8C12.2652 8 12.5196 8.10536 12.7071 8.29289C12.8946 8.48043 13 8.73478 13 9ZM9.75 9C9.75 9.19891 9.67098 9.38968 9.53033 9.53033C9.38968 9.67098 9.19891 9.75 9 9.75C8.80109 9.75 8.61032 9.67098 8.46967 9.53033C8.32902 9.38968 8.25 9.19891 8.25 9C8.25 8.80109 8.32902 8.61032 8.46967 8.46967C8.61032 8.32902 8.80109 8.25 9 8.25C9.19891 8.25 9.38968 8.32902 9.53033 8.46967C9.67098 8.61032 9.75 8.80109 9.75 9ZM10 12C10 12.2652 9.89464 12.5196 9.70711 12.7071C9.51957 12.8946 9.26522 13 9 13C8.73478 13 8.48043 12.8946 8.29289 12.7071C8.10536 12.5196 8 12.2652 8 12C8 11.7348 8.10536 11.4804 8.29289 11.2929C8.48043 11.1054 8.73478 11 9 11C9.26522 11 9.51957 11.1054 9.70711 11.2929C9.89464 11.4804 10 11.7348 10 12ZM9 15.75C9.19891 15.75 9.38968 15.671 9.53033 15.5303C9.67098 15.3897 9.75 15.1989 9.75 15C9.75 14.8011 9.67098 14.6103 9.53033 14.4697C9.38968 14.329 9.19891 14.25 9 14.25C8.80109 14.25 8.61032 14.329 8.46967 14.4697C8.32902 14.6103 8.25 14.8011 8.25 15C8.25 15.1989 8.32902 15.3897 8.46967 15.5303C8.61032 15.671 8.80109 15.75 9 15.75ZM12 13C12.2652 13 12.5196 12.8946 12.7071 12.7071C12.8946 12.5196 13 12.2652 13 12C13 11.7348 12.8946 11.4804 12.7071 11.2929C12.5196 11.1054 12.2652 11 12 11C11.7348 11 11.4804 11.1054 11.2929 11.2929C11.1054 11.4804 11 11.7348 11 12C11 12.2652 11.1054 12.5196 11.2929 12.7071C11.4804 12.8946 11.7348 13 12 13ZM13 15C13 15.2652 12.8946 15.5196 12.7071 15.7071C12.5196 15.8946 12.2652 16 12 16C11.7348 16 11.4804 15.8946 11.2929 15.7071C11.1054 15.5196 11 15.2652 11 15C11 14.7348 11.1054 14.4804 11.2929 14.2929C11.4804 14.1054 11.7348 14 12 14C12.2652 14 12.5196 14.1054 12.7071 14.2929C12.8946 14.4804 13 14.7348 13 15ZM15 9.75C15.1989 9.75 15.3897 9.67098 15.5303 9.53033C15.671 9.38968 15.75 9.19891 15.75 9C15.75 8.80109 15.671 8.61032 15.5303 8.46967C15.3897 8.32902 15.1989 8.25 15 8.25C14.8011 8.25 14.6103 8.32902 14.4697 8.46967C14.329 8.61032 14.25 8.80109 14.25 9C14.25 9.19891 14.329 9.38968 14.4697 9.53033C14.6103 9.67098 14.8011 9.75 15 9.75ZM16 12C16 12.2652 15.8946 12.5196 15.7071 12.7071C15.5196 12.8946 15.2652 13 15 13C14.7348 13 14.4804 12.8946 14.2929 12.7071C14.1054 12.5196 14 12.2652 14 12C14 11.7348 14.1054 11.4804 14.2929 11.2929C14.4804 11.1054 14.7348 11 15 11C15.2652 11 15.5196 11.1054 15.7071 11.2929C15.8946 11.4804 16 11.7348 16 12ZM15 15.75C15.1989 15.75 15.3897 15.671 15.5303 15.5303C15.671 15.3897 15.75 15.1989 15.75 15C15.75 14.8011 15.671 14.6103 15.5303 14.4697C15.3897 14.329 15.1989 14.25 15 14.25C14.8011 14.25 14.6103 14.329 14.4697 14.4697C14.329 14.6103 14.25 14.8011 14.25 15C14.25 15.1989 14.329 15.3897 14.4697 15.5303C14.6103 15.671 14.8011 15.75 15 15.75Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
+  spread: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M13 6C13 6.26522 12.8946 6.51957 12.7071 6.70711C12.5196 6.89464 12.2652 7 12 7C11.7348 7 11.4804 6.89464 11.2929 6.70711C11.1054 6.51957 11 6.26522 11 6C11 5.73478 11.1054 5.48043 11.2929 5.29289C11.4804 5.10536 11.7348 5 12 5C12.2652 5 12.5196 5.10536 12.7071 5.29289C12.8946 5.48043 13 5.73478 13 6ZM18 13C17.7348 13 17.4804 12.8946 17.2929 12.7071C17.1054 12.5196 17 12.2652 17 12C17 11.7348 17.1054 11.4804 17.2929 11.2929C17.4804 11.1054 17.7348 11 18 11C18.2652 11 18.5196 11.1054 18.7071 11.2929C18.8946 11.4804 19 11.7348 19 12C19 12.2652 18.8946 12.5196 18.7071 12.7071C18.5196 12.8946 18.2652 13 18 13ZM15.536 8.464C15.6282 8.55951 15.7386 8.63569 15.8606 8.6881C15.9826 8.74051 16.1138 8.7681 16.2466 8.76925C16.3794 8.7704 16.5111 8.7451 16.634 8.69482C16.7568 8.64454 16.8685 8.57029 16.9624 8.47639C17.0563 8.3825 17.1305 8.27085 17.1808 8.14795C17.2311 8.02506 17.2564 7.89338 17.2553 7.7606C17.2541 7.62782 17.2265 7.4966 17.1741 7.3746C17.1217 7.25259 17.0455 7.14225 16.95 7.05C16.7614 6.86784 16.5088 6.76705 16.2466 6.76933C15.9844 6.7716 15.7336 6.87677 15.5482 7.06218C15.3628 7.24759 15.2576 7.4984 15.2553 7.7606C15.253 8.0228 15.3538 8.2754 15.536 8.464ZM15.536 16.949C15.4405 16.8568 15.3643 16.7464 15.3119 16.6244C15.2595 16.5024 15.2319 16.3712 15.2307 16.2384C15.2296 16.1056 15.2549 15.9739 15.3052 15.851C15.3555 15.7281 15.4297 15.6165 15.5236 15.5226C15.6175 15.4287 15.7291 15.3545 15.852 15.3042C15.9749 15.2539 16.1066 15.2286 16.2394 15.2297C16.3722 15.2309 16.5034 15.2585 16.6254 15.3109C16.7474 15.3633 16.8578 15.4395 16.95 15.535C17.1322 15.7236 17.233 15.9762 17.2307 16.2384C17.2284 16.5006 17.1232 16.7514 16.9378 16.9368C16.7524 17.1222 16.5016 17.2274 16.2394 17.2297C15.9772 17.232 15.7246 17.1312 15.536 16.949ZM12 19C12.2652 19 12.5196 18.8946 12.7071 18.7071C12.8946 18.5196 13 18.2652 13 18C13 17.7348 12.8946 17.4804 12.7071 17.2929C12.5196 17.1054 12.2652 17 12 17C11.7348 17 11.4804 17.1054 11.2929 17.2929C11.1054 17.4804 11 17.7348 11 18C11 18.2652 11.1054 18.5196 11.2929 18.7071C11.4804 18.8946 11.7348 19 12 19ZM6 13C5.73478 13 5.48043 12.8946 5.29289 12.7071C5.10536 12.5196 5 12.2652 5 12C5 11.7348 5.10536 11.4804 5.29289 11.2929C5.48043 11.1054 5.73478 11 6 11C6.26522 11 6.51957 11.1054 6.70711 11.2929C6.89464 11.4804 7 11.7348 7 12C7 12.2652 6.89464 12.5196 6.70711 12.7071C6.51957 12.8946 6.26522 13 6 13ZM7.05 16.95C7.14225 17.0455 7.25259 17.1217 7.3746 17.1741C7.4966 17.2265 7.62782 17.2541 7.7606 17.2553C7.89338 17.2564 8.02506 17.2311 8.14795 17.1808C8.27085 17.1305 8.3825 17.0563 8.47639 16.9624C8.57029 16.8685 8.64454 16.7568 8.69482 16.634C8.7451 16.5111 8.7704 16.3794 8.76925 16.2466C8.7681 16.1138 8.74051 15.9826 8.6881 15.8606C8.63569 15.7386 8.55951 15.6282 8.464 15.536C8.27467 15.3582 8.02361 15.2611 7.76392 15.2651C7.50424 15.2691 7.25631 15.374 7.07259 15.5576C6.88888 15.7412 6.7838 15.989 6.77958 16.2487C6.77537 16.5084 6.87235 16.7595 7.05 16.949ZM7.05 8.464C6.86249 8.27623 6.75726 8.02166 6.75744 7.75629C6.75763 7.49093 6.86323 7.23651 7.051 7.049C7.23877 6.86149 7.49334 6.75626 7.75871 6.75644C8.02407 6.75663 8.27849 6.86223 8.466 7.05C8.65364 7.23777 8.759 7.4924 8.75891 7.75785C8.75882 8.02331 8.65327 8.27786 8.4655 8.4655C8.27773 8.65314 8.0231 8.7585 7.75765 8.75841C7.49219 8.75832 7.23764 8.65277 7.05 8.465ZM14 12C14 12.5304 13.7893 13.0391 13.4142 13.4142C13.0391 13.7893 12.5304 14 12 14C11.4696 14 10.9609 13.7893 10.5858 13.4142C10.2107 13.0391 10 12.5304 10 12C10 11.4696 10.2107 10.9609 10.5858 10.5858C10.9609 10.2107 11.4696 10 12 10C12.5304 10 13.0391 10.2107 13.4142 10.5858C13.7893 10.9609 14 11.4696 14 12ZM15 12C15 12.7956 14.6839 13.5587 14.1213 14.1213C13.5587 14.6839 12.7956 15 12 15C11.2044 15 10.4413 14.6839 9.87868 14.1213C9.31607 13.5587 9 12.7956 9 12C9 11.2044 9.31607 10.4413 9.87868 9.87868C10.4413 9.31607 11.2044 9 12 9C12.7956 9 13.5587 9.31607 14.1213 9.87868C14.6839 10.4413 15 11.2044 15 12Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
 
 // --- Stroke position dropdown ---
@@ -2590,6 +2590,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-section-content > :last-child { margin-bottom: 0; }
 .ei-dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .ei-dp-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; }
+.ei-dp-field:hover { border-color: rgba(255,255,255,0.10); }
 .ei-dp-field:focus-within { border-color: ${accentColor}; }
 .ei-dp-field-icon { flex-shrink: 0; width: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(255,255,255,0.4); user-select: none; line-height: 0; }
 .ei-dp-field-icon svg { display: block; }
@@ -2602,7 +2603,9 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-field-action[data-active="true"] { color: ${accentColor}; }
 .ei-dp-field-radius { gap: 4px; }
 .ei-dp-field-select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 4px 0 0; outline: none; cursor: pointer; -webkit-appearance: none; }
-.ei-dp-fill-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); margin-bottom: 8px; overflow: hidden; }
+.ei-dp-fill-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); margin-bottom: 8px; overflow: hidden; transition: border-color 0.15s ease; }
+.ei-dp-fill-row:hover { border-color: rgba(255,255,255,0.10); }
+.ei-dp-fill-row:focus-within { border-color: ${accentColor}; }
 .ei-dp-swatch { width: 14px; height: 14px; border-radius: 2px; border: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); flex-shrink: 0; position: relative; cursor: pointer; overflow: hidden; margin-left: 4px; }
 .ei-dp-picker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .ei-dp-hex { flex: 1; min-width: 0; height: 100%; border: none; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 8px; outline: none; }
@@ -2623,12 +2626,14 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-align-cell[data-active="true"] { color: ${accentColor}; }
 .ei-dp-align-cell[data-row-active="true"] { color: rgba(255,255,255,0.45); }
 .ei-dp-gap-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
+.ei-dp-gap-field:hover { border-color: rgba(255,255,255,0.10); }
 .ei-dp-gap-field:focus-within { border-color: ${accentColor}; }
 .ei-dp-gap-field .ei-dp-field-input { flex: 1; min-width: 0; }
 .ei-dp-gap-trigger { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; width: 25px; cursor: pointer; color: rgba(255,255,255,0.4); transition: color 0.12s ease; }
 .ei-dp-gap-trigger:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-gap-trigger svg { display: block; }
 .ei-dp-size-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
+.ei-dp-size-field:hover { border-color: rgba(255,255,255,0.10); }
 .ei-dp-size-field:focus-within { border-color: ${accentColor}; }
 .ei-dp-size-field .ei-dp-field-input { flex: 1; min-width: 0; }
 .ei-dp-size-trigger { flex-shrink: 0; display: flex; align-items: center; height: 100%; padding: 0 4px; cursor: pointer; color: rgba(255,255,255,0.45); font-size: 10px; border-left: none; transition: color 0.12s ease; }
@@ -2644,7 +2649,9 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-size-option-label { font-size: 11px; letter-spacing: 0.055px; white-space: nowrap; }
 .ei-dp-stroke-panel { }
 .ei-dp-stroke-color-wrapper { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
-.ei-dp-stroke-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; }
+.ei-dp-stroke-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; transition: border-color 0.15s ease; }
+.ei-dp-stroke-color-row:hover { border-color: rgba(255,255,255,0.10); }
+.ei-dp-stroke-color-row:focus-within { border-color: ${accentColor}; }
 .ei-dp-stroke-remove { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; flex-shrink: 0; transition: color 0.12s ease; }
 .ei-dp-stroke-remove:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-stroke-remove:focus { outline: none; }
@@ -2684,7 +2691,9 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-text-restore:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-text-restore:focus { outline: none; }
 .ei-dp-text-restore svg { display: block; }
-.ei-dp-text-input-wrap { display: flex; align-items: center; background: rgba(255,255,255,0.06); border-radius: 5px; padding: 4px 8px; margin-bottom: 16px; }
+.ei-dp-text-input-wrap { display: flex; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid transparent; border-radius: 5px; padding: 4px 8px; margin-bottom: 16px; transition: border-color 0.15s ease; }
+.ei-dp-text-input-wrap:hover { border-color: rgba(255,255,255,0.10); }
+.ei-dp-text-input-wrap:focus-within { border-color: ${accentColor}; }
 .ei-dp-text-input { flex: 1; min-width: 0; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; line-height: 16px; padding: 0; resize: none; outline: none; letter-spacing: 0.055px; max-height: 80px; overflow-y: auto; }
 .ei-dp-text-input::placeholder { color: rgba(255,255,255,0.4); }
 .ei-dp-text-input::-webkit-scrollbar { width: 4px; }
@@ -2698,7 +2707,9 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-effects-type-btn:focus { outline: none; }
 .ei-dp-effects-type-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
 .ei-dp-effects-type-arrow svg { display: block; }
-.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; }
+.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; transition: border-color 0.15s ease; }
+.ei-dp-effects-color-row:hover { border-color: rgba(255,255,255,0.10); }
+.ei-dp-effects-color-row:focus-within { border-color: ${accentColor}; }
 .ei-dp-effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 `
 }

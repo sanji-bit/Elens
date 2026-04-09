@@ -38,7 +38,7 @@ const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="no
 const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CLEAR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7.5 2.5h5M2.5 5h15m-1.667 0-.584 8.766c-.088 1.315-.132 1.973-.416 2.471a2.5 2.5 0 0 1-1.082 1.013c-.516.25-1.175.25-2.493.25H8.742c-1.318 0-1.977 0-2.493-.25a2.5 2.5 0 0 1-1.082-1.013c-.284-.498-.328-1.156-.416-2.471L4.167 5m4.166 3.75v4.167m3.334-4.167v4.167" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2.5L12.5 5H11V9H15V7.5L17.5 10L15 12.5V11H11V15H12.5L10 17.5L7.5 15H9V11H5V12.5L2.5 10L5 7.5V9H9V5H7.5L10 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 1.66663V18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 15.8334L10 18.3334L7.5 15.8334" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8334 7.5L18.3334 10L15.8334 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.66663 10H18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.16663 7.5L1.66663 10L4.16663 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 4.16663L10 1.66663L12.5 4.16663" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M1.667 6.981c0-.292 0-.438.012-.561a2.5 2.5 0 0 1 2.241-2.241c.123-.013.277-.013.585-.013.118 0 .178 0 .228-.003a1.667 1.667 0 0 0 1.446-1.042l.071-.204c.035-.106.053-.158.072-.205a1.667 1.667 0 0 1 1.445-1.042c.05-.003.106-.003.217-.003h4.032c.111 0 .167 0 .217.003a1.667 1.667 0 0 1 1.446 1.042c.018.047.036.1.071.205l.072.204a1.667 1.667 0 0 0 1.445 1.042c.05.003.11.003.228.003.308 0 .462 0 .585.013a2.5 2.5 0 0 1 2.241 2.241c.013.123.013.269.013.561V13.5c0 1.4 0 2.1-.273 2.635a2.5 2.5 0 0 1-1.092 1.092c-.535.273-1.235.273-2.635.273H5.667c-1.4 0-2.1 0-2.635-.273a2.5 2.5 0 0 1-1.093-1.092c-.272-.535-.272-1.235-.272-2.635V6.981Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="10.417" r="3.333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
@@ -217,15 +217,18 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-design="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 4px, transparent 4px, transparent 8px); }
-.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; }
-.ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; }
-.ei-move-indicator { position: fixed; display: none; pointer-events: none; z-index: 2; }
+.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid #6C5CE7; background: color-mix(in srgb, #6C5CE7 10%, transparent); }
+.ei-highlight[data-move="true"] .ei-hl-content { background: color-mix(in srgb, #6C5CE7 10%, transparent); }
+.ei-moving { opacity: 0.72; outline: 1px solid #6C5CE7; outline-offset: 2px; }
+.ei-move-indicator { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; }
 .ei-move-indicator[data-visible="true"] { display: block; }
-.ei-move-indicator-line { position: absolute; background: ${accentColor}; box-shadow: 0 0 0 1px color-mix(in srgb, ${accentColor} 35%, transparent); }
-.ei-move-indicator-dot { position: absolute; width: 8px; height: 8px; border-radius: 999px; background: ${accentColor}; box-shadow: 0 0 0 2px rgba(17,17,19,0.96); }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: rgba(0, 206, 201, 0.3); }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: rgba(225, 112, 85, 0.25); }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: rgba(0, 184, 148, 0.2); }
+.ei-move-bounds { position: absolute; border: 1px solid #6C5CE7; border-radius: 8px; background: color-mix(in srgb, #6C5CE7 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #6C5CE7 18%, transparent); }
+.ei-move-bounds-label { position: absolute; top: 0; left: 0; transform: translateY(calc(-100% - 6px)); display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; background: #6C5CE7; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 8px 24px rgba(108,92,231,0.3); }
+.ei-move-indicator-line { position: absolute; background: #6C5CE7; box-shadow: 0 0 0 1px color-mix(in srgb, #6C5CE7 35%, transparent); }
+.ei-move-indicator-dot { position: absolute; width: 8px; height: 8px; border-radius: 999px; background: #6C5CE7; box-shadow: 0 0 0 2px rgba(17,17,19,0.96); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: color-mix(in srgb, #6C5CE7 10%, transparent); }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: transparent; }
+.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: color-mix(in srgb, #6C5CE7 10%, transparent); border: 1px solid #6C5CE7; }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-label,
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-code,
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-badge,
@@ -419,10 +422,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const moveIndicator = el('div', 'ei-move-indicator')
   moveIndicator.setAttribute(IGNORE_ATTR, 'true')
   moveIndicator.dataset.visible = 'false'
+  const moveBounds = el('div', 'ei-move-bounds')
+  const moveBoundsLabel = el('div', 'ei-move-bounds-label', 'Drag Bounds')
   const moveIndicatorLine = el('div', 'ei-move-indicator-line')
   const moveIndicatorDotStart = el('div', 'ei-move-indicator-dot')
   const moveIndicatorDotEnd = el('div', 'ei-move-indicator-dot')
-  moveIndicator.append(moveIndicatorLine, moveIndicatorDotStart, moveIndicatorDotEnd)
+  moveBounds.appendChild(moveBoundsLabel)
+  moveIndicator.append(moveBounds, moveIndicatorLine, moveIndicatorDotStart, moveIndicatorDotEnd)
 
   // Design mode overlay elements
   const hlLabel = el('div', 'ei-hl-label')
@@ -698,9 +704,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const containerRect = container.getBoundingClientRect()
     const referenceRect = target?.getBoundingClientRect() ?? containerRect
     const thickness = 2
-    const dotOffset = 3
+    const dotOffset = 4
 
     moveIndicator.dataset.visible = 'true'
+
+    moveBounds.style.left = `${containerRect.left}px`
+    moveBounds.style.top = `${containerRect.top}px`
+    moveBounds.style.width = `${Math.max(containerRect.width, 0)}px`
+    moveBounds.style.height = `${Math.max(containerRect.height, 0)}px`
 
     if (axis === 'x') {
       const x = target
@@ -708,41 +719,37 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         : containerRect.right
       const top = containerRect.top
       const height = Math.max(containerRect.height, 12)
-      moveIndicator.style.left = `${x - thickness / 2}px`
-      moveIndicator.style.top = `${top}px`
-      moveIndicator.style.width = `${thickness}px`
-      moveIndicator.style.height = `${height}px`
-      moveIndicatorLine.style.left = '0px'
-      moveIndicatorLine.style.top = '0px'
+      moveIndicatorLine.style.left = `${x - thickness / 2}px`
+      moveIndicatorLine.style.top = `${top}px`
       moveIndicatorLine.style.width = `${thickness}px`
       moveIndicatorLine.style.height = `${height}px`
-      moveIndicatorDotStart.style.left = `${-dotOffset}px`
-      moveIndicatorDotStart.style.top = `${-dotOffset}px`
-      moveIndicatorDotEnd.style.left = `${-dotOffset}px`
-      moveIndicatorDotEnd.style.top = `${height - dotOffset - 2}px`
+      moveIndicatorDotStart.style.left = `${x - dotOffset}px`
+      moveIndicatorDotStart.style.top = `${top - dotOffset}px`
+      moveIndicatorDotEnd.style.left = `${x - dotOffset}px`
+      moveIndicatorDotEnd.style.top = `${top + height - dotOffset - 2}px`
     } else {
       const y = target
         ? placement === 'before' ? referenceRect.top : referenceRect.bottom
         : containerRect.bottom
       const left = containerRect.left
       const width = Math.max(containerRect.width, 12)
-      moveIndicator.style.left = `${left}px`
-      moveIndicator.style.top = `${y - thickness / 2}px`
-      moveIndicator.style.width = `${width}px`
-      moveIndicator.style.height = `${thickness}px`
-      moveIndicatorLine.style.left = '0px'
-      moveIndicatorLine.style.top = '0px'
+      moveIndicatorLine.style.left = `${left}px`
+      moveIndicatorLine.style.top = `${y - thickness / 2}px`
       moveIndicatorLine.style.width = `${width}px`
       moveIndicatorLine.style.height = `${thickness}px`
-      moveIndicatorDotStart.style.left = `${-dotOffset}px`
-      moveIndicatorDotStart.style.top = `${-dotOffset}px`
-      moveIndicatorDotEnd.style.left = `${width - dotOffset - 2}px`
-      moveIndicatorDotEnd.style.top = `${-dotOffset}px`
+      moveIndicatorDotStart.style.left = `${left - dotOffset}px`
+      moveIndicatorDotStart.style.top = `${y - dotOffset}px`
+      moveIndicatorDotEnd.style.left = `${left + width - dotOffset - 2}px`
+      moveIndicatorDotEnd.style.top = `${y - dotOffset}px`
     }
   }
 
   function hideMoveIndicator(): void {
     moveIndicator.dataset.visible = 'false'
+    moveBounds.style.width = '0px'
+    moveBounds.style.height = '0px'
+    moveIndicatorLine.style.width = '0px'
+    moveIndicatorLine.style.height = '0px'
   }
 
   function describeMoveChange(element: HTMLElement, initialIndex: number, nextIndex: number): string {
@@ -1397,7 +1404,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const container = getReorderContainer(info.element)
     if (container) {
       const axis = getReorderAxis(container)
-      body.innerHTML = `<div class="ei-empty">拖动当前元素可以在同级节点间调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排，并显示插入指示线。</div>`
+      body.innerHTML = `<div class="ei-empty">拖动当前元素可以在同级节点间调整顺序。当前按 <strong>${axis === 'x' ? '横向' : '纵向'}</strong> 轴重排，并显示 Drag Bounds 与插入指示线。</div>`
     } else {
       body.innerHTML = '<div class="ei-empty">当前父容器不是 flex 或 grid，暂时不能重排。</div>'
     }

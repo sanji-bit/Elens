@@ -1853,8 +1853,8 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-stroke-remove:hover { color: rgba(255,255,255,0.7); }
 .ei-dp-stroke-remove:focus { outline: none; }
 .ei-dp-stroke-remove svg { display: block; }
-.ei-dp-stroke-settings-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
-.ei-dp-stroke-pos-btn { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; white-space: nowrap; transition: background 0.12s ease; }
+.ei-dp-stroke-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
+.ei-dp-stroke-pos-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; width: 100%; transition: background 0.12s ease; }
 .ei-dp-stroke-pos-btn:hover { background: rgba(255,255,255,0.1); }
 .ei-dp-stroke-pos-btn:focus { outline: none; }
 .ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }

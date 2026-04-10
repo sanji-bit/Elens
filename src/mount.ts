@@ -1,5 +1,6 @@
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode } from './types'
 import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
+import { generateCSSVariables } from './design-tokens'
 import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, getRoute, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
@@ -32,10 +33,18 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
+const CHANGES_AVATAR_URL = 'https://www.figma.com/api/mcp/asset/92c9a830-e49c-4d53-b27c-705b3f65356c'
+const CHANGES_HOVER_DELETE_ICON = '<img src="https://www.figma.com/api/mcp/asset/9f246482-1326-40d0-897d-6b0023883443" alt="" />'
+const CHANGES_HOVER_COPY_ICON = '<img src="https://www.figma.com/api/mcp/asset/afc3f436-d823-4e91-ab79-212be9e730a0" alt="" />'
+const CHANGES_HOVER_COPY_SUCCESS_ICON = '<img src="https://www.figma.com/api/mcp/asset/aacf7c72-b287-41f4-9b5a-64ab67657915" alt="" />'
+const CHANGES_HOVER_PREVIEW_AFTER_ICON = '<img src="https://www.figma.com/api/mcp/asset/d2454efc-4699-42ec-ba95-6dc548515489" alt="" />'
+const CHANGES_HOVER_PREVIEW_BEFORE_ICON = '<img src="https://www.figma.com/api/mcp/asset/5e0f8b56-20e8-4704-9ea2-5954b6fcd88a" alt="" />'
+const CHANGES_PANEL_CLOSE_ICON = '<img src="https://www.figma.com/api/mcp/asset/ee266fdf-36f2-498a-ace5-8eacdcf9e19d" alt="" />'
+const CHANGES_PANEL_CHEVRON_ICON = '<img src="https://www.figma.com/api/mcp/asset/2d249b32-60b9-48a1-a502-379891969a88" alt="" />'
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
-const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3.364 3.907a.417.417 0 0 1 .543-.543L17.24 8.781a.417.417 0 0 1-.053.789l-5.103 1.317a1.667 1.667 0 0 0-1.199 1.196L9.57 17.188a.417.417 0 0 1-.789.052L3.364 3.907Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.0892 17.7442C12.9329 17.9004 12.721 17.9882 12.5 17.9882C12.2791 17.9882 12.0671 17.9004 11.9109 17.7442L10.5892 16.4225C10.433 16.2663 10.3452 16.0543 10.3452 15.8334C10.3452 15.6124 10.433 15.4005 10.5892 15.2442L15.2442 10.5892C15.4005 10.433 15.6124 10.3452 15.8334 10.3452C16.0543 10.3452 16.2663 10.433 16.4225 10.5892L17.7442 11.9109C17.9004 12.0671 17.9882 12.2791 17.9882 12.5C17.9882 12.721 17.9004 12.9329 17.7442 13.0892L13.0892 17.7442Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10.8333L13.8541 5.10496C13.823 4.94911 13.7479 4.80543 13.6377 4.69085C13.5276 4.57627 13.387 4.49558 13.2325 4.4583L2.6958 1.68996C2.55699 1.6564 2.41188 1.65908 2.2744 1.69773C2.13692 1.73639 2.01169 1.80972 1.9107 1.9107C1.80972 2.01169 1.73639 2.13692 1.69773 2.2744C1.65908 2.41188 1.6564 2.55699 1.68996 2.6958L4.4583 13.2325C4.49558 13.387 4.57627 13.5276 4.69085 13.6377C4.80543 13.7479 4.94911 13.823 5.10496 13.8541L10.8333 15" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.91675 1.91675L7.98841 7.98841" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.16667 10.8333C10.0871 10.8333 10.8333 10.0871 10.8333 9.16667C10.8333 8.24619 10.0871 7.5 9.16667 7.5C8.24619 7.5 7.5 8.24619 7.5 9.16667C7.5 10.0871 8.24619 10.8333 9.16667 10.8333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 1.66663V18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 15.8334L10 18.3334L7.5 15.8334" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8334 7.5L18.3334 10L15.8334 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.66663 10H18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.16663 7.5L1.66663 10L4.16663 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 4.16663L10 1.66663L12.5 4.16663" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.99996 1.25H7.08329C5.47246 1.25 4.16663 2.55584 4.16663 4.16667C4.16663 5.7775 5.47246 7.08333 7.08329 7.08333M9.99996 1.25V7.08333M9.99996 1.25H12.9166C14.5275 1.25 15.8333 2.55584 15.8333 4.16667C15.8333 5.7775 14.5275 7.08333 12.9166 7.08333M9.99996 7.08333H7.08329M9.99996 7.08333V12.9167M9.99996 7.08333H12.9166M7.08329 7.08333C5.47246 7.08333 4.16663 8.38917 4.16663 10C4.16663 11.6108 5.47246 12.9167 7.08329 12.9167M9.99996 12.9167H7.08329M9.99996 12.9167V15.8333C9.99996 17.4442 8.69412 18.75 7.08329 18.75C5.47246 18.75 4.16663 17.4442 4.16663 15.8333C4.16663 14.2225 5.47246 12.9167 7.08329 12.9167M12.9166 7.08333C14.5275 7.08333 15.8333 8.38917 15.8333 10C15.8333 11.6108 14.5275 12.9167 12.9166 12.9167C11.3058 12.9167 9.99996 11.6108 9.99996 10C9.99996 8.38917 11.3058 7.08333 12.9166 7.08333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
@@ -46,6 +55,7 @@ const ICON_SELECT_ELEMENT = `<svg width="16" height="16" viewBox="0 0 14 14" fil
 const ICON_STATE_CAPTURE = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_icon)"><path d="M5.24996 2.04163V1.16663M2.95201 2.95201L2.33329 2.33329M2.95201 7.58329L2.33329 8.20201M7.58329 2.95201L8.20201 2.33329M2.04163 5.24996H1.16663M9.25424 9.44388L7.80072 12.1432C7.63467 12.4516 7.55164 12.6058 7.45175 12.6448C7.36506 12.6786 7.26743 12.6691 7.18894 12.6191C7.09851 12.5614 7.04696 12.3941 6.94385 12.0594L4.92632 5.50969C4.84209 5.23625 4.79998 5.09954 4.83386 5.0072C4.86338 4.92677 4.92677 4.86338 5.0072 4.83387C5.09954 4.79998 5.23625 4.84209 5.50969 4.92632L12.0593 6.94387C12.3941 7.04698 12.5614 7.09853 12.619 7.18897C12.6691 7.26745 12.6786 7.36509 12.6448 7.45177C12.6058 7.55167 12.4516 7.63469 12.1432 7.80074L9.44388 9.25424C9.39805 9.27891 9.37514 9.29125 9.35508 9.3071C9.33728 9.32117 9.32117 9.33728 9.3071 9.35508C9.29125 9.37514 9.27891 9.39805 9.25424 9.44388Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></g><defs><clipPath id="clip0_icon"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>`
 const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const ICON_OUTLINES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.12" d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 9.99996C13.3333 8.15901 11.8409 6.66663 9.99996 6.66663C8.15901 6.66663 6.66663 8.15901 6.66663 9.99996C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" fill="currentColor"/><path d="M1.66663 6.5C1.66663 5.09987 1.66663 4.3998 1.93911 3.86502C2.17879 3.39462 2.56124 3.01217 3.03165 2.77248C3.56643 2.5 4.26649 2.5 5.66663 2.5H14.3333C15.7334 2.5 16.4335 2.5 16.9683 2.77248C17.4387 3.01217 17.8211 3.39462 18.0608 3.86502C18.3333 4.3998 18.3333 5.09987 18.3333 6.5V13.5C18.3333 14.9001 18.3333 15.6002 18.0608 16.135C17.8211 16.6054 17.4387 16.9878 16.9683 17.2275C16.4335 17.5 15.7334 17.5 14.3333 17.5H5.66663C4.26649 17.5 3.56643 17.5 3.03165 17.2275C2.56124 16.9878 2.17879 16.6054 1.93911 16.135C1.66663 15.6002 1.66663 14.9001 1.66663 13.5V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 10C13.3333 8.15905 11.8409 6.66667 9.99996 6.66667C8.15901 6.66667 6.66663 8.15905 6.66663 10C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const ICON_GUIDES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.7501 12.7501C17.9365 12.9359 18.0845 13.1567 18.1854 13.3998C18.2864 13.6429 18.3383 14.1667 18.3383 14.1667C18.3383 14.43 18.2864 14.6906 18.1854 14.9337C18.0845 15.1768 17.9365 15.3976 17.7501 15.5834L15.5834 17.7501C15.3976 17.9365 15.1768 18.0845 14.9337 18.1854C14.6906 18.2864 14.43 18.3383 14.1667 18.3383C13.9035 18.3383 13.6429 18.2864 13.3998 18.1854C13.1567 18.0845 12.9359 17.9365 12.7501 17.7501L2.25008 7.25008C1.87554 6.87373 1.66528 6.36437 1.66528 5.83341C1.66528 5.30245 1.87554 4.7931 2.25008 4.41675L4.41675 2.25008C4.7931 1.87554 5.30245 1.66528 5.83341 1.66528C6.36437 1.66528 6.87373 1.87554 7.25008 2.25008L17.7501 12.7501Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.0834 10.4167L13.75 8.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.58337 7.91667L11.25 6.25" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.08337 5.41667L8.75004 3.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5834 12.9167L16.25 11.25" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 function styleRow(label: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-row')
@@ -214,7 +224,7 @@ function buildBoxDiagram(boxModel: InspectorInfo['boxModel']): HTMLDivElement {
 function createStyles(zIndex: number, accentColor: string): string {
   return `
 .ei-root, .ei-root * { box-sizing: border-box; }
-.ei-root { position: fixed; inset: 0; pointer-events: none; z-index: ${zIndex}; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.ei-root { position: fixed; inset: 0; pointer-events: none; z-index: ${zIndex}; font-family: var(--font-family); }
 .ei-highlight { position: fixed; pointer-events: none; }
 .ei-hl-margin { position: relative; width: 100%; height: 100%; background: rgba(225, 112, 85, 0.45); }
 .ei-hl-padding { position: absolute; background: rgba(0, 184, 148, 0.50); }
@@ -222,6 +232,9 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; outline: none; }
 .ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-design="true"] .ei-hl-content { background: transparent; }
+.ei-highlight[data-inspector="true"] .ei-hl-margin { background: transparent; outline: none; }
+.ei-highlight[data-inspector="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
+.ei-highlight[data-inspector="true"] .ei-hl-content { background: transparent; }
 .ei-highlight[data-outlines="true"] .ei-hl-margin { background: transparent; }
 .ei-highlight[data-outlines="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
 .ei-highlight[data-outlines="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
@@ -230,19 +243,19 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; pointer-events: none; }
 .ei-move-indicator { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; }
 .ei-move-indicator[data-visible="true"] { display: block; }
-.ei-move-bounds { position: absolute; border: 1px dashed #FF00FF; border-radius: 0; background: transparent; box-shadow: none; }
-.ei-move-bounds-label { position: absolute; display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 0; background: #FF00FF; color: rgba(255,255,255,0.98); font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; box-shadow: 0 6px 20px rgba(255,0,255,0.22); }
+.ei-move-bounds { position: absolute; border: 1px dashed var(--move); border-radius: 0; background: transparent; box-shadow: none; }
+.ei-move-bounds-label { position: absolute; display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 0; background: var(--move); color: rgba(255,255,255,0.98); font-size: var(--text-sm); font-weight: var(--font-semibold); line-height: 1; white-space: nowrap; box-shadow: 0 6px 20px rgba(255,0,255,0.22); }
 .ei-move-handles { position: absolute; inset: 0; }
-.ei-move-handle { position: absolute; pointer-events: auto; width: 32px; height: 10px; margin: -5px 0 0 -16px; border: 2px solid #FF00FF; border-radius: 999px; background: rgba(255,255,255,0.92); cursor: grab; transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease, opacity 120ms ease; }
+.ei-move-handle { position: absolute; pointer-events: auto; width: 32px; height: 10px; margin: -5px 0 0 -16px; border: 2px solid var(--move); border-radius: 999px; background: rgba(255,255,255,0.92); cursor: grab; transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease, opacity 120ms ease; }
 .ei-move-handle::before { content: ''; position: absolute; inset: 1px 5px; border-radius: 999px; background: repeating-linear-gradient(90deg, rgba(255,0,255,0.22) 0 2px, transparent 2px 5px); }
 .ei-move-handle:hover,
-.ei-move-handle[data-active="true"] { background: #FF00FF; box-shadow: 0 0 0 3px rgba(255,0,255,0.14); }
+.ei-move-handle[data-active="true"] { background: var(--move); box-shadow: 0 0 0 3px rgba(255,0,255,0.14); }
 .ei-move-handle:hover::before,
 .ei-move-handle[data-active="true"]::before { background: transparent; }
 .ei-move-handle:hover { transform: scale(1.03); }
 .ei-move-handle[data-active="true"] { cursor: grabbing; transform: scale(1.04); }
-.ei-move-guide-line { position: absolute; display: none; height: 1px; background: #FF00FF; transform-origin: center; }
-.ei-move-guide-dot { position: absolute; display: none; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; border: 2px solid #FF00FF; background: #fff; }
+.ei-move-guide-line { position: absolute; display: none; height: 1px; background: var(--move); transform-origin: center; }
+.ei-move-guide-dot { position: absolute; display: none; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; border: 2px solid var(--move); background: #fff; }
 .ei-move-indicator[data-visible="true"] .ei-move-guide-line,
 .ei-move-indicator[data-visible="true"] .ei-move-guide-dot { display: block; }
 .ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: transparent; }
@@ -258,14 +271,14 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-root[data-mode="move"] .ei-copy-color,
 .ei-root[data-mode="move"] .ei-annotate { display: none; }
 .ei-root[data-mode="move"] [data-ei-moving="true"] { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; }
-.ei-hl-label { position: absolute; bottom: 100%; left: 0; background: transparent; color: ${accentColor}; font-size: 11px; font-weight: 500; white-space: nowrap; padding: 0 0 2px; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.ei-hl-code { position: absolute; bottom: 100%; right: 0; color: ${accentColor}; font-size: 12px; font-weight: 600; padding: 0 0 2px; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.ei-hl-pad-badge { position: absolute; background: ${accentColor}; color: rgba(255,255,255,0.95); font-size: 9px; font-weight: 500; padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; z-index: 1; }
+.ei-hl-label { position: absolute; bottom: 100%; left: 0; background: transparent; color: ${accentColor}; font-size: var(--text-base); font-weight: var(--font-medium); white-space: nowrap; padding: 0 0 2px; display: none; font-family: var(--font-family); }
+.ei-hl-code { position: absolute; bottom: 100%; right: 0; color: ${accentColor}; font-size: var(--text-lg); font-weight: var(--font-semibold); padding: 0 0 2px; display: none; font-family: var(--font-family); }
+.ei-hl-pad-badge { position: absolute; background: ${accentColor}; color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: var(--font-family); z-index: 1; }
 .ei-hl-pad-line { position: absolute; display: none; }
 .ei-hl-pad-line-h { border-top: 1px solid ${accentColor}; }
 .ei-hl-pad-line-v { border-left: 1px solid ${accentColor}; }
 .ei-hl-pad-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
-.ei-hl-margin-badge { position: absolute; background: #E17055; color: rgba(255,255,255,0.95); font-size: 9px; font-weight: 500; padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; z-index: 1; }
+.ei-hl-margin-badge { position: absolute; background: var(--margin); color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: var(--font-family); z-index: 1; }
 .ei-hl-margin-line { position: absolute; display: none; }
 .ei-hl-margin-line-h { border-top: 1px dashed #E17055; }
 .ei-hl-margin-line-v { border-left: 1px dashed #E17055; }
@@ -273,69 +286,145 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-highlight[data-design="true"] .ei-hl-margin-badge,
 .ei-highlight[data-design="true"] .ei-hl-margin-line,
 .ei-highlight[data-design="true"] .ei-hl-margin-edge { display: block; }
-.ei-toolbar { position: fixed; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 9999px; background: black; box-shadow: 0px 2px 8px rgba(0,0,0,0.24), 0px 1px 24px rgba(0,0,0,0.24); pointer-events: auto; cursor: grab; user-select: none; }
+.ei-guides-overlay { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2; }
+.ei-guides-overlay[data-visible="true"] { display: block; }
+.ei-ruler { position: fixed; background: rgba(17, 17, 19, 0.95); pointer-events: auto; z-index: 3; font-family: var(--font-family); }
+.ei-ruler-top { left: 0; top: 0; width: 100%; height: 24px; border-bottom: 1px solid rgba(255,255,255,0.15); cursor: ns-resize; }
+.ei-ruler-left { left: 0; top: 24px; width: 24px; height: calc(100vh - 24px); border-right: 1px solid rgba(255,255,255,0.15); cursor: ew-resize; }
+.ei-ruler-marks { position: absolute; inset: 0; overflow: hidden; }
+.ei-ruler-mark { position: absolute; background: rgba(255,255,255,0.35); }
+.ei-ruler-mark-major { background: rgba(255,255,255,0.55); }
+.ei-ruler-top .ei-ruler-mark { width: 1px; height: 6px; bottom: 0; }
+.ei-ruler-top .ei-ruler-mark-major { height: 10px; }
+.ei-ruler-left .ei-ruler-mark { height: 1px; width: 6px; right: 0; }
+.ei-ruler-left .ei-ruler-mark-major { width: 10px; }
+.ei-ruler-label { font-size: var(--text-xs); color: rgba(255,255,255,0.55); position: absolute; }
+.ei-reference-lines { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+.ei-ref-line { position: absolute; pointer-events: auto; }
+.ei-ref-line-h { left: 24px; right: 0; height: 1px; background: var(--move); cursor: ns-resize; }
+.ei-ref-line-v { top: 24px; bottom: 0; width: 1px; background: var(--move); cursor: ew-resize; }
+.ei-ref-line:hover { background: #FF33FF; }
+.ei-ref-line-label { position: absolute; background: var(--move); color: white; font-size: var(--text-xs); font-weight: var(--font-semibold); padding: 2px 4px; border-radius: 2px; white-space: nowrap; pointer-events: none; }
+.ei-ref-line-h .ei-ref-line-label { left: 4px; top: -16px; }
+.ei-ref-line-v .ei-ref-line-label { top: 4px; left: 4px; }
+.ei-guide-line { position: fixed; display: none; z-index: 2; pointer-events: none; }
+.ei-guide-line-h { left: 0; right: 0; height: 0; border-top: 1px dashed #FF00FF; }
+.ei-guide-line-v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #FF00FF; }
+.ei-guide-line[data-visible="true"] { display: block; }
+.ei-distance-line { position: fixed; display: none; background: var(--move); pointer-events: none; z-index: 2; }
+.ei-distance-line[data-visible="true"] { display: block; }
+.ei-distance-line-h { height: 1px; }
+.ei-distance-line-v { width: 1px; }
+.ei-distance-label { position: fixed; display: none; background: var(--move); color: white; font-size: var(--text-base); font-weight: var(--font-semibold); padding: 3px 6px; border-radius: 3px; pointer-events: none; white-space: nowrap; z-index: 3; font-family: var(--font-family); }
+.ei-distance-label[data-visible="true"] { display: block; }
+.ei-distance-label-h { transform: translate(-50%, -50%); }
+.ei-distance-label-v { transform: translate(-50%, -50%); }
+.ei-padding-overlay { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; font-family: var(--font-family); }
+.ei-padding-overlay[data-visible="true"] { display: block; }
+.ei-padding-outline,
+.ei-padding-content-outline,
+.ei-padding-highlight,
+.ei-padding-band,
+.ei-padding-badge,
+.ei-padding-tag,
+.ei-padding-code { position: fixed; pointer-events: none; }
+.ei-padding-outline { border: 1px solid #FF00FF; }
+.ei-padding-content-outline { border: 1px solid rgba(255, 0, 255, 0.18); background: rgba(255,255,255,0.92); }
+.ei-padding-highlight { border: 1px dashed #FF00FF; }
+.ei-padding-band { background: repeating-linear-gradient(-45deg, rgba(255, 0, 255, 0.10), rgba(255, 0, 255, 0.10) 4px, rgba(255, 0, 255, 0.02) 4px, rgba(255, 0, 255, 0.02) 8px); }
+.ei-padding-badge { display: none; min-width: 0; height: auto; padding: 1px 4px; align-items: center; justify-content: center; background: #FF00FF; color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); border-radius: 3px; transform: translate(-50%, -50%); }
+.ei-padding-badge[data-visible="true"] { display: inline-flex; }
+.ei-padding-tag,
+.ei-padding-code { display: none; color: #FF00FF; line-height: 1; white-space: nowrap; }
+.ei-padding-tag { font-size: var(--text-base); font-weight: var(--font-medium); padding: 0 0 2px; }
+.ei-padding-code { font-size: var(--text-lg); font-weight: var(--font-semibold); padding: 0 0 2px; }
+.ei-padding-tag[data-visible="true"],
+.ei-padding-code[data-visible="true"] { display: block; }
+.ei-guide-anchor-highlight { position: fixed; pointer-events: none; z-index: 3; border: 1px solid #FF00FF; }
+.ei-guide-anchor-handle { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 0; border: 1px solid #FF00FF; background: #fff; }
+.ei-guide-anchor-handle[data-pos="tl"] { left: 0; top: 0; }
+.ei-guide-anchor-handle[data-pos="tm"] { left: 50%; top: 0; }
+.ei-guide-anchor-handle[data-pos="tr"] { left: 100%; top: 0; }
+.ei-guide-anchor-handle[data-pos="rm"] { left: 100%; top: 50%; }
+.ei-guide-anchor-handle[data-pos="br"] { left: 100%; top: 100%; }
+.ei-guide-anchor-handle[data-pos="bm"] { left: 50%; top: 100%; }
+.ei-guide-anchor-handle[data-pos="bl"] { left: 0; top: 100%; }
+.ei-guide-anchor-handle[data-pos="lm"] { left: 0; top: 50%; }
+.ei-root[data-mode="guides"] .ei-highlight { border: 1px dashed #FF00FF !important; }
+.ei-root[data-mode="guides"] .ei-hl-margin,
+.ei-root[data-mode="guides"] .ei-hl-padding,
+.ei-root[data-mode="guides"] .ei-hl-content { display: none !important; }
+.ei-toolbar { position: fixed; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-full); background: var(--bg-toolbar); box-shadow: var(--shadow-toolbar); pointer-events: auto; cursor: grab; user-select: none; }
 .ei-toolbar:active { cursor: grabbing; }
-.ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0px 0.5px 0px rgba(255,255,255,0.04), inset 0px 0px 0.5px rgba(255,255,255,0.08); pointer-events: none; }
-.ei-toolbar[data-expanded="false"] { padding: 6px; gap: 0; }
+.ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--shadow-inset); pointer-events: none; }
+.ei-toolbar[data-expanded="false"] { padding: var(--space-3); gap: 0; }
 .ei-toolbar[data-expanded="false"] .ei-toolbar-extra { display: none; }
-.ei-toolbar-btn { width: 32px; height: 32px; border-radius: 9999px; border: 0; background: transparent; color: rgba(255,255,255,0.85); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; transition: background 0.15s ease; position: relative; }
-.ei-toolbar-btn:hover { background: rgba(255,255,255,0.15); }
+.ei-toolbar-btn { width: var(--btn-icon-size); height: var(--btn-icon-size); border-radius: var(--radius-full); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; transition: background var(--duration-slow) var(--ease-default); position: relative; }
+.ei-toolbar-btn:hover { background: var(--bg-hover-strong); }
 .ei-toolbar-btn:hover .ei-toolbar-tip { opacity: 1; }
-.ei-toolbar-btn[data-active="true"] { background: ${accentColor}; color: rgba(255,255,255,1); }
-.ei-toolbar-btn[data-active="true"]:hover { background: ${accentColor}; }
+.ei-toolbar-btn[data-active="true"] { background: var(--accent); color: rgba(255,255,255,1); }
+.ei-toolbar-btn[data-active="true"]:hover { background: var(--accent); }
 .ei-toolbar-btn[data-disabled="true"] { opacity: 0.35; pointer-events: none; }
 .ei-toolbar-btn svg { flex-shrink: 0; }
 .ei-toolbar-divider { display: flex; align-items: center; padding: 0 2px; }
-.ei-toolbar-divider-line { width: 1px; height: 16px; background: rgba(255,255,255,0.15); }
-.ei-toolbar-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.85); color: rgba(255,255,255,0.9); font-size: 11px; font-weight: 500; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.ei-toolbar-divider-line { width: 1px; height: 16px; background: var(--bg-hover-strong); }
+.ei-toolbar-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 4px 8px; border-radius: var(--radius-lg); background: rgba(0,0,0,0.85); color: rgba(255,255,255,0.9); font-size: var(--text-base); font-weight: var(--font-medium); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity var(--duration-slow) var(--ease-default); font-family: var(--font-family); }
 .ei-toolbar-btn-group { display: flex; align-items: center; gap: 0; }
 .ei-toolbar-btn-group .ei-toolbar-btn { border-radius: 0; }
-.ei-toolbar-btn-group .ei-toolbar-btn:first-child { border-radius: 9999px 0 0 9999px; }
+.ei-toolbar-btn-group .ei-toolbar-btn:first-child { border-radius: var(--radius-full) 0 0 9999px; }
 .ei-toolbar-btn-group .ei-toolbar-btn:last-child { border-radius: 0 9999px 9999px 0; }
 .ei-toolbar-dropdown-btn { width: 20px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-.ei-capture-menu { position: fixed; min-width: 220px; border-radius: 12px; background: #111113; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 28px rgba(0,0,0,0.5); padding: 6px; z-index: ${zIndex + 5}; pointer-events: auto; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-.ei-capture-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 24px; padding: 0 8px; border-radius: 8px; border: 0; background: transparent; color: rgba(255,255,255,0.92); cursor: pointer; text-align: left; transition: background 0.15s ease; }
-.ei-capture-menu-item:hover { background: rgba(255,255,255,0.15); }
-.ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: rgba(255,255,255,0.7); }
-.ei-capture-menu-label { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.95); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-.ei-panel { position: fixed; top: 16px; left: 16px; width: 320px; border-radius: 18px; overflow: visible; background: #111113; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.55); pointer-events: auto; color: #e8e8ec; user-select: text; }
+.ei-capture-menu { position: fixed; min-width: 220px; border-radius: var(--radius-3xl); background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: var(--space-3); z-index: ${zIndex + 5}; pointer-events: auto; font-family: var(--font-family); }
+.ei-capture-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 24px; padding: 0 8px; border-radius: var(--radius-xl); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
+.ei-capture-menu-item:hover { background: var(--bg-hover-strong); }
+.ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: var(--text-secondary); }
+.ei-capture-menu-label { font-size: var(--text-base); font-weight: 400; color: rgba(255,255,255,0.95); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.ei-panel { position: fixed; top: 16px; left: 16px; width: 320px; border-radius: var(--radius-panel); overflow: visible; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-panel); pointer-events: auto; color: var(--text-primary); user-select: text; }
+.ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; border-radius: 18px; border: 0.5px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.55); overflow: hidden; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.ei-panel.is-changes .ei-panel-header { padding: 16px 16px 16.5px; border-bottom: 0.5px solid #1f1f21; }
 .ei-drag-handle { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 12px; border: 0; background: transparent; cursor: grab; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 .ei-drag-handle:active { cursor: grabbing; }
-.ei-drag-bar { display: block; width: 24px; height: 3px; border-radius: 999px; background: rgba(255,255,255,0.2); transition: background-color 160ms ease; pointer-events: none; }
+.ei-drag-bar { display: block; width: 24px; height: 3px; border-radius: 999px; background: rgba(255,255,255,0.2); transition: background-color var(--duration-slower) var(--ease-default); pointer-events: none; }
 .ei-drag-handle:hover .ei-drag-bar { background: rgba(255,255,255,0.45); }
-.ei-panel-title { font-size: 12px; font-weight: 700; }
-.ei-panel-subtitle { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
-.ei-actions { display: flex; gap: 8px; }
-.ei-icon-btn { min-width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 12px; }
+.ei-panel-title { font-size: var(--text-lg); font-weight: var(--font-bold); }
+.ei-panel.is-changes .ei-panel-title { font-size: 13px; line-height: normal; font-weight: 700; color: #e8e8ec; }
+.ei-panel-subtitle { font-size: var(--text-base); color: rgba(255,255,255,0.5); margin-top: 2px; }
+.ei-actions { display: flex; gap: var(--space-4); }
+.ei-panel.is-changes .ei-actions { gap: 0; }
+.ei-icon-btn { min-width: 32px; height: 32px; border-radius: var(--radius-xl); border: 1px solid var(--border-hover); background: var(--bg-hover); color: var(--text-primary); cursor: pointer; font-size: var(--text-lg); }
+.ei-changes-close { width: 24px; height: 24px; border: none; border-radius: 5px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.ei-changes-close img { width: 24px; height: 24px; display: block; }
+.ei-changes-close:hover { background: rgba(255,255,255,0.08); }
 .ei-body { padding: 4px 16px 16px; max-height: 70vh; overflow-y: auto; overflow-y: overlay; scrollbar-width: none; -ms-overflow-style: none; }
+.ei-panel.is-changes .ei-body { flex: 1; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .ei-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .ei-body::-webkit-scrollbar-track { background: transparent; }
 .ei-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 0; }
 .ei-body::-webkit-scrollbar-thumb:hover { background: transparent; }
-.ei-empty { font-size: 12px; color: rgba(255,255,255,0.55); line-height: 1.5; }
-.ei-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.ei-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+.ei-empty { font-size: var(--text-lg); color: rgba(255,255,255,0.55); line-height: 1.5; }
+.ei-badges { display: flex; align-items: center; gap: var(--space-4); margin-bottom: 10px; }
+.ei-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: var(--text-sm); font-weight: var(--font-bold); background: var(--bg-field); color: var(--text-primary); }
 .ei-badge-lock { background: color-mix(in srgb, ${accentColor} 22%, #111113); color: ${accentColor}; }
-.ei-breadcrumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.ei-crumb { display: inline-flex; align-items: center; max-width: 100%; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 600; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); border: 0; cursor: pointer; }
+.ei-breadcrumbs { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: 10px; }
+.ei-crumb { display: inline-flex; align-items: center; max-width: 100%; border-radius: 999px; padding: 4px 8px; font-size: var(--text-sm); font-weight: var(--font-semibold); background: var(--bg-field); color: rgba(255,255,255,0.8); border: 0; cursor: pointer; }
 .ei-crumb[data-active="true"] { background: color-mix(in srgb, ${accentColor} 22%, #111113); color: ${accentColor}; }
-.ei-text-head { font-size: 12px; font-weight: 600; line-height: 1.45; margin-bottom: 6px; }
-.ei-path { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.4; margin-bottom: 12px; word-break: break-word; }
-.ei-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,0.07); }
-.ei-tab { height: 30px; border: 0; border-radius: 9px; background: transparent; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); cursor: pointer; }
+.ei-text-head { font-size: var(--text-lg); font-weight: var(--font-semibold); line-height: 1.45; margin-bottom: 6px; }
+.ei-path { font-size: var(--text-base); color: var(--text-tertiary); line-height: 1.4; margin-bottom: 12px; word-break: break-word; }
+.ei-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: 12px; padding: 4px; border-radius: var(--radius-3xl); background: rgba(255,255,255,0.07); }
+.ei-tab { height: 30px; border: 0; border-radius: 9px; background: transparent; font-size: var(--text-base); font-weight: var(--font-semibold); color: rgba(255,255,255,0.55); cursor: pointer; }
 .ei-tab[data-active="true"] { background: rgba(255,255,255,0.14); color: #fff; }
 .ei-section { display: none; }
 .ei-section[data-active="true"] { display: block; }
-.ei-row { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 8px; align-items: start; font-size: 11px; line-height: 1.4; margin-bottom: 7px; }
-.ei-label { color: rgba(255,255,255,0.45); }
-.ei-value { min-width: 0; display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.92); }
+.ei-row { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: var(--space-4); align-items: start; font-size: var(--text-base); line-height: 1.4; margin-bottom: 7px; }
+.ei-label { color: var(--text-tertiary); }
+.ei-value { min-width: 0; display: flex; align-items: center; gap: var(--space-4); color: var(--text-primary); }
 .ei-text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-swatch { width: 12px; height: 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
-.ei-copy-color { flex-shrink: 0; cursor: pointer; color: rgba(255,255,255,0.35); line-height: 0; padding: 2px; border-radius: 3px; opacity: 0; pointer-events: none; width: 16px; }
+.ei-swatch { width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--border-hover); flex-shrink: 0; }
+.ei-copy-color { flex-shrink: 0; cursor: pointer; color: var(--text-muted); line-height: 0; padding: 2px; border-radius: 3px; opacity: 0; pointer-events: none; width: 16px; }
 .ei-copy-color:hover { color: rgba(255,255,255,0.8); }
 .ei-row:hover .ei-copy-color { opacity: 1; pointer-events: auto; }
-.ei-box-diagram { width: 100%; margin: 0 0 8px; border-radius: 5px; background: rgba(255,255,255,0.06); padding: 0; overflow: hidden; position: relative; }
+.ei-box-diagram { width: 100%; margin: 0 0 8px; border-radius: 5px; background: var(--bg-field); padding: 0; overflow: hidden; position: relative; }
 .ei-box-body { display: flex; align-items: stretch; }
 .ei-box-m { display: flex; align-items: center; justify-content: center; position: relative; }
 .ei-box-m-h { height: 32px; flex-direction: column; }
@@ -343,87 +432,113 @@ function createStyles(zIndex: number, accentColor: string): string {
 .ei-box-m-line { position: absolute; background: ${accentColor}; }
 .ei-box-m-h .ei-box-m-line { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
 .ei-box-m-v .ei-box-m-line { height: 1px; width: 100%; top: 50%; transform: translateY(-50%); }
-.ei-box-m-badge { position: relative; z-index: 1; background: ${accentColor}; color: #fff; font-size: 11px; font-weight: 400; line-height: 16px; padding: 0 3px; border-radius: 2px; white-space: nowrap; letter-spacing: 0.055px; }
-.ei-box-container { flex: 1; min-width: 0; display: grid; grid-template-columns: 24px 1fr 24px; grid-template-rows: 24px 1fr 24px; background: rgba(255,255,255,0.1); border-radius: 12px; }
+.ei-box-m-badge { position: relative; z-index: 1; background: ${accentColor}; color: #fff; font-size: var(--text-base); font-weight: 400; line-height: 16px; padding: 0 3px; border-radius: 2px; white-space: nowrap; letter-spacing: 0.055px; }
+.ei-box-container { flex: 1; min-width: 0; display: grid; grid-template-columns: 24px 1fr 24px; grid-template-rows: 24px 1fr 24px; background: var(--bg-field); border-radius: var(--radius-3xl); }
 .ei-box-corner { display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
 .ei-box-corner-mark { position: absolute; width: 17px; height: 17px; border-color: rgba(255,255,255,0.5); border-style: solid; border-width: 0; }
 .ei-box-corner-tl .ei-box-corner-mark { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; border-top-left-radius: 12px; }
 .ei-box-corner-tr .ei-box-corner-mark { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; border-top-right-radius: 12px; }
 .ei-box-corner-bl .ei-box-corner-mark { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; border-bottom-left-radius: 12px; }
 .ei-box-corner-br .ei-box-corner-mark { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 12px; }
-.ei-box-corner-val { position: relative; z-index: 1; font-size: 11px; color: rgba(255,255,255,0.85); line-height: 16px; letter-spacing: 0.055px; }
-.ei-box-b-cell { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.ei-box-b-label { font-size: 11px; color: rgba(255,255,255,0.45); letter-spacing: 0.005px; }
-.ei-box-b-val { font-size: 11px; color: rgba(255,255,255,0.45); letter-spacing: 0.055px; }
+.ei-box-corner-val { position: relative; z-index: 1; font-size: var(--text-base); color: var(--text-primary); line-height: 16px; letter-spacing: 0.055px; }
+.ei-box-b-cell { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+.ei-box-b-label { font-size: var(--text-base); color: var(--text-tertiary); letter-spacing: 0.005px; }
+.ei-box-b-val { font-size: var(--text-base); color: var(--text-tertiary); letter-spacing: 0.055px; }
 .ei-box-pad { display: grid; grid-template-columns: minmax(24px,1fr) 3fr minmax(24px,1fr); grid-template-rows: 24px 1fr 24px; align-items: center; justify-items: center; background: rgba(9,132,227,0.18); border-radius: 2px; }
-.ei-box-pad-label { grid-column: 1; grid-row: 1; justify-self: start; font-size: 11px; color: rgba(255,255,255,0.45); padding-left: 8px; letter-spacing: 0.005px; }
-.ei-box-pad-val { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.85); line-height: 16px; letter-spacing: 0.055px; }
+.ei-box-pad-label { grid-column: 1; grid-row: 1; justify-self: start; font-size: var(--text-base); color: var(--text-tertiary); padding-left: 8px; letter-spacing: 0.005px; }
+.ei-box-pad-val { font-size: var(--text-base); font-weight: 400; color: var(--text-primary); line-height: 16px; letter-spacing: 0.055px; }
 .ei-box-pad-tv { grid-column: 2; grid-row: 1; }
 .ei-box-pad-lv { grid-column: 1; grid-row: 2; }
 .ei-box-pad-rv { grid-column: 3; grid-row: 2; }
 .ei-box-pad-bv { grid-column: 2; grid-row: 3; }
-.ei-box-content { grid-column: 2; grid-row: 2; border: 1px dashed rgba(255,255,255,0.35); border-radius: 2px; padding: 3px 10px; font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.85); white-space: nowrap; background: rgba(255,255,255,0.08); line-height: 16px; letter-spacing: 0.055px; display: flex; align-items: center; justify-content: center; gap: 1px; }
-.ei-box-sizing { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 0.005px; }
-.ei-tooltip { position: fixed; max-width: 320px; border-radius: 12px; background: #111113; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 28px rgba(0,0,0,0.5); padding: 10px 12px; pointer-events: none; font-size: 11px; line-height: 1.5; color: #e8e8ec; }
+.ei-box-content { grid-column: 2; grid-row: 2; border: 1px dashed rgba(255,255,255,0.35); border-radius: 2px; padding: 3px 10px; font-size: var(--text-base); font-weight: 400; color: var(--text-primary); white-space: nowrap; background: var(--bg-hover); line-height: 16px; letter-spacing: 0.055px; display: flex; align-items: center; justify-content: center; gap: 1px; }
+.ei-box-sizing { position: absolute; right: 6px; bottom: 4px; font-size: var(--text-sm); color: rgba(255,255,255,0.3); letter-spacing: 0.005px; }
+.ei-tooltip { position: fixed; max-width: 320px; border-radius: var(--radius-3xl); background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: 10px 12px; pointer-events: none; font-size: var(--text-base); line-height: 1.5; color: var(--text-primary); }
 .ei-tt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 4px; }
-.ei-tt-tag { font-weight: 700; color: #6C5CE7; font-size: 12px; }
-.ei-tt-size { font-size: 11px; color: rgba(255,255,255,0.5); white-space: nowrap; }
-.ei-tt-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-.ei-tt-label { color: rgba(255,255,255,0.45); flex-shrink: 0; }
-.ei-tt-val { color: rgba(255,255,255,0.92); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-tt-tag { font-weight: var(--font-bold); color: var(--purple); font-size: var(--text-lg); }
+.ei-tt-size { font-size: var(--text-base); color: rgba(255,255,255,0.5); white-space: nowrap; }
+.ei-tt-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: 2px; }
+.ei-tt-label { color: var(--text-tertiary); flex-shrink: 0; }
+.ei-tt-val { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ei-tt-swatch { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0; }
-.ei-tt-divider { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); }
+.ei-tt-divider { display: flex; align-items: center; gap: var(--space-4); margin: 6px 0 4px; font-size: var(--text-xs); font-weight: var(--font-bold); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 .ei-tt-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.12); }
-.ei-tt-no { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.45); font-size: 10px; line-height: 1; }
-.ei-tt-yes { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,184,148,0.18); color: rgba(0,184,148,0.9); font-size: 10px; line-height: 1; }
+.ei-tt-no { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-field); color: var(--text-tertiary); font-size: var(--text-sm); line-height: 1; }
+.ei-tt-yes { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--success-bg); color: var(--success); font-size: var(--text-sm); line-height: 1; }
 .ei-annotate { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; }
-.ei-annotate-input { width: 100%; min-height: 56px; max-height: 120px; resize: vertical; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #e8e8ec; font-size: 12px; font-family: inherit; padding: 8px 10px; outline: none; }
+.ei-annotate-input { width: 100%; min-height: 56px; max-height: 120px; resize: vertical; background: var(--bg-field); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-xl); color: var(--text-primary); font-size: var(--text-lg); font-family: inherit; padding: 8px 10px; outline: none; }
 .ei-annotate-input:focus { border-color: ${accentColor}; }
 .ei-annotate-input::placeholder { color: rgba(255,255,255,0.3); }
-.ei-annotate-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-.ei-annotate-btn { height: 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 11px; font-weight: 600; padding: 0 12px; }
+.ei-annotate-actions { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: 8px; }
+.ei-annotate-btn { height: 28px; border-radius: var(--radius-xl); border: 1px solid var(--border-hover); background: var(--bg-hover); color: var(--text-primary); cursor: pointer; font-size: var(--text-base); font-weight: var(--font-semibold); padding: 0 12px; }
 .ei-annotate-btn-primary { background: ${accentColor}; border-color: ${accentColor}; color: #fff; }
-.ei-marker { position: fixed; pointer-events: auto; width: 24px; height: 24px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.22); border: none; z-index: 1; }
-.ei-ann-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 10px; }
-.ei-ann-filter { height: 26px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.68); cursor: pointer; font-size: 10px; font-weight: 700; padding: 0 10px; }
-.ei-ann-filter.is-active { background: rgba(108,92,231,0.22); border-color: rgba(108,92,231,0.45); color: #fff; }
+.ei-marker { position: fixed; pointer-events: auto; width: 24px; height: 24px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: var(--text-sm); font-weight: var(--font-bold); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.22); border: none; z-index: 1; }
+.ei-ann-filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; min-height: 24px; }
+.ei-ann-filter { min-width: 32px; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 11px; font-weight: 400; line-height: 16px; letter-spacing: 0.055px; padding: 4px 8px; transition: background 120ms ease, color 120ms ease; }
+.ei-ann-filter.is-active { background: #383838; color: #fff; font-weight: 500; }
 .ei-ann-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .ei-ann-group:last-of-type { margin-bottom: 0; }
-.ei-ann-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px; }
-.ei-ann-group-title { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.86); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-group-meta { font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap; }
-.ei-ann-list { padding: 4px 0; display: flex; flex-direction: column; gap: 10px; }
-.ei-ann-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(255,255,255,0.04); cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
-.ei-ann-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); transform: translateY(-1px); }
-.ei-ann-item.is-expanded { border-color: rgba(108,92,231,0.32); background: rgba(108,92,231,0.06); }
-.ei-ann-num { width: 20px; height: 20px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
-.ei-ann-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.ei-ann-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ei-ann-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.ei-ann-expand-hint { font-size: 10px; color: rgba(255,255,255,0.36); }
-.ei-ann-route { font-size: 10px; color: rgba(255,255,255,0.42); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-title { font-size: 12px; font-weight: 600; color: #f4f4f6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-selector { font-size: 11px; color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-comment { font-size: 11px; color: rgba(255,255,255,0.72); }
-.ei-ann-more { font-size: 10px; color: rgba(255,255,255,0.42); }
-.ei-ann-actions { display: flex; gap: 6px; margin-top: 4px; }
-.ei-ann-action { height: 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.82); cursor: pointer; font-size: 10px; font-weight: 700; padding: 0 8px; }
-.ei-ann-action:hover, .ei-ann-filter:hover { background: rgba(255,255,255,0.08); }
-.ei-ann-del { flex-shrink: 0; width: 20px; height: 20px; border: 0; background: transparent; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
-.ei-ann-del:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); }
-.ei-ann-export { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
-.ei-ann-export-btn { flex: 1; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); cursor: pointer; font-size: 11px; font-weight: 600; }
-.ei-ann-export-btn:hover { background: rgba(255,255,255,0.12); }
-.ei-ann-empty { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; padding: 24px 16px; }
-.ei-ann-type { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 999px; background: rgba(108,92,231,0.22); color: rgba(255,255,255,0.92); vertical-align: middle; }
-.ei-ann-badge { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 999px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.62); }
-.ei-ann-badge-muted { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.58); }
-.ei-ann-diffs { display: flex; flex-direction: column; gap: 4px; }
-.ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.68); font-family: monospace; line-height: 1.45; padding-left: 6px; border-left: 2px solid ${accentColor}; }
-.ei-ann-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
-.ei-ann-compare-col { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px; min-width: 0; }
-.ei-ann-compare-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.42); margin-bottom: 6px; }
-.ei-ann-compare-row { font-size: 10px; color: rgba(255,255,255,0.72); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-group-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 0 2px; }
+.ei-ann-group-title { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.86); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-group-meta { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+.ei-ann-list { padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ei-ann-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px; border-radius: 8px; background: transparent; border: 1px solid transparent; opacity: 0.8; cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease; }
+.ei-ann-item:hover { background: rgba(255,255,255,0.05); border-color: transparent; }
+.ei-ann-item.is-active { background: rgba(0,148,255,0.15); border-color: transparent; box-shadow: none; }
+.ei-ann-num { display: none; }
+.ei-ann-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ei-ann-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; padding-bottom: 8px; }
+.ei-ann-author { display: inline-flex; align-items: center; gap: 0; min-width: 0; flex: 1; }
+.ei-ann-avatar { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+.ei-ann-avatar img { width: 24px; height: 24px; object-fit: cover; display: block; }
+.ei-ann-time { font-size: 11px; color: rgba(255,255,255,0.7); white-space: nowrap; line-height: 16px; letter-spacing: 0.005px; }
+.ei-ann-actions { display: none; align-items: center; gap: 4px; }
+.ei-ann-item:hover .ei-ann-actions { display: inline-flex; }
+.ei-ann-item:hover .ei-ann-time { display: none; }
+.ei-ann-action { width: 24px; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.82); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: background 120ms ease, opacity 120ms ease, transform 120ms ease; }
+.ei-ann-action:hover, .ei-ann-filter:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.ei-ann-action-icon-stack { position: relative; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.ei-ann-action-icon { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 50ms ease; }
+.ei-ann-action-icon.is-next { opacity: 0; }
+.ei-ann-action.is-switching .ei-ann-action-icon.is-current { opacity: 0; }
+.ei-ann-action.is-switching .ei-ann-action-icon.is-next { opacity: 1; }
+.ei-ann-action img, .ei-ann-action svg { width: 24px; height: 24px; display: block; }
+.ei-ann-action.is-success .ei-ann-action-icon img, .ei-ann-action.is-success .ei-ann-action-icon svg { filter: saturate(1.05); }
+.ei-ann-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0; min-width: 0; font-size: 11px; line-height: 16px; letter-spacing: 0.055px; color: rgba(255,255,255,0.7); }
+.ei-ann-dot { color: rgba(255,255,255,0.28); margin: 0 4px; }
+.ei-ann-title, .ei-ann-type, .ei-ann-source-badge { white-space: nowrap; }
+.ei-ann-selector-inline { color: rgba(255,255,255,0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ei-ann-summary { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.7); line-height: 16px; letter-spacing: 0.005px; padding-left: 8px; border-left: 2px solid #008dff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: inherit; }
+.ei-ann-note { font-size: 11px; color: #fff; line-height: 16px; letter-spacing: 0.005px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ei-ann-extra { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.ei-ann-meta-lines { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ei-ann-route, .ei-ann-selector { font-size: 11px; color: rgba(255,255,255,0.42); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.ei-ann-compare-col { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px; min-width: 0; }
+.ei-ann-compare-label { font-size: 11px; font-weight: var(--font-bold); text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.42); margin-bottom: 6px; }
+.ei-ann-compare-row { font-size: 11px; color: rgba(255,255,255,0.72); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-export { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 16px; }
+.ei-ann-export-primary { display: inline-flex; align-items: center; }
+.ei-ann-export-btn { height: 28px; border: none; background: transparent; color: #fff; cursor: pointer; font-size: 12px; font-weight: 500; line-height: 18px; padding: 5px 12px; transition: opacity 120ms ease, background 120ms ease; }
+.ei-ann-export-btn:hover { background: rgba(255,255,255,0.08); }
+.ei-ann-export-btn-primary { background: #0094ff; border-radius: 16px 0 0 16px; }
+.ei-ann-export-btn-primary:hover { background: #0094ff; opacity: 0.92; }
+.ei-ann-export-btn-dropdown { background: #0094ff; border-left: 1px solid rgba(255,255,255,0.2); border-radius: 0 16px 16px 0; padding: 5px 8px 5px 6px; width: 28px; display: inline-flex; align-items: center; justify-content: center; }
+.ei-ann-export-btn-dropdown img, .ei-ann-export-btn-dropdown svg { width: 14px; height: 14px; display: block; }
+.ei-ann-export-btn-dropdown:hover { background: #0094ff; opacity: 0.92; }
+.ei-ann-export-btn-dropdown.is-success { opacity: 0.72; }
+.ei-ann-export-btn-ghost { opacity: 0.5; border-radius: 16px; }
+.ei-ann-export-btn-ghost:hover { background: rgba(255,255,255,0.08); opacity: 1; }
+.ei-ann-empty { font-size: var(--text-lg); color: rgba(255,255,255,0.4); text-align: center; padding: 24px 16px; }
+.ei-ann-type { color: rgba(255,255,255,0.7); }
+.ei-ann-source-badge { color: rgba(255,255,255,0.7); }
+.ei-ann-more { font-size: 11px; color: rgba(255,255,255,0.42); }
+.ei-ann-previewing { font-size: 11px; color: rgba(255,255,255,0.5); }
+.ei-ann-action.is-active { background: rgba(255,255,255,0.08); color: #fff; }
+.ei-ann-action.is-danger:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.ei-ann-action.is-success { color: #7ef0c0; }
+.ei-ann-action.is-success:hover { color: #7ef0c0; }
 .ei-change-flash-target { animation: ei-change-flash 1.2s ease-out 1; }
 @keyframes ei-change-flash { 0% { outline: 2px solid rgba(108,92,231,0.95); outline-offset: 3px; } 100% { outline: 2px solid rgba(108,92,231,0); outline-offset: 8px; } }
 [data-ei-outlines="true"] * { outline: 1px solid rgba(0, 0, 0, 0.6); outline-offset: -1px; }
@@ -441,6 +556,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let destroyed = false
   let lockedElement: HTMLElement | null = null
   let currentInfo: InspectorInfo | null = null
+  let hoverLocked = false
   let outlinesEnabled = false
   let outlinesHoverElement: Element | null = null
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
@@ -453,12 +569,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let changeIdCounter = 0
   let annotateInput: HTMLTextAreaElement | null = null
   let changesFilter: 'all' | 'style' | 'text' | 'move' | 'note' = 'all'
-  let expandedChangeIds = new Set<string>()
+  let activeChangeId: string | null = null
+  let beforePreviewChangeIds = new Set<string>()
   let changeFlashTimeout: number | null = null
   let changeFlashElement: HTMLElement | null = null
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
+  // Guides mode state
+  let guidesAnchorElement: HTMLElement | null = null
+  let guidesAnchorRect: DOMRect | null = null
+  let guideLines: Array<{id: string; type: 'horizontal' | 'vertical'; position: number; element: HTMLElement}> = []
+  let rulerDragState: {type: 'horizontal' | 'vertical'; tempLine: HTMLElement; snappedPosition: number | null} | null = null
+  let guideLineDragState: {id: string; type: 'horizontal' | 'vertical'; startPos: number; snappedPosition: number | null} | null = null
   let moveHandleEntries: Array<{ handle: HTMLButtonElement; element: HTMLElement }> = []
   let moveDragRaf = 0
   let pendingMovePointer: { x: number; y: number } | null = null
@@ -488,7 +611,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   root.setAttribute(IGNORE_ATTR, 'true')
 
   const styleEl = document.createElement('style')
-  styleEl.textContent = createStyles(zIndex, accentColor)
+  styleEl.textContent = generateCSSVariables(accentColor) + createStyles(zIndex, accentColor)
 
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
@@ -509,6 +632,80 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const moveGuideLine = el('div', 'ei-move-guide-line')
   const moveGuideDot = el('div', 'ei-move-guide-dot')
   moveIndicator.append(moveBounds, moveBoundsLabel, moveHandles, moveGuideLine, moveGuideDot)
+
+  // Guides overlay
+  const guidesOverlay = el('div', 'ei-guides-overlay')
+  guidesOverlay.setAttribute(IGNORE_ATTR, 'true')
+  guidesOverlay.dataset.visible = 'false'
+
+  // Rulers
+  const topRuler = el('div', 'ei-ruler ei-ruler-top')
+  topRuler.setAttribute(IGNORE_ATTR, 'true')
+  const topRulerMarks = el('div', 'ei-ruler-marks')
+  topRuler.appendChild(topRulerMarks)
+
+  const leftRuler = el('div', 'ei-ruler ei-ruler-left')
+  leftRuler.setAttribute(IGNORE_ATTR, 'true')
+  const leftRulerMarks = el('div', 'ei-ruler-marks')
+  leftRuler.appendChild(leftRulerMarks)
+
+  // Reference lines container
+  const referenceLinesContainer = el('div', 'ei-reference-lines')
+  referenceLinesContainer.setAttribute(IGNORE_ATTR, 'true')
+
+  
+  // Distance measurement lines + labels
+  const distanceLineH = el('div', 'ei-distance-line ei-distance-line-h')
+  distanceLineH.setAttribute(IGNORE_ATTR, 'true')
+  const distanceLineV = el('div', 'ei-distance-line ei-distance-line-v')
+  distanceLineV.setAttribute(IGNORE_ATTR, 'true')
+  const distanceLabelH = el('div', 'ei-distance-label ei-distance-label-h')
+  distanceLabelH.setAttribute(IGNORE_ATTR, 'true')
+  const distanceLabelV = el('div', 'ei-distance-label ei-distance-label-v')
+  distanceLabelV.setAttribute(IGNORE_ATTR, 'true')
+  const paddingOverlay = el('div', 'ei-padding-overlay')
+  paddingOverlay.setAttribute(IGNORE_ATTR, 'true')
+  paddingOverlay.dataset.visible = 'false'
+  const paddingOutline = el('div', 'ei-padding-outline')
+  paddingOutline.setAttribute(IGNORE_ATTR, 'true')
+  paddingOutline.dataset.visible = 'false'
+  const paddingContentOutline = el('div', 'ei-padding-content-outline')
+  paddingContentOutline.setAttribute(IGNORE_ATTR, 'true')
+  paddingContentOutline.dataset.visible = 'false'
+  const paddingHighlight = el('div', 'ei-padding-highlight')
+  paddingHighlight.setAttribute(IGNORE_ATTR, 'true')
+  paddingHighlight.dataset.visible = 'false'
+  const paddingTag = el('div', 'ei-padding-tag', 'div')
+  paddingTag.setAttribute(IGNORE_ATTR, 'true')
+  paddingTag.dataset.visible = 'false'
+  const paddingCode = el('div', 'ei-padding-code', '</>')
+  paddingCode.setAttribute(IGNORE_ATTR, 'true')
+  paddingCode.dataset.visible = 'false'
+  const paddingBands = {
+    top: el('div', 'ei-padding-band'),
+    right: el('div', 'ei-padding-band'),
+    bottom: el('div', 'ei-padding-band'),
+    left: el('div', 'ei-padding-band'),
+  }
+  const paddingBadges = {
+    top: el('div', 'ei-padding-badge'),
+    right: el('div', 'ei-padding-badge'),
+    bottom: el('div', 'ei-padding-badge'),
+    left: el('div', 'ei-padding-badge'),
+  }
+  ;(['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+    paddingBands[side].setAttribute(IGNORE_ATTR, 'true')
+    paddingBands[side].dataset.side = side
+    paddingBands[side].dataset.visible = 'false'
+    paddingBadges[side].setAttribute(IGNORE_ATTR, 'true')
+    paddingBadges[side].dataset.side = side
+    paddingBadges[side].dataset.visible = 'false'
+    paddingOverlay.appendChild(paddingBands[side])
+    paddingOverlay.appendChild(paddingBadges[side])
+  })
+  paddingOverlay.append(paddingOutline, paddingContentOutline, paddingHighlight, paddingTag, paddingCode)
+
+  guidesOverlay.append(topRuler, leftRuler, referenceLinesContainer, distanceLineH, distanceLineV, distanceLabelH, distanceLabelV, paddingOverlay)
 
   function clearMoveHandles(): void {
     moveHandleEntries = []
@@ -649,10 +846,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const exitBtn = makeToolbarBtn(ICON_EXIT, 'Exit')
   exitBtn.classList.add('ei-toolbar-extra')
 
+  const guidesBtn = makeToolbarBtn(ICON_GUIDES, 'Guides')
+  guidesBtn.classList.add('ei-toolbar-extra')
+
   const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, 'Toggle Outlines')
   outlinesBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, outlinesBtn, screenshotGroup, toolbarDivider, exitBtn)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, guidesBtn, outlinesBtn, screenshotGroup, toolbarDivider, exitBtn)
   root.appendChild(captureMenu)
 
   // Panel
@@ -677,23 +877,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const actions = el('div', 'ei-actions')
   const copyBtn = el('button', 'ei-icon-btn', 'Copy')
   const unlockBtn = el('button', 'ei-icon-btn', 'Unlock')
+  const changesCloseBtn = el('button', 'ei-changes-close') as HTMLButtonElement
   copyBtn.type = 'button'
   unlockBtn.type = 'button'
+  changesCloseBtn.type = 'button'
   copyBtn.setAttribute(IGNORE_ATTR, 'true')
   unlockBtn.setAttribute(IGNORE_ATTR, 'true')
-  actions.append(copyBtn, unlockBtn)
+  changesCloseBtn.setAttribute(IGNORE_ATTR, 'true')
+  changesCloseBtn.title = 'Close changes'
+  changesCloseBtn.ariaLabel = 'Close changes'
+  changesCloseBtn.innerHTML = CHANGES_PANEL_CLOSE_ICON
+  actions.append(copyBtn, unlockBtn, changesCloseBtn)
   header.append(titleWrap, actions)
 
   const body = el('div', 'ei-body')
   panel.append(dragHandle, header, body)
 
-  root.append(styleEl, highlight, moveIndicator, tooltip, panel, markersContainer, toolbar)
+  root.append(styleEl, highlight, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
   document.body.appendChild(root)
 
   // --- Helpers ---
 
   function isInteractiveMode(): boolean {
-    return currentMode === 'inspector' || currentMode === 'design' || currentMode === 'move'
+    return currentMode === 'inspector' || currentMode === 'design' || currentMode === 'move' || currentMode === 'guides'
   }
 
   function isIgnoredEvent(event: Event): boolean {
@@ -718,7 +924,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function setPanelVisible(visible: boolean): void {
-    panel.style.display = visible ? 'block' : 'none'
+    if (!visible) {
+      panel.style.display = 'none'
+      return
+    }
+    panel.style.display = panel.classList.contains('is-changes') ? 'flex' : 'block'
   }
 
   function setHighlightVisible(visible: boolean): void {
@@ -786,6 +996,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function cleanupPanelExtras(): void {
     panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
+    panel.classList.remove('is-changes')
+    changesCloseBtn.style.display = 'none'
+    subtitle.style.display = ''
   }
 
   function getReorderableSiblings(element: HTMLElement): HTMLElement[] {
@@ -1408,9 +1621,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function renderChangesList(): void {
     body.innerHTML = ''
     cleanupPanelExtras()
+    panel.classList.add('is-changes')
     titleEl.textContent = 'Changes'
+    subtitle.textContent = ''
+    subtitle.style.display = 'none'
     copyBtn.style.display = 'none'
     unlockBtn.style.display = 'none'
+    changesCloseBtn.style.display = 'inline-flex'
+    changesCloseBtn.onclick = () => setMode('inspector')
 
     const currentRoute = getRoute()
 
@@ -1437,7 +1655,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const selectorText = (change: Change): string => change.target?.selector?.primary || change.target?.domPath || change.info.domPath
     const routeText = (change: Change): string => change.meta.route || currentRoute
     const visibleChanges = changes.filter(change => changesFilter === 'all' || typeKey(change) === changesFilter)
-    subtitle.textContent = `${visibleChanges.length} / ${changes.length} item${changes.length !== 1 ? 's' : ''}`
 
     const flashChangeTarget = (element: HTMLElement): void => {
       if (changeFlashTimeout != null) {
@@ -1456,10 +1673,102 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }, 1400)
     }
 
-    const elementSummary = (change: Change): string => {
-      const text = change.target?.text || change.info.text
-      const cleanText = text && text !== '—' ? truncate(text, 48) : ''
-      return cleanText ? `${change.info.tagName} “${cleanText}”` : change.info.tagName
+    const formatRelativeTime = (value: string): string => {
+      const timestamp = Date.parse(value)
+      if (!Number.isFinite(timestamp)) return 'just now'
+      const delta = Math.max(0, Date.now() - timestamp)
+      const minute = 60_000
+      const hour = 60 * minute
+      const day = 24 * hour
+      if (delta < minute) return 'just now'
+      if (delta < hour) return `${Math.max(1, Math.floor(delta / minute))} min ago`
+      if (delta < day) return `${Math.max(1, Math.floor(delta / hour))} hour${delta >= 2 * hour ? 's' : ''} ago`
+      return `${Math.max(1, Math.floor(delta / day))} day${delta >= 2 * day ? 's' : ''} ago`
+    }
+
+    const ensureButtonIconStack = (button: HTMLButtonElement): { current: HTMLSpanElement; next: HTMLSpanElement } => {
+      let stack = button.querySelector('.ei-ann-action-icon-stack') as HTMLSpanElement | null
+      let current = button.querySelector('.ei-ann-action-icon.is-current') as HTMLSpanElement | null
+      let next = button.querySelector('.ei-ann-action-icon.is-next') as HTMLSpanElement | null
+      if (!stack || !current || !next) {
+        stack = el('span', 'ei-ann-action-icon-stack') as HTMLSpanElement
+        current = el('span', 'ei-ann-action-icon is-current') as HTMLSpanElement
+        next = el('span', 'ei-ann-action-icon is-next') as HTMLSpanElement
+        stack.append(current, next)
+        button.innerHTML = ''
+        button.appendChild(stack)
+      }
+      return { current, next }
+    }
+
+    const setButtonIcon = (button: HTMLButtonElement, svg: string): void => {
+      const { current, next } = ensureButtonIconStack(button)
+      current.innerHTML = svg
+      next.innerHTML = ''
+      button.classList.remove('is-switching')
+    }
+
+    const swapButtonIcon = (button: HTMLButtonElement, svg: string): void => {
+      const { current, next } = ensureButtonIconStack(button)
+      next.innerHTML = svg
+      button.classList.add('is-switching')
+      window.setTimeout(() => {
+        current.innerHTML = svg
+        next.innerHTML = ''
+        button.classList.remove('is-switching')
+      }, 50)
+    }
+
+    const iconButton = (svg: string, title: string, className = 'ei-ann-action'): HTMLButtonElement => {
+      const button = el('button', className) as HTMLButtonElement
+      button.type = 'button'
+      button.title = title
+      button.ariaLabel = title
+      button.setAttribute(IGNORE_ATTR, 'true')
+      setButtonIcon(button, svg)
+      return button
+    }
+
+    const setActionCopied = (button: HTMLButtonElement): void => {
+      const original = (button.querySelector('.ei-ann-action-icon') as HTMLSpanElement | null)?.innerHTML || ''
+      button.classList.add('is-success')
+      swapButtonIcon(button, CHANGES_HOVER_COPY_SUCCESS_ICON)
+      window.setTimeout(() => {
+        button.classList.remove('is-success')
+        swapButtonIcon(button, original)
+      }, 1200)
+    }
+
+    const EYE_OPEN_ICON = CHANGES_HOVER_PREVIEW_AFTER_ICON
+    const EYE_CLOSED_ICON = CHANGES_HOVER_PREVIEW_BEFORE_ICON
+    const DELETE_ICON = CHANGES_HOVER_DELETE_ICON
+
+    const syncActiveChangeCard = (): void => {
+      body.querySelectorAll('.ei-ann-item').forEach((node) => {
+        if (!(node instanceof HTMLElement)) return
+        node.classList.toggle('is-active', node.dataset.changeId === activeChangeId)
+      })
+    }
+
+    const locateChangeTarget = (change: Change): void => {
+      activeChangeId = change.id
+      syncActiveChangeCard()
+      lockedElement = change.element
+      currentInfo = extractInspectorInfo(change.element)
+      panelAnchor = null
+      change.element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      flashChangeTarget(change.element)
+      renderMarkers()
+    }
+
+    const clearActiveChangeCard = (): void => {
+      activeChangeId = null
+      syncActiveChangeCard()
+    }
+
+    const refreshChangesList = (): void => {
+      renderChangesList()
+      syncActiveChangeCard()
     }
 
     const formatSnapshotValue = (value: string): string => value && value !== '—' ? truncate(value, 32) : '—'
@@ -1486,19 +1795,93 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const buildSummaryLines = (change: Change): string[] => {
+      const lines: string[] = []
+
       if (change.patch.textDiff) {
-        return [`Text: ${truncate(change.patch.textDiff.from, 28)} → ${truncate(change.patch.textDiff.to, 28)}`]
+        lines.push(`text: ${truncate(change.patch.textDiff.from, 26)} → ${truncate(change.patch.textDiff.to, 26)}`)
       }
 
       if (change.patch.moveDiff) {
-        return [`Position: ${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`]
+        lines.push(`position: ${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`)
       }
 
-      if (change.type === 'design' && change.diffs && change.diffs.length > 0) {
-        return change.diffs.slice(0, 5).map(diff => `${diff.property}: ${truncate(diff.original, 18)} → ${truncate(diff.modified, 18)}`)
+      if (change.patch.styleDiffs.length > 0) {
+        lines.push(...change.patch.styleDiffs.slice(0, 4).map(diff => `${diff.property}: ${truncate(diff.original, 22)} → ${truncate(diff.modified, 22)}`))
       }
 
+      if (lines.length > 0) return lines
       return change.comment ? [change.comment] : ['No extra notes']
+    }
+
+    const noteText = (change: Change): string => {
+      if (!change.comment) return ''
+      if (change.type === 'annotation') return change.comment
+      const summaryLines = buildSummaryLines(change)
+      return summaryLines.includes(change.comment) ? '' : change.comment
+    }
+
+    const buildSingleAIPayload = (change: Change): string => buildAIPayload([change])
+
+    const resetElementToBefore = (change: Change): void => {
+      if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.from
+      for (const diff of change.patch.styleDiffs) {
+        change.element.style.setProperty(diff.property, diff.original)
+      }
+    }
+
+    const applyElementToAfter = (change: Change): void => {
+      if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.to
+      for (const diff of change.patch.styleDiffs) {
+        change.element.style.setProperty(diff.property, diff.modified)
+      }
+    }
+
+    const moveElementToIndex = (element: HTMLElement, index: number): void => {
+      const container = element.parentElement
+      if (!container) return
+      const siblings = getReorderableSiblings(element)
+      const otherSiblings = siblings.filter(sibling => sibling !== element)
+      const clampedIndex = Math.max(0, Math.min(index, otherSiblings.length))
+      const target = otherSiblings[clampedIndex] ?? null
+      container.insertBefore(element, target)
+    }
+
+    const resetMoveToBefore = (change: Change): void => {
+      if (!change.patch.moveDiff) return
+      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex - 1))
+    }
+
+    const applyMoveToAfter = (change: Change): void => {
+      if (!change.patch.moveDiff) return
+      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.toIndex - 1))
+    }
+
+    const syncPreviewState = (): void => {
+      changes.forEach((change) => {
+        if (!document.contains(change.element)) return
+        if (change.type === 'design') {
+          if (beforePreviewChangeIds.has(change.id)) resetElementToBefore(change)
+          else applyElementToAfter(change)
+          return
+        }
+        if (change.type === 'move') {
+          if (beforePreviewChangeIds.has(change.id)) resetMoveToBefore(change)
+          else applyMoveToAfter(change)
+        }
+      })
+      renderMarkers()
+      if (lockedElement && document.contains(lockedElement)) {
+        const freshInfo = extractInspectorInfo(lockedElement)
+        currentInfo = freshInfo
+        updateHighlight(freshInfo)
+      }
+    }
+
+    const toggleBeforePreview = (change: Change): void => {
+      if (change.type !== 'design' && change.type !== 'move') return
+      if (beforePreviewChangeIds.has(change.id)) beforePreviewChangeIds.delete(change.id)
+      else beforePreviewChangeIds.add(change.id)
+      syncPreviewState()
     }
 
     const filterOptions: Array<{ key: typeof changesFilter; label: string }> = [
@@ -1510,153 +1893,151 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     ]
 
     if (changes.length === 0) {
-      body.innerHTML = '<div class="ei-ann-empty">\u8FD8\u6CA1\u6709\u53D8\u66F4\u8BB0\u5F55\u3002\u5728 Inspector \u6216 Design \u6A21\u5F0F\u4E2D\u6DFB\u52A0\u3002</div>'
-      setPanelVisible(true)
-      positionPanel({ x: window.innerWidth / 2, y: window.innerHeight / 3 })
-      return
-    }
-
-    const filters = el('div', 'ei-ann-filters')
-    for (const option of filterOptions) {
-      const btn = el('button', `ei-ann-filter${changesFilter === option.key ? ' is-active' : ''}`, option.label)
-      btn.type = 'button'
-      btn.setAttribute(IGNORE_ATTR, 'true')
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        changesFilter = option.key
-        renderChangesList()
-      })
-      filters.appendChild(btn)
-    }
-    body.appendChild(filters)
-
-    if (visibleChanges.length === 0) {
-      body.appendChild(el('div', 'ei-ann-empty', '当前筛选下没有记录。'))
+      body.innerHTML = '<div class="ei-ann-empty">还没有变更记录。在 Inspector 或 Design 模式中添加。</div>'
     } else {
-      const groupedChanges = visibleChanges.reduce<Record<string, Change[]>>((acc, change) => {
-        const key = routeText(change)
-        if (!acc[key]) acc[key] = []
-        acc[key].push(change)
-        return acc
-      }, {})
-
-      let visibleIndex = 0
-      for (const [groupRoute, groupItems] of Object.entries(groupedChanges)) {
-        const group = el('section', 'ei-ann-group')
-        const groupHeader = el('div', 'ei-ann-group-header')
-        const groupTitle = el('div', 'ei-ann-group-title', groupRoute)
-        const groupMeta = el('div', 'ei-ann-group-meta', `${groupItems.length} item${groupItems.length !== 1 ? 's' : ''}`)
-        groupHeader.append(groupTitle, groupMeta)
-        group.appendChild(groupHeader)
-
-        const list = el('div', 'ei-ann-list')
-        groupItems.forEach((c) => {
-          visibleIndex += 1
-          const expanded = expandedChangeIds.has(c.id)
-          const item = el('div', `ei-ann-item${expanded ? ' is-expanded' : ''}`)
-          item.setAttribute(IGNORE_ATTR, 'true')
-
-          const num = el('div', 'ei-ann-num', String(visibleIndex))
-          const bodyDiv = el('div', 'ei-ann-body')
-          const header = el('div', 'ei-ann-header')
-          const badges = el('div', 'ei-ann-badges')
-          const typeBadge = el('span', 'ei-ann-type', typeLabel(c))
-          const sourceBadge = el('span', 'ei-ann-badge ei-ann-badge-muted', sourceLabel(c))
-          const expandHint = el('span', 'ei-ann-expand-hint', expanded ? 'Collapse' : 'Expand')
-          badges.append(typeBadge, sourceBadge)
-          header.append(badges, expandHint)
-
-          const routeRow = el('div', 'ei-ann-route', routeText(c))
-          const title = el('div', 'ei-ann-title', elementSummary(c))
-          const selector = el('div', 'ei-ann-selector', selectorText(c))
-          const summaryList = el('div', 'ei-ann-diffs')
-          const summaryLines = buildSummaryLines(c)
-          for (const line of (expanded ? summaryLines : summaryLines.slice(0, 2))) {
-            summaryList.appendChild(el('div', 'ei-ann-diff', line))
-          }
-
-          bodyDiv.append(header, routeRow, title, selector, summaryList)
-
-          if (summaryLines.length > 2 && !expanded) {
-            bodyDiv.appendChild(el('div', 'ei-ann-more', `+${summaryLines.length - 2} more`))
-          }
-
-          if (c.comment && !summaryLines.includes(c.comment)) {
-            bodyDiv.appendChild(el('div', 'ei-ann-comment', c.comment))
-          }
-
-          const snapshotRows = collectSnapshotRows(c)
-          if (snapshotRows.length > 0 && c.type !== 'move') {
-            const compare = el('div', 'ei-ann-compare')
-            const beforeCol = el('div', 'ei-ann-compare-col')
-            const afterCol = el('div', 'ei-ann-compare-col')
-            beforeCol.appendChild(el('div', 'ei-ann-compare-label', 'Before'))
-            afterCol.appendChild(el('div', 'ei-ann-compare-label', 'After'))
-            const rowsToShow = expanded ? snapshotRows : snapshotRows.slice(0, 3)
-            for (const row of rowsToShow) {
-              beforeCol.appendChild(el('div', 'ei-ann-compare-row', `${row.label}: ${row.before}`))
-              afterCol.appendChild(el('div', 'ei-ann-compare-row', `${row.label}: ${row.after}`))
-            }
-            compare.append(beforeCol, afterCol)
-            bodyDiv.appendChild(compare)
-            if (snapshotRows.length > rowsToShow.length) {
-              bodyDiv.appendChild(el('div', 'ei-ann-more', `+${snapshotRows.length - rowsToShow.length} more fields`))
-            }
-          }
-
-          const actions = el('div', 'ei-ann-actions')
-          const jumpBtn = el('button', 'ei-ann-action', 'Jump')
-          jumpBtn.type = 'button'
-          jumpBtn.setAttribute(IGNORE_ATTR, 'true')
-          jumpBtn.addEventListener('click', (e) => {
-            e.stopPropagation()
-            setMode('inspector')
-            lockedElement = c.element
-            panelAnchor = null
-            c.element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-            flashChangeTarget(c.element)
-            renderInfo(extractInspectorInfo(c.element))
-          })
-
-          const expandBtn = el('button', 'ei-ann-action', expanded ? 'Collapse' : 'Expand')
-          expandBtn.type = 'button'
-          expandBtn.setAttribute(IGNORE_ATTR, 'true')
-          expandBtn.addEventListener('click', (e) => {
-            e.stopPropagation()
-            if (expanded) expandedChangeIds.delete(c.id)
-            else expandedChangeIds.add(c.id)
-            renderChangesList()
-          })
-
-          const delBtn = el('button', 'ei-ann-del', '\u00D7')
-          delBtn.type = 'button'
-          delBtn.setAttribute(IGNORE_ATTR, 'true')
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation()
-            expandedChangeIds.delete(c.id)
-            removeChange(c.id)
-            renderChangesList()
-          })
-
-          actions.append(jumpBtn, expandBtn)
-          bodyDiv.appendChild(actions)
-
-          item.append(num, bodyDiv, delBtn)
-          item.addEventListener('click', () => {
-            if (expanded) expandedChangeIds.delete(c.id)
-            else expandedChangeIds.add(c.id)
-            renderChangesList()
-          })
-          list.appendChild(item)
+      const filters = el('div', 'ei-ann-filters')
+      for (const option of filterOptions) {
+        const btn = el('button', `ei-ann-filter${changesFilter === option.key ? ' is-active' : ''}`, option.label)
+        btn.type = 'button'
+        btn.setAttribute(IGNORE_ATTR, 'true')
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          changesFilter = option.key
+          refreshChangesList()
         })
+        filters.appendChild(btn)
+      }
+      body.appendChild(filters)
 
-        group.appendChild(list)
-        body.appendChild(group)
+      if (visibleChanges.length === 0) {
+        body.appendChild(el('div', 'ei-ann-empty', '当前筛选下没有记录。'))
+      } else {
+        const groupedChanges = visibleChanges.reduce<Record<string, Change[]>>((acc, change) => {
+          const key = routeText(change)
+          if (!acc[key]) acc[key] = []
+          acc[key].push(change)
+          return acc
+        }, {})
+
+        let visibleIndex = 0
+        for (const [_groupRoute, groupItems] of Object.entries(groupedChanges)) {
+          const group = el('section', 'ei-ann-group')
+          const list = el('div', 'ei-ann-list')
+          groupItems.forEach((c) => {
+            visibleIndex += 1
+            const selected = activeChangeId === c.id
+            const isPreviewingBefore = beforePreviewChangeIds.has(c.id)
+            const summaryLines = buildSummaryLines(c)
+            const snapshotRows = collectSnapshotRows(c)
+            const note = noteText(c)
+            const item = el('div', `ei-ann-item${selected ? ' is-active' : ''}${isPreviewingBefore ? ' is-previewing-before' : ''}`)
+            item.setAttribute(IGNORE_ATTR, 'true')
+            item.dataset.changeId = c.id
+            item.addEventListener('click', () => {
+              activeChangeId = c.id
+              locateChangeTarget(c)
+            })
+
+            const num = el('div', 'ei-ann-num', String(visibleIndex))
+            const main = el('div', 'ei-ann-main')
+
+            const top = el('div', 'ei-ann-top')
+            const author = el('div', 'ei-ann-author')
+            const avatar = el('div', 'ei-ann-avatar')
+            avatar.innerHTML = `<img src="${CHANGES_AVATAR_URL}" alt="" />`
+            const time = el('div', 'ei-ann-time', formatRelativeTime(c.meta.updatedAt || c.meta.createdAt))
+            const actions = el('div', 'ei-ann-actions')
+
+            const previewBtn = iconButton(isPreviewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON, isPreviewingBefore ? 'Show after' : 'Show before')
+            if (c.type !== 'design' && c.type !== 'move') {
+              previewBtn.disabled = true
+              previewBtn.style.opacity = '0.35'
+              previewBtn.style.cursor = 'default'
+            } else {
+              const syncPreviewButton = (): void => {
+                const previewingBefore = beforePreviewChangeIds.has(c.id)
+                swapButtonIcon(previewBtn, previewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON)
+                previewBtn.title = previewingBefore ? 'Show after' : 'Show before'
+                previewBtn.ariaLabel = previewingBefore ? 'Show after' : 'Show before'
+                previewBtn.classList.toggle('is-active', previewingBefore)
+              }
+              syncPreviewButton()
+              previewBtn.addEventListener('click', (e) => {
+                e.stopPropagation()
+                toggleBeforePreview(c)
+                syncPreviewButton()
+              })
+            }
+
+            const singleCopyBtn = iconButton(CHANGES_HOVER_COPY_ICON, 'Copy AI')
+            singleCopyBtn.addEventListener('click', async (e) => {
+              e.stopPropagation()
+              await navigator.clipboard.writeText(buildSingleAIPayload(c))
+              setActionCopied(singleCopyBtn)
+            })
+
+            const closeBtn = iconButton(CHANGES_HOVER_DELETE_ICON, 'Delete', 'ei-ann-action is-danger')
+            closeBtn.addEventListener('click', (e) => {
+              e.stopPropagation()
+              beforePreviewChangeIds.delete(c.id)
+              if (activeChangeId === c.id) clearActiveChangeCard()
+              removeChange(c.id)
+              syncPreviewState()
+              refreshChangesList()
+            })
+
+            actions.append(previewBtn, singleCopyBtn, closeBtn)
+            author.append(avatar)
+            top.append(author, time, actions)
+
+            const meta = el('div', 'ei-ann-meta')
+            meta.append(
+              el('span', 'ei-ann-title', `#${visibleIndex}`),
+              el('span', 'ei-ann-dot', '·'),
+              el('span', 'ei-ann-type', typeLabel(c)),
+              el('span', 'ei-ann-dot', '·'),
+              el('span', 'ei-ann-source-badge', sourceLabel(c)),
+              el('span', 'ei-ann-dot', '·'),
+              el('span', 'ei-ann-selector-inline', selectorText(c)),
+            )
+
+            const summary = el('div', 'ei-ann-summary')
+            for (const line of summaryLines.slice(0, selected ? 4 : 1)) {
+              summary.appendChild(el('div', 'ei-ann-diff', line))
+            }
+            if (summaryLines.length > 1 && !selected) {
+              summary.appendChild(el('div', 'ei-ann-more', `+${summaryLines.length - 1} more`))
+            }
+
+            main.append(top, meta, summary)
+
+            if (note) {
+              main.appendChild(el('div', 'ei-ann-note', note))
+            }
+
+            if (selected) {
+              const extra = el('div', 'ei-ann-extra')
+
+              if (c.type === 'design') {
+                extra.appendChild(el('div', 'ei-ann-previewing', isPreviewingBefore ? 'Previewing before state on page' : 'Previewing after state on page'))
+              }
+
+              main.appendChild(extra)
+            }
+
+            item.append(num, main)
+            list.appendChild(item)
+          })
+
+          group.appendChild(list)
+          body.appendChild(group)
+        }
       }
     }
 
     const exportRow = el('div', 'ei-ann-export')
-    const copyAIBtn = el('button', 'ei-ann-export-btn', 'Copy AI')
+    const exportPrimary = el('div', 'ei-ann-export-primary')
+    const copyAIBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-primary', 'Copy AI')
     copyAIBtn.type = 'button'
     copyAIBtn.setAttribute(IGNORE_ATTR, 'true')
     copyAIBtn.addEventListener('click', async () => {
@@ -1665,26 +2046,32 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       setTimeout(() => { copyAIBtn.textContent = 'Copy AI' }, 1500)
     })
 
-    const copyJSONBtn = el('button', 'ei-ann-export-btn', 'Copy JSON')
+    const copyJSONBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-dropdown') as HTMLButtonElement
     copyJSONBtn.type = 'button'
+    copyJSONBtn.title = 'Copy JSON'
+    copyJSONBtn.ariaLabel = 'Copy JSON'
     copyJSONBtn.setAttribute(IGNORE_ATTR, 'true')
+    copyJSONBtn.innerHTML = CHANGES_PANEL_CHEVRON_ICON
     copyJSONBtn.addEventListener('click', async () => {
       await navigator.clipboard.writeText(buildJSONExport(changes))
-      copyJSONBtn.textContent = 'Copied!'
-      setTimeout(() => { copyJSONBtn.textContent = 'Copy JSON' }, 1500)
+      copyJSONBtn.classList.add('is-success')
+      setTimeout(() => { copyJSONBtn.classList.remove('is-success') }, 1200)
     })
 
-    const clearBtn = el('button', 'ei-ann-export-btn', 'Clear All')
+    const clearBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-ghost', 'Clear All')
     clearBtn.type = 'button'
     clearBtn.setAttribute(IGNORE_ATTR, 'true')
     clearBtn.addEventListener('click', () => {
       changes = []
       changeIdCounter = 0
+      clearActiveChangeCard()
+      beforePreviewChangeIds.clear()
       renderMarkers()
-      renderChangesList()
+      refreshChangesList()
     })
 
-    exportRow.append(copyAIBtn, copyJSONBtn, clearBtn)
+    exportPrimary.append(copyAIBtn, copyJSONBtn)
+    exportRow.append(exportPrimary, clearBtn)
     panel.appendChild(exportRow)
 
     setPanelVisible(true)
@@ -1735,14 +2122,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const pt = px(p.top), pr = px(p.right), pb = px(p.bottom), pl = px(p.left)
     const w = Math.max(info.rect.width, 1)
     const h = Math.max(info.rect.height, 1)
+    const isGuides = currentMode === 'guides'
 
-    highlight.style.left = `${info.rect.left - ml}px`
-    highlight.style.top = `${info.rect.top - mt}px`
-    highlight.style.width = `${w + ml + mr}px`
-    highlight.style.height = `${h + mt + mb}px`
+    highlight.style.left = `${isGuides ? info.rect.left : info.rect.left - ml}px`
+    highlight.style.top = `${isGuides ? info.rect.top : info.rect.top - mt}px`
+    highlight.style.width = `${isGuides ? w : w + ml + mr}px`
+    highlight.style.height = `${isGuides ? h : h + mt + mb}px`
 
-    hlPadding.style.top = `${mt}px`
-    hlPadding.style.left = `${ml}px`
+    hlPadding.style.top = `${isGuides ? 0 : mt}px`
+    hlPadding.style.left = `${isGuides ? 0 : ml}px`
     hlPadding.style.width = `${w}px`
     hlPadding.style.height = `${h}px`
 
@@ -1752,17 +2140,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hlContent.style.height = `${Math.max(h - pt - pb, 0)}px`
 
     const isDesign = currentMode === 'design' || isCaptureSelection
+    const isInspector = currentMode === 'inspector'
     const isMove = currentMode === 'move'
     highlight.dataset.design = isDesign ? 'true' : 'false'
+    highlight.dataset.inspector = isInspector ? 'true' : 'false'
     highlight.dataset.move = isMove ? 'true' : 'false'
     highlight.dataset.outlines = outlinesEnabled ? 'true' : 'false'
 
-    if (isDesign || outlinesEnabled) {
+    if (isDesign || isInspector || outlinesEnabled) {
       // Element name label
       const tag = info.tagName.toLowerCase()
       const cls = info.element.className && typeof info.element.className === 'string'
         ? '.' + info.element.className.trim().split(/\s+/)[0] : ''
-      hlLabel.textContent = tag + cls
+      hlLabel.textContent = (hoverLocked ? '🔒 ' : '') + tag + cls
       hlLabel.style.display = 'block'
       hlCode.style.display = 'block'
 
@@ -2098,6 +2488,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       renderDesign(info)
     } else if (currentMode === 'move') {
       renderMove(info)
+    } else if (currentMode === 'guides') {
+      renderGuides(info)
     }
   }
 
@@ -2106,6 +2498,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function inspectPoint(x: number, y: number): void {
     if (!isInteractiveMode() && !outlinesEnabled) return
     if (lockedElement) return
+    if (hoverLocked) return // Hover lock: don't update element
     const element = getInspectableElementFromPoint(x, y, IGNORE_ATTR)
     if (!element) {
       hideTooltip()
@@ -2113,12 +2506,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     const info = extractInspectorInfo(element)
     currentInfo = info
-    updateHighlight(info)
-    if (outlinesEnabled) {
-      // In outlines mode, only show highlight, no tooltip
+
+    // Guides mode: render alignment guides or distance labels on hover
+    if (currentMode === 'guides') {
+      updateHighlight(info)
+      renderGuides(info)
       hideTooltip()
-    } else {
+      return
+    }
+
+    updateHighlight(info)
+    if (currentMode === 'inspector') {
       showTooltip(info, x, y)
+    } else {
+      hideTooltip()
     }
     options.onInspect?.(info)
   }
@@ -2170,6 +2571,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (!isInteractiveMode() && !outlinesEnabled) return
     if (isIgnoredEvent(event)) return
     if (currentMode === 'move' && updateMoveDrag(event)) return
+    if (currentMode === 'guides' && (rulerDragState || guideLineDragState)) {
+      hideTooltip()
+      return
+    }
     if (currentMode === 'move' && lockedElement) {
       hideTooltip()
       return
@@ -2223,7 +2628,31 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       lockedElement = null
       panelAnchor = null
       panelPosition = null
+      // Guides mode: clear anchor on background click
+      if (currentMode === 'guides') {
+        guidesAnchorElement = null
+        guidesAnchorRect = null
+        clearGuideLines()
+        clearDistanceLabels()
+      }
       renderForCurrentMode(null)
+      return
+    }
+
+    // Guides mode: anchor element instead of locking
+    if (currentMode === 'guides') {
+      if (guidesAnchorElement === element) {
+        // Clicking same element clears anchor
+        guidesAnchorElement = null
+        guidesAnchorRect = null
+        clearGuideLines()
+        clearDistanceLabels()
+      } else {
+        // Set new anchor
+        guidesAnchorElement = element
+        guidesAnchorRect = element.getBoundingClientRect()
+      }
+      renderGuides(extractInspectorInfo(element))
       return
     }
 
@@ -2253,6 +2682,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         cancelMoveDrag()
         return
       }
+      if (hoverLocked) {
+        hoverLocked = false
+        return
+      }
       if (lockedElement) {
         resetDesignTracker()
         lockedElement = null
@@ -2263,6 +2696,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         setMode('off')
       }
       return
+    }
+
+    // H key to lock hover state in Design mode
+    if (event.key === 'h' || event.key === 'H') {
+      if (currentMode === 'design' && currentInfo) {
+        event.preventDefault()
+        event.stopPropagation()
+        hoverLocked = !hoverLocked
+        return
+      }
     }
 
     // Arrow key navigation only for inspector mode
@@ -2472,6 +2915,534 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     setPanelVisible(false)
   }
 
+// --- Guides mode functions ---
+
+  function activateGuides(): void {
+    document.body.style.cursor = 'crosshair'
+    bindEvents()
+    guidesOverlay.dataset.visible = 'true'
+    updateRulerMarks()
+    renderGuides(null)
+    window.addEventListener('scroll', onGuidesScroll, true)
+    window.addEventListener('resize', onGuidesResize)
+  }
+
+  function deactivateGuides(): void {
+    guidesOverlay.dataset.visible = 'false'
+    guidesAnchorElement = null
+    guidesAnchorRect = null
+    clearGuideLines()
+    clearDistanceLabels()
+    clearPaddingOverlay()
+    guideLines = []
+    referenceLinesContainer.innerHTML = ''
+    window.removeEventListener('scroll', onGuidesScroll, true)
+    window.removeEventListener('resize', onGuidesResize)
+    lockedElement = null
+    currentInfo = null
+    panelAnchor = null
+    panelPosition = null
+    unbindEvents()
+    document.body.style.cursor = ''
+    setHighlightVisible(false)
+    setPanelVisible(false)
+    hideTooltip()
+  }
+
+  function updateRulerMarks(): void {
+    const scrollX = window.scrollX
+    const scrollY = window.scrollY
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+
+    // Clear existing marks
+    topRulerMarks.innerHTML = ''
+    leftRulerMarks.innerHTML = ''
+
+    // Generate marks every 50px, major marks every 100px
+    const step = 50
+    const majorStep = 100
+
+    // Top ruler marks
+    for (let x = 0; x <= vw + scrollX; x += step) {
+      const mark = el('div', `ei-ruler-mark${x % majorStep === 0 ? ' ei-ruler-mark-major' : ''}`)
+      mark.style.left = `${x - scrollX}px`
+      topRulerMarks.appendChild(mark)
+      if (x % majorStep === 0 && x > 0) {
+        const label = el('div', 'ei-ruler-label', String(x))
+        label.style.left = `${x - scrollX + 2}px`
+        label.style.bottom = '2px'
+        topRulerMarks.appendChild(label)
+      }
+    }
+
+    // Left ruler marks
+    for (let y = 0; y <= vh + scrollY - 24; y += step) {
+      const mark = el('div', `ei-ruler-mark${y % majorStep === 0 ? ' ei-ruler-mark-major' : ''}`)
+      mark.style.top = `${y - scrollY + 24}px`
+      leftRulerMarks.appendChild(mark)
+      if (y % majorStep === 0 && y > 0) {
+        const label = el('div', 'ei-ruler-label', String(y))
+        label.style.top = `${y - scrollY + 26}px`
+        label.style.right = '2px'
+        leftRulerMarks.appendChild(label)
+      }
+    }
+  }
+
+  function clearGuideLines(): void {
+    // Remove all alignment guide lines
+    const lines = guidesOverlay.querySelectorAll('.ei-guide-line')
+    lines.forEach(line => line.remove())
+  }
+
+  function showDistanceLabels(anchorRect: DOMRect, hoverRect: { left: number; top: number; width: number; height: number }): void {
+    const distances = calculateDistance(anchorRect, hoverRect)
+    const hoverRight = hoverRect.left + hoverRect.width
+    const hoverBottom = hoverRect.top + hoverRect.height
+
+    // Horizontal distance line + label
+    if (distances.horizontal !== null) {
+      const gap = Math.abs(distances.horizontal)
+      const lineLeft = distances.horizontal > 0 ? anchorRect.right : hoverRight
+      // Vertical center: use overlapping vertical range midpoint, or midpoint of both centers
+      const overlapTop = Math.max(anchorRect.top, hoverRect.top)
+      const overlapBottom = Math.min(anchorRect.bottom, hoverBottom)
+      const lineY = overlapTop < overlapBottom
+        ? (overlapTop + overlapBottom) / 2
+        : (anchorRect.top + anchorRect.bottom + hoverRect.top + hoverBottom) / 4
+
+      distanceLineH.style.left = `${lineLeft}px`
+      distanceLineH.style.top = `${lineY}px`
+      distanceLineH.style.width = `${gap}px`
+      distanceLineH.dataset.visible = 'true'
+
+      distanceLabelH.textContent = `${Math.round(gap)}px`
+      distanceLabelH.style.left = `${lineLeft + gap / 2}px`
+      distanceLabelH.style.top = `${lineY}px`
+      distanceLabelH.dataset.visible = 'true'
+    } else {
+      distanceLineH.dataset.visible = 'false'
+      distanceLabelH.dataset.visible = 'false'
+    }
+
+    // Vertical distance line + label
+    if (distances.vertical !== null) {
+      const gap = Math.abs(distances.vertical)
+      const lineTop = distances.vertical > 0 ? anchorRect.bottom : hoverBottom
+      // Horizontal center: use overlapping horizontal range midpoint, or midpoint of both centers
+      const overlapLeft = Math.max(anchorRect.left, hoverRect.left)
+      const overlapRight = Math.min(anchorRect.right, hoverRight)
+      const lineX = overlapLeft < overlapRight
+        ? (overlapLeft + overlapRight) / 2
+        : (anchorRect.left + anchorRect.right + hoverRect.left + hoverRight) / 4
+
+      distanceLineV.style.left = `${lineX}px`
+      distanceLineV.style.top = `${lineTop}px`
+      distanceLineV.style.height = `${gap}px`
+      distanceLineV.dataset.visible = 'true'
+
+      distanceLabelV.textContent = `${Math.round(gap)}px`
+      distanceLabelV.style.left = `${lineX}px`
+      distanceLabelV.style.top = `${lineTop + gap / 2}px`
+      distanceLabelV.dataset.visible = 'true'
+    } else {
+      distanceLineV.dataset.visible = 'false'
+      distanceLabelV.dataset.visible = 'false'
+    }
+  }
+
+  function clearDistanceLabels(): void {
+    distanceLineH.dataset.visible = 'false'
+    distanceLineV.dataset.visible = 'false'
+    distanceLabelH.dataset.visible = 'false'
+    distanceLabelV.dataset.visible = 'false'
+  }
+
+  function clearPaddingOverlay(): void {
+    paddingOverlay.dataset.visible = 'false'
+    paddingOutline.dataset.visible = 'false'
+    paddingContentOutline.dataset.visible = 'false'
+    paddingHighlight.dataset.visible = 'false'
+    paddingTag.dataset.visible = 'false'
+    paddingCode.dataset.visible = 'false'
+    ;(['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+      paddingBands[side].dataset.visible = 'false'
+      paddingBadges[side].dataset.visible = 'false'
+    })
+  }
+
+  function renderPaddingOverlay(anchorInfo: InspectorInfo, hoverInfo: InspectorInfo): boolean {
+    const anchorEl = anchorInfo.element
+    const hoverEl = hoverInfo.element
+    const isInsideAnchor = hoverEl !== anchorEl && anchorEl.contains(hoverEl)
+    if (!isInsideAnchor) {
+      clearPaddingOverlay()
+      return false
+    }
+
+    const anchorStyle = window.getComputedStyle(anchorEl)
+    const hasAnyPadding = ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']
+      .some((key) => (parseFloat(anchorStyle[key as keyof CSSStyleDeclaration] as string) || 0) > 0)
+    if (!hasAnyPadding) {
+      clearPaddingOverlay()
+      return false
+    }
+
+    const hoverComputed = extractInspectorInfo(hoverEl)
+    hoverInfo = hoverComputed
+
+    if (hoverInfo.element === anchorEl) {
+      clearPaddingOverlay()
+      return false
+    }
+
+    const px = (v: string) => parseFloat(v) || 0
+    const anchorRect = anchorEl.getBoundingClientRect()
+    const hoverRect = hoverEl.getBoundingClientRect()
+    const pt = px(anchorInfo.boxModel.padding.top)
+    const pr = px(anchorInfo.boxModel.padding.right)
+    const pb = px(anchorInfo.boxModel.padding.bottom)
+    const pl = px(anchorInfo.boxModel.padding.left)
+    const contentLeft = anchorRect.left + pl
+    const contentTop = anchorRect.top + pt
+    const contentRight = anchorRect.right - pr
+    const contentBottom = anchorRect.bottom - pb
+
+    paddingOverlay.dataset.visible = 'true'
+    paddingOutline.dataset.visible = 'true'
+    paddingOutline.style.left = `${anchorRect.left}px`
+    paddingOutline.style.top = `${anchorRect.top}px`
+    paddingOutline.style.width = `${anchorRect.width}px`
+    paddingOutline.style.height = `${anchorRect.height}px`
+
+    paddingContentOutline.dataset.visible = 'true'
+    paddingContentOutline.style.left = `${contentLeft}px`
+    paddingContentOutline.style.top = `${contentTop}px`
+    paddingContentOutline.style.width = `${Math.max(contentRight - contentLeft, 0)}px`
+    paddingContentOutline.style.height = `${Math.max(contentBottom - contentTop, 0)}px`
+
+    paddingHighlight.dataset.visible = 'true'
+    paddingHighlight.dataset.style = 'solid'
+    paddingHighlight.style.left = `${hoverRect.left}px`
+    paddingHighlight.style.top = `${hoverRect.top}px`
+    paddingHighlight.style.width = `${hoverRect.width}px`
+    paddingHighlight.style.height = `${hoverRect.height}px`
+
+    paddingTag.textContent = formatCrumbLabel(anchorEl)
+    paddingTag.dataset.visible = 'true'
+    paddingTag.style.left = `${anchorRect.left}px`
+    paddingTag.style.top = `${anchorRect.top - 28}px`
+
+    paddingCode.dataset.visible = 'true'
+    paddingCode.style.left = `${anchorRect.right - 4}px`
+    paddingCode.style.top = `${anchorRect.top - 28}px`
+
+    const bands = {
+      top: { visible: pt > 0, left: anchorRect.left, top: anchorRect.top, width: anchorRect.width, height: pt, badgeLeft: anchorRect.left + anchorRect.width / 2, badgeTop: anchorRect.top + pt / 2, value: pt },
+      right: { visible: pr > 0, left: contentRight, top: anchorRect.top, width: pr, height: anchorRect.height, badgeLeft: contentRight + pr / 2, badgeTop: anchorRect.top + anchorRect.height / 2, value: pr },
+      bottom: { visible: pb > 0, left: anchorRect.left, top: contentBottom, width: anchorRect.width, height: pb, badgeLeft: anchorRect.left + anchorRect.width / 2, badgeTop: contentBottom + pb / 2, value: pb },
+      left: { visible: pl > 0, left: anchorRect.left, top: anchorRect.top, width: pl, height: anchorRect.height, badgeLeft: anchorRect.left + pl / 2, badgeTop: anchorRect.top + anchorRect.height / 2, value: pl },
+    } as const
+
+    ;(['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+      const band = bands[side]
+      paddingBands[side].dataset.visible = band.visible ? 'true' : 'false'
+      paddingBadges[side].dataset.visible = band.visible ? 'true' : 'false'
+      if (!band.visible) return
+      paddingBands[side].style.left = `${band.left}px`
+      paddingBands[side].style.top = `${band.top}px`
+      paddingBands[side].style.width = `${band.width}px`
+      paddingBands[side].style.height = `${band.height}px`
+      paddingBadges[side].textContent = `${Math.round(band.value)}`
+      paddingBadges[side].style.left = `${band.badgeLeft}px`
+      paddingBadges[side].style.top = `${band.badgeTop}px`
+    })
+
+    clearDistanceLabels()
+    return true
+  }
+
+  function calculateDistance(anchorRect: DOMRect, hoverRect: { left: number; top: number; width: number; height: number }): { horizontal: number | null; vertical: number | null } {
+    let horizontal: number | null = null
+    let vertical: number | null = null
+
+    const hoverRight = hoverRect.left + hoverRect.width
+    const hoverBottom = hoverRect.top + hoverRect.height
+
+    // Check horizontal relationship
+    if (hoverRect.left >= anchorRect.right) {
+      // Hover is to the right of anchor
+      horizontal = hoverRect.left - anchorRect.right
+    } else if (hoverRight <= anchorRect.left) {
+      // Hover is to the left of anchor
+      horizontal = hoverRight - anchorRect.left
+    }
+
+    // Check vertical relationship
+    if (hoverRect.top >= anchorRect.bottom) {
+      // Hover is below anchor
+      vertical = hoverRect.top - anchorRect.bottom
+    } else if (hoverBottom <= anchorRect.top) {
+      // Hover is above anchor
+      vertical = hoverBottom - anchorRect.top
+    }
+
+    return { horizontal, vertical }
+  }
+
+  function getSnappedGuidePosition(type: 'horizontal' | 'vertical', rawPosition: number, pointerX: number, pointerY: number): number {
+    const SNAP_THRESHOLD = 6
+    const candidates = document.elementsFromPoint(pointerX, pointerY)
+    let bestPosition = rawPosition
+    let bestDistance = SNAP_THRESHOLD + 1
+
+    for (const candidate of candidates) {
+      if (!(candidate instanceof HTMLElement)) continue
+      if (candidate.closest(`[${IGNORE_ATTR}="true"]`)) continue
+
+      const rect = candidate.getBoundingClientRect()
+      const positions = type === 'horizontal'
+        ? [rect.top, rect.bottom]
+        : [rect.left, rect.right]
+
+      for (const position of positions) {
+        const distance = Math.abs(position - rawPosition)
+        if (distance <= SNAP_THRESHOLD && distance < bestDistance) {
+          bestDistance = distance
+          bestPosition = position
+        }
+      }
+    }
+
+    return bestPosition
+  }
+
+  function createReferenceLine(type: 'horizontal' | 'vertical', position: number): void {
+    const id = `ref-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    const line = el('div', `ei-ref-line ei-ref-line-${type === 'horizontal' ? 'h' : 'v'}`)
+    line.dataset.id = id
+
+    if (type === 'horizontal') {
+      line.style.top = `${position}px`
+    } else {
+      line.style.left = `${position}px`
+    }
+
+    const label = el('div', 'ei-ref-line-label', String(Math.round(position)))
+    line.appendChild(label)
+
+    line.addEventListener('mousedown', (e) => startGuideLineDrag(e, id))
+    line.addEventListener('dblclick', () => deleteReferenceLine(id))
+
+    referenceLinesContainer.appendChild(line)
+    guideLines.push({ id, type, position, element: line })
+  }
+
+  function deleteReferenceLine(id: string): void {
+    const index = guideLines.findIndex(l => l.id === id)
+    if (index !== -1 && guideLines[index]) {
+      guideLines[index]!.element.remove()
+      guideLines.splice(index, 1)
+    }
+  }
+
+  function startGuideLineDrag(e: MouseEvent, id: string): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const line = guideLines.find(l => l.id === id)
+    if (!line) return
+    guideLineDragState = { id, type: line.type, startPos: line.position, snappedPosition: null }
+    window.addEventListener('mousemove', updateGuideLineDrag, true)
+    window.addEventListener('mouseup', finishGuideLineDrag, true)
+  }
+
+  function updateGuideLineDrag(e: MouseEvent): void {
+    if (!guideLineDragState) return
+    const line = guideLines.find(l => l.id === guideLineDragState!.id)
+    if (!line) return
+    const rawPosition = line.type === 'horizontal' ? e.clientY : e.clientX
+    const nextPosition = getSnappedGuidePosition(line.type, rawPosition, e.clientX, e.clientY)
+    guideLineDragState.snappedPosition = nextPosition
+    line.position = nextPosition
+    if (line.type === 'horizontal') {
+      line.element.style.top = `${nextPosition}px`
+    } else {
+      line.element.style.left = `${nextPosition}px`
+    }
+    const label = line.element.querySelector('.ei-ref-line-label')
+    if (label) label.textContent = String(Math.round(nextPosition))
+  }
+
+  function finishGuideLineDrag(): void {
+    guideLineDragState = null
+    suppressNextClick = true
+    setTimeout(() => {
+      suppressNextClick = false
+    }, 0)
+    window.removeEventListener('mousemove', updateGuideLineDrag, true)
+    window.removeEventListener('mouseup', finishGuideLineDrag, true)
+  }
+
+  function startRulerDrag(e: MouseEvent, type: 'horizontal' | 'vertical'): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const tempLine = el('div', `ei-guide-line ei-guide-line-${type === 'horizontal' ? 'h' : 'v'}`)
+    tempLine.dataset.visible = 'true'
+    if (type === 'horizontal') {
+      tempLine.style.borderTopStyle = 'solid'
+      tempLine.style.borderTopColor = '#FF00FF'
+      tempLine.style.top = `${e.clientY}px`
+    } else {
+      tempLine.style.borderLeftStyle = 'solid'
+      tempLine.style.borderLeftColor = '#FF00FF'
+      tempLine.style.left = `${e.clientX}px`
+    }
+    guidesOverlay.appendChild(tempLine)
+    rulerDragState = { type, tempLine, snappedPosition: null }
+    window.addEventListener('mousemove', updateRulerDrag, true)
+    window.addEventListener('mouseup', finishRulerDrag, true)
+  }
+
+  function updateRulerDrag(e: MouseEvent): void {
+    if (!rulerDragState) return
+    const rawPosition = rulerDragState.type === 'horizontal' ? e.clientY : e.clientX
+    const nextPosition = getSnappedGuidePosition(rulerDragState.type, rawPosition, e.clientX, e.clientY)
+    rulerDragState.snappedPosition = nextPosition
+    if (rulerDragState.type === 'horizontal') {
+      rulerDragState.tempLine.style.top = `${nextPosition}px`
+    } else {
+      rulerDragState.tempLine.style.left = `${nextPosition}px`
+    }
+  }
+
+  function finishRulerDrag(e: MouseEvent): void {
+    if (!rulerDragState) return
+    const rawPosition = rulerDragState.type === 'horizontal' ? e.clientY : e.clientX
+    const position = rulerDragState.snappedPosition ?? getSnappedGuidePosition(rulerDragState.type, rawPosition, e.clientX, e.clientY)
+    rulerDragState.tempLine.remove()
+    createReferenceLine(rulerDragState.type, position)
+    rulerDragState = null
+    suppressNextClick = true
+    setTimeout(() => {
+      suppressNextClick = false
+    }, 0)
+    window.removeEventListener('mousemove', updateRulerDrag, true)
+    window.removeEventListener('mouseup', finishRulerDrag, true)
+  }
+
+  function renderGuides(info: InspectorInfo | null): void {
+    currentInfo = info
+    titleEl.textContent = 'Guides'
+    subtitle.textContent = 'Guides mode — 点击锚定元素，再悬停其他元素显示距离，Esc 退出'
+    copyBtn.style.display = 'none'
+    unlockBtn.style.display = guidesAnchorElement ? 'inline-block' : 'none'
+
+    // Always clear previous state first
+    clearGuideLines()
+    clearDistanceLabels()
+    clearPaddingOverlay()
+
+    if (!info) {
+      setPanelVisible(false)
+      const existingAnchor = guidesOverlay.querySelector('.ei-guide-anchor-highlight')
+      if (existingAnchor) existingAnchor.remove()
+      return
+    }
+
+    setPanelVisible(false)
+    updateHighlight(info)
+
+    if (guidesAnchorElement && guidesAnchorRect) {
+      // Show anchor element outline
+      let anchorHighlight = guidesOverlay.querySelector('.ei-guide-anchor-highlight') as HTMLElement
+      if (!anchorHighlight) {
+        anchorHighlight = el('div', 'ei-guide-anchor-highlight')
+        anchorHighlight.setAttribute(IGNORE_ATTR, 'true')
+        ;(['tl', 'tm', 'tr', 'rm', 'br', 'bm', 'bl', 'lm'] as const).forEach((pos) => {
+          const handle = el('div', 'ei-guide-anchor-handle')
+          handle.setAttribute(IGNORE_ATTR, 'true')
+          handle.dataset.pos = pos
+          anchorHighlight.appendChild(handle)
+        })
+        guidesOverlay.appendChild(anchorHighlight)
+      }
+      anchorHighlight.style.left = `${guidesAnchorRect.left}px`
+      anchorHighlight.style.top = `${guidesAnchorRect.top}px`
+      anchorHighlight.style.width = `${guidesAnchorRect.width}px`
+      anchorHighlight.style.height = `${guidesAnchorRect.height}px`
+
+      // If hovering a child inside the anchored container, show padding measurement overlay.
+      const anchorInfo = extractInspectorInfo(guidesAnchorElement)
+      const didRenderPadding = renderPaddingOverlay(anchorInfo, info)
+      if (!didRenderPadding) {
+        // Show distance lines + labels between anchor and hovered element
+        showDistanceLabels(guidesAnchorRect, info.rect)
+      }
+    } else {
+      // Remove anchor highlight if no anchor
+      const existingAnchor = guidesOverlay.querySelector('.ei-guide-anchor-highlight')
+      if (existingAnchor) existingAnchor.remove()
+
+      // Show alignment guides (VisBug style)
+      showAlignmentGuides(info.element, info.rect)
+    }
+  }
+
+  // Show 4 guide lines extending from element edges to viewport
+  function showAlignmentGuides(hoveredEl: HTMLElement, rect: { left: number; top: number; width: number; height: number }): void {
+    clearGuideLines()
+
+    const rectRight = rect.left + rect.width
+    const rectBottom = rect.top + rect.height
+
+    // Top line
+    const lineTop = el('div', 'ei-guide-line ei-guide-line-h')
+    lineTop.setAttribute(IGNORE_ATTR, 'true')
+    lineTop.style.top = `${rect.top}px`
+    lineTop.dataset.visible = 'true'
+    guidesOverlay.appendChild(lineTop)
+
+    // Bottom line
+    const lineBottom = el('div', 'ei-guide-line ei-guide-line-h')
+    lineBottom.setAttribute(IGNORE_ATTR, 'true')
+    lineBottom.style.top = `${rectBottom}px`
+    lineBottom.dataset.visible = 'true'
+    guidesOverlay.appendChild(lineBottom)
+
+    // Left line
+    const lineLeft = el('div', 'ei-guide-line ei-guide-line-v')
+    lineLeft.setAttribute(IGNORE_ATTR, 'true')
+    lineLeft.style.left = `${rect.left}px`
+    lineLeft.dataset.visible = 'true'
+    guidesOverlay.appendChild(lineLeft)
+
+    // Right line
+    const lineRight = el('div', 'ei-guide-line ei-guide-line-v')
+    lineRight.setAttribute(IGNORE_ATTR, 'true')
+    lineRight.style.left = `${rectRight}px`
+    lineRight.dataset.visible = 'true'
+    guidesOverlay.appendChild(lineRight)
+  }
+
+  function onGuidesScroll(): void {
+    updateRulerMarks()
+    if (guidesAnchorElement) {
+      guidesAnchorRect = guidesAnchorElement.getBoundingClientRect()
+    }
+  }
+
+  function onGuidesResize(): void {
+    updateRulerMarks()
+    if (guidesAnchorElement) {
+      guidesAnchorRect = guidesAnchorElement.getBoundingClientRect()
+    }
+  }
+
+  // Ruler drag handlers
+  topRuler.addEventListener('mousedown', (e) => startRulerDrag(e, 'horizontal'))
+  leftRuler.addEventListener('mousedown', (e) => startRulerDrag(e, 'vertical'))
+
   function setMode(mode: InspectorMode): void {
     if (destroyed) return
     if (currentMode === mode && mode !== 'off') return
@@ -2482,6 +3453,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       case 'design': deactivateDesign(); break
       case 'move': deactivateMove(); break
       case 'changes': deactivateChanges(); break
+      case 'guides': deactivateGuides(); break
     }
 
     currentMode = mode
@@ -2493,6 +3465,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       case 'design': activateDesign(); break
       case 'move': activateMove(); break
       case 'changes': activateChanges(); break
+      case 'guides': activateGuides(); break
     }
 
     updateToolbar()
@@ -2505,6 +3478,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designBtn.dataset.active = currentMode === 'design' ? 'true' : 'false'
     moveBtn.dataset.active = currentMode === 'move' ? 'true' : 'false'
     changesBtn.dataset.active = currentMode === 'changes' ? 'true' : 'false'
+    guidesBtn.dataset.active = currentMode === 'guides' ? 'true' : 'false'
   }
 
   function expandToolbar(): void {
@@ -2591,9 +3565,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#00b894' : '#111113'};
       color: white;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: var(--font-medium);
       z-index: ${zIndex + 10};
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--border-default);
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       pointer-events: none;
       opacity: 0;
@@ -2635,6 +3609,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   designBtn.addEventListener('click', () => setMode('design'))
   moveBtn.addEventListener('click', () => setMode('move'))
   changesBtn.addEventListener('click', () => setMode('changes'))
+  guidesBtn.addEventListener('click', () => setMode('guides'))
   exitBtn.addEventListener('click', () => {
     setMode('off')
     outlinesEnabled = false
@@ -2946,6 +3921,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
       changes = []
       changeIdCounter = 0
+      activeChangeId = null
+      beforePreviewChangeIds.clear()
       renderMarkers()
       if (currentMode === 'changes') renderChangesList()
     },

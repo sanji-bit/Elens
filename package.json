@@ -8,7 +8,8 @@
   "types": "src/index.ts",
   "scripts": {
     "dev": "bunx vite --host 127.0.0.1 --port 4317",
-    "build:demo": "bunx vite build --outDir demo-dist"
+    "build:demo": "bunx vite build --outDir demo-dist",
+    "sync-tokens": "bun run scripts/sync-tokens.ts"
   },
   "exports": {
     ".": "./src/index.ts"

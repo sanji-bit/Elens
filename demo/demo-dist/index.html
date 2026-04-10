@@ -85,10 +85,10 @@
       }
       .nav-btn:hover { background: var(--gray-100); color: var(--gray-900); }
       .nav-btn.primary {
-        background: var(--primary);
+        background: #4235C9;
         color: white;
       }
-      .nav-btn.primary:hover { background: var(--primary-dark); }
+      .nav-btn.primary:hover { background: #3528A8; }
 
       /* Page Layout */
       .page {
@@ -445,6 +445,81 @@
       .footer-link { font-size: 14px; color: var(--gray-300); text-decoration: none; transition: color 0.15s ease; }
       .footer-link:hover { color: white; }
 
+      /* Dropdown Menus */
+      .nav-item { position: relative; }
+      .dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 8px;
+        min-width: 220px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        border: 1px solid var(--gray-200);
+        padding: 8px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: all 0.2s ease;
+        z-index: 200;
+      }
+      .nav-item:hover .dropdown {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+      }
+      .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none;
+        color: inherit;
+      }
+      .dropdown-item:hover { background: var(--gray-50); }
+      .dropdown-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+      }
+      .dropdown-icon.blue { background: #DBEAFE; }
+      .dropdown-icon.green { background: #D1FAE5; }
+      .dropdown-icon.purple { background: #EDE9FE; }
+      .dropdown-icon.orange { background: #FEF3C7; }
+      .dropdown-icon.red { background: #FEE2E2; }
+      .dropdown-content { flex: 1; }
+      .dropdown-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--gray-900);
+      }
+      .dropdown-desc {
+        font-size: 12px;
+        color: var(--gray-500);
+        margin-top: 2px;
+      }
+      .dropdown-divider {
+        height: 1px;
+        background: var(--gray-200);
+        margin: 8px 0;
+      }
+      .dropdown-section {
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--gray-400);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
       /* Responsive */
       @media (max-width: 1024px) {
         .main-grid { grid-template-columns: 1fr; }
@@ -459,7 +534,7 @@
         .hero h1 { font-size: 32px; }
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-Dbt3OJUg.js"></script>
+    <script type="module" crossorigin src="/assets/index-CjmJpWAm.js"></script>
   </head>
   <body>
     <!-- Header -->
@@ -470,8 +545,92 @@
           Elens SDK
         </div>
         <nav class="nav">
-          <button class="nav-btn">Documentation</button>
-          <button class="nav-btn">Examples</button>
+          <div class="nav-item">
+            <button class="nav-btn">Examples</button>
+            <div class="dropdown">
+              <div class="dropdown-section">Interactive Demos</div>
+              <a href="#" class="dropdown-item" onclick="alert('Inspector Mode: Hover to inspect elements')">
+                <div class="dropdown-icon blue">🔍</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Inspector Mode</div>
+                  <div class="dropdown-desc">Hover to inspect any element</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Design Mode: Click elements to edit styles')">
+                <div class="dropdown-icon purple">🎨</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Design Mode</div>
+                  <div class="dropdown-desc">Edit styles in real-time</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Move Mode: Drag to reorder elements')">
+                <div class="dropdown-icon green">↔️</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Move Mode</div>
+                  <div class="dropdown-desc">Drag to reorder elements</div>
+                </div>
+              </a>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-section">Test Scenarios</div>
+              <a href="#" class="dropdown-item" onclick="alert('Complex Layouts: Test grid and flexbox')">
+                <div class="dropdown-icon orange">📐</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Complex Layouts</div>
+                  <div class="dropdown-desc">Grid, flexbox, and responsive</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Typography Test: Various font styles')">
+                <div class="dropdown-icon red">📝</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Typography Test</div>
+                  <div class="dropdown-desc">Multiple font families and sizes</div>
+                </div>
+              </a>
+            </div>
+          </div>
+          <div class="nav-item">
+            <button class="nav-btn">Documentation</button>
+            <div class="dropdown">
+              <div class="dropdown-section">Getting Started</div>
+              <a href="#" class="dropdown-item" onclick="alert('Installation: npm install elens')">
+                <div class="dropdown-icon blue">📦</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Installation</div>
+                  <div class="dropdown-desc">npm install elens</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Quick Start: Initialize the inspector')">
+                <div class="dropdown-icon green">🚀</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Quick Start</div>
+                  <div class="dropdown-desc">Initialize the inspector</div>
+                </div>
+              </a>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-section">API Reference</div>
+              <a href="#" class="dropdown-item" onclick="alert('Methods: setMode, destroy, getChanges')">
+                <div class="dropdown-icon purple">⚙️</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Methods</div>
+                  <div class="dropdown-desc">setMode, destroy, getChanges</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Events: onInspect, onChangeAdd')">
+                <div class="dropdown-icon orange">📡</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Events</div>
+                  <div class="dropdown-desc">onInspect, onChangeAdd</div>
+                </div>
+              </a>
+              <a href="#" class="dropdown-item" onclick="alert('Types: InspectorInfo, Change, StyleDiff')">
+                <div class="dropdown-icon red">📘</div>
+                <div class="dropdown-content">
+                  <div class="dropdown-title">Type Definitions</div>
+                  <div class="dropdown-desc">InspectorInfo, Change types</div>
+                </div>
+              </a>
+            </div>
+          </div>
           <button class="nav-btn primary">Get Started</button>
         </nav>
       </div>

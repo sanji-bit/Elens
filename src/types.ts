@@ -161,7 +161,7 @@ export type ChangeMeta = {
   route?: string
 }
 
-export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'changes'
+export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'guides' | 'changes'
 
 export type Change = {
   id: string

@@ -1,5 +1,6 @@
 import type { InspectorInfo, StyleDiff } from './types'
 import { rgbToHex } from './utils'
+import { generateCSSVariables } from './design-tokens'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 
@@ -1974,8 +1975,13 @@ export function buildDesignPanel(
   // --- Text Content Section (for text elements) ---
   const originalText = info.text || ''
   const hasTextContent = originalText.length > 0 && originalText.trim().length > 0
+  // A text element has text but no block-level children (leaf text node)
+  const isTextElement = hasTextContent && !Array.from(element.children).some((child) => {
+    const d = window.getComputedStyle(child).display
+    return d === 'block' || d === 'flex' || d === 'grid' || d === 'table' || d === 'list-item'
+  })
 
-  if (hasTextContent) {
+  if (isTextElement) {
     const textSection = el('div', 'ei-dp-text-section')
 
     // Header with label and restore button
@@ -2194,7 +2200,8 @@ export function buildDesignPanel(
 
   const display = info.layout.display
   const isLayoutElement = display.includes('flex') || display.includes('grid')
-  const showTypography = !!(info.typography.fontSize && info.typography.fontSize !== '0px')
+
+  const showTypography = isTextElement && !!(info.typography.fontSize && info.typography.fontSize !== '0px')
 
   if (isLayoutElement) {
     // === 1. Auto layout section ===
@@ -2643,7 +2650,7 @@ export function buildDesignPanel(
 // --- Design Panel Styles ---
 
 export function getDesignStyles(accentColor: string): string {
-  return `
+  return `${generateCSSVariables(accentColor)}
 .ei-dp { padding: 4px 0 0; }
 .ei-dp-section { }
 .ei-dp-section-border { border-top: 0.5px solid rgba(255,255,255,0.08); }
@@ -2754,7 +2761,7 @@ export function getDesignStyles(accentColor: string): string {
 .ei-dp-align-btn[data-active="true"] { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.05); }
 .ei-dp-field-line-height { gap: 4px; }
 .ei-dp-field-letter-spacing { gap: 4px; }
-.ei-dp-text-section { display: flex; flex-direction: column; }
+.ei-dp-text-section { display: flex; flex-direction: column; border-bottom: 0.5px solid rgba(255,255,255,0.08); }
 .ei-dp-text-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
 .ei-dp-text-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: 0.11px; }
 .ei-dp-text-restore { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; transition: color 0.12s ease; }

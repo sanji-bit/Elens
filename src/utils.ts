@@ -391,14 +391,24 @@ export function buildMarkdownExport(changes: Change[]): string {
   for (const [i, a] of changes.entries()) {
     const info = a.info
     lines.push(annotationHeading(i, info))
-    lines.push(`- **Selector**: \`${info.domPath}\``)
+    lines.push(`- **Selector**: \`${a.target?.selector?.primary || info.domPath}\``)
 
-    if (a.type === 'design' && a.diffs && a.diffs.length > 0) {
-      lines.push(`- **Changes**:`)
-      for (const d of a.diffs) {
+    if (a.patch.textDiff) {
+      lines.push(`- **Text**: ${a.patch.textDiff.from} → ${a.patch.textDiff.to}`)
+    }
+
+    if (a.patch.moveDiff) {
+      lines.push(`- **Move**: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
+    }
+
+    if (a.patch.styleDiffs.length > 0) {
+      lines.push(`- **Style changes**:`)
+      for (const d of a.patch.styleDiffs) {
         lines.push(`  - \`${d.property}\`: ${d.original} → ${d.modified}`)
       }
-    } else {
+    }
+
+    if (!a.patch.textDiff && !a.patch.moveDiff && a.patch.styleDiffs.length === 0) {
       lines.push(`- **Size**: ${info.boxModel.width} × ${info.boxModel.height}`)
       lines.push(`- **Font**: ${info.typography.fontSize} / ${info.typography.fontWeight} ${info.typography.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '')}`)
       lines.push(`- **Color**: ${rgbToHex(info.typography.color)}`)

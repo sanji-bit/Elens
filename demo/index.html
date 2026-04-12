@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Element Inspector SDK Demo</title>
+    <title>元素检查 SDK 演示</title>
     <script type="module" src="./main.ts"></script>
     <style>
       :root {
@@ -134,6 +134,9 @@
       }
       .hero-btns { display: flex; gap: 12px; }
       .hero-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         padding: 12px 24px;
         border-radius: 10px;
         font-size: 15px;
@@ -141,6 +144,7 @@
         cursor: pointer;
         transition: all 0.15s ease;
         border: none;
+        text-decoration: none;
       }
       .hero-btn.primary {
         background: var(--primary);
@@ -546,92 +550,92 @@
         </div>
         <nav class="nav">
           <div class="nav-item">
-            <button class="nav-btn">Examples</button>
+            <button class="nav-btn">示例</button>
             <div class="dropdown">
-              <div class="dropdown-section">Interactive Demos</div>
-              <a href="#" class="dropdown-item" onclick="alert('Inspector Mode: Hover to inspect elements')">
+              <div class="dropdown-section">交互演示</div>
+              <a href="#" class="dropdown-item" onclick="alert('检查模式：悬停即可检查元素')">
                 <div class="dropdown-icon blue">🔍</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Inspector Mode</div>
-                  <div class="dropdown-desc">Hover to inspect any element</div>
+                  <div class="dropdown-title">检查模式</div>
+                  <div class="dropdown-desc">悬停即可检查任意元素</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Design Mode: Click elements to edit styles')">
+              <a href="#" class="dropdown-item" onclick="alert('设计模式：点击元素即可编辑样式')">
                 <div class="dropdown-icon purple">🎨</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Design Mode</div>
-                  <div class="dropdown-desc">Edit styles in real-time</div>
+                  <div class="dropdown-title">设计模式</div>
+                  <div class="dropdown-desc">实时编辑样式</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Move Mode: Drag to reorder elements')">
+              <a href="#" class="dropdown-item" onclick="alert('移动模式：拖动即可调整元素顺序')">
                 <div class="dropdown-icon green">↔️</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Move Mode</div>
-                  <div class="dropdown-desc">Drag to reorder elements</div>
+                  <div class="dropdown-title">移动模式</div>
+                  <div class="dropdown-desc">拖动调整元素顺序</div>
                 </div>
               </a>
               <div class="dropdown-divider"></div>
-              <div class="dropdown-section">Test Scenarios</div>
-              <a href="#" class="dropdown-item" onclick="alert('Complex Layouts: Test grid and flexbox')">
+              <div class="dropdown-section">测试场景</div>
+              <a href="#" class="dropdown-item" onclick="alert('复杂布局：测试 grid 和 flexbox')">
                 <div class="dropdown-icon orange">📐</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Complex Layouts</div>
-                  <div class="dropdown-desc">Grid, flexbox, and responsive</div>
+                  <div class="dropdown-title">复杂布局</div>
+                  <div class="dropdown-desc">Grid、flexbox 与响应式布局</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Typography Test: Various font styles')">
+              <a href="#" class="dropdown-item" onclick="alert('文字测试：多种字体样式')">
                 <div class="dropdown-icon red">📝</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Typography Test</div>
-                  <div class="dropdown-desc">Multiple font families and sizes</div>
+                  <div class="dropdown-title">文字测试</div>
+                  <div class="dropdown-desc">多种字体和字号</div>
                 </div>
               </a>
             </div>
           </div>
           <div class="nav-item">
-            <button class="nav-btn">Documentation</button>
+            <button class="nav-btn">文档</button>
             <div class="dropdown">
-              <div class="dropdown-section">Getting Started</div>
-              <a href="#" class="dropdown-item" onclick="alert('Installation: npm install elens')">
+              <div class="dropdown-section">快速开始</div>
+              <a href="#" class="dropdown-item" onclick="alert('安装：npm install elens')">
                 <div class="dropdown-icon blue">📦</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Installation</div>
+                  <div class="dropdown-title">安装</div>
                   <div class="dropdown-desc">npm install elens</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Quick Start: Initialize the inspector')">
+              <a href="#" class="dropdown-item" onclick="alert('快速开始：初始化 inspector')">
                 <div class="dropdown-icon green">🚀</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Quick Start</div>
-                  <div class="dropdown-desc">Initialize the inspector</div>
+                  <div class="dropdown-title">快速开始</div>
+                  <div class="dropdown-desc">初始化 inspector</div>
                 </div>
               </a>
               <div class="dropdown-divider"></div>
-              <div class="dropdown-section">API Reference</div>
-              <a href="#" class="dropdown-item" onclick="alert('Methods: setMode, destroy, getChanges')">
+              <div class="dropdown-section">API 参考</div>
+              <a href="#" class="dropdown-item" onclick="alert('方法：setMode、destroy、getChanges')">
                 <div class="dropdown-icon purple">⚙️</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Methods</div>
-                  <div class="dropdown-desc">setMode, destroy, getChanges</div>
+                  <div class="dropdown-title">方法</div>
+                  <div class="dropdown-desc">setMode、destroy、getChanges</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Events: onInspect, onChangeAdd')">
+              <a href="#" class="dropdown-item" onclick="alert('事件：onInspect、onChangeAdd')">
                 <div class="dropdown-icon orange">📡</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Events</div>
-                  <div class="dropdown-desc">onInspect, onChangeAdd</div>
+                  <div class="dropdown-title">事件</div>
+                  <div class="dropdown-desc">onInspect、onChangeAdd</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('Types: InspectorInfo, Change, StyleDiff')">
+              <a href="#" class="dropdown-item" onclick="alert('类型：InspectorInfo、Change、StyleDiff')">
                 <div class="dropdown-icon red">📘</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">Type Definitions</div>
-                  <div class="dropdown-desc">InspectorInfo, Change types</div>
+                  <div class="dropdown-title">类型定义</div>
+                  <div class="dropdown-desc">InspectorInfo、Change 类型</div>
                 </div>
               </a>
             </div>
           </div>
-          <button class="nav-btn primary">Get Started</button>
+          <a class="nav-btn primary" href="./design-system-preview.html" style="text-decoration:none">Design Workbench</a>
         </nav>
       </div>
     </header>
@@ -640,11 +644,11 @@
       <!-- Hero -->
       <section class="hero">
         <div class="hero-content">
-          <h1>Inspect Any Element</h1>
-          <p>A powerful SDK for DOM element inspection. Get typography, colors, spacing, layout, and accessibility information with a single hover.</p>
+          <h1>检查任意元素</h1>
+          <p>强大的 DOM 元素检查 SDK。只需一次悬停，即可获取字体、颜色、间距、布局和可访问性信息。</p>
           <div class="hero-btns">
-            <button class="hero-btn primary">Try Inspector</button>
-            <button class="hero-btn secondary">View on GitHub</button>
+            <button class="hero-btn primary">试用检查器</button>
+            <a class="hero-btn secondary" href="./design-system-preview.html">打开 Design Workbench</a>
           </div>
         </div>
       </section>
@@ -653,7 +657,7 @@
       <div class="stats-bar">
         <div class="stat-card">
           <div class="stat-value">12.5k</div>
-          <div class="stat-label">Downloads</div>
+          <div class="stat-label">下载量</div>
           <div class="stat-change up">↑ 23%</div>
         </div>
         <div class="stat-card">
@@ -663,13 +667,13 @@
         </div>
         <div class="stat-card">
           <div class="stat-value">2.1kb</div>
-          <div class="stat-label">Bundle Size</div>
+          <div class="stat-label">包体积</div>
           <div class="stat-change down">↓ 8%</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">v1.2</div>
-          <div class="stat-label">Latest Version</div>
-          <div class="stat-change up">New</div>
+          <div class="stat-label">最新版本</div>
+          <div class="stat-change up">最新</div>
         </div>
       </div>
 
@@ -678,18 +682,18 @@
         <!-- Users Table -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Team Members</span>
-            <span class="card-action">View All</span>
+            <span class="card-title">团队成员</span>
+            <span class="card-action">查看全部</span>
           </div>
           <div class="card-body">
             <div class="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Last Active</th>
+                    <th>用户</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>最近活跃</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -703,9 +707,9 @@
                         </div>
                       </div>
                     </td>
-                    <td><span class="badge info">Admin</span></td>
-                    <td><span class="badge success">Active</span></td>
-                    <td style="color: var(--gray-500);">2 min ago</td>
+                    <td><span class="badge info">管理员</span></td>
+                    <td><span class="badge success">在线</span></td>
+                    <td style="color: var(--gray-500);">2 分钟前</td>
                   </tr>
                   <tr>
                     <td>
@@ -717,9 +721,9 @@
                         </div>
                       </div>
                     </td>
-                    <td><span class="badge info">Editor</span></td>
-                    <td><span class="badge success">Active</span></td>
-                    <td style="color: var(--gray-500);">1 hour ago</td>
+                    <td><span class="badge info">编辑者</span></td>
+                    <td><span class="badge success">在线</span></td>
+                    <td style="color: var(--gray-500);">1 小时前</td>
                   </tr>
                   <tr>
                     <td>
@@ -731,9 +735,9 @@
                         </div>
                       </div>
                     </td>
-                    <td><span class="badge info">Viewer</span></td>
-                    <td><span class="badge warning">Away</span></td>
-                    <td style="color: var(--gray-500);">3 hours ago</td>
+                    <td><span class="badge info">查看者</span></td>
+                    <td><span class="badge warning">离开</span></td>
+                    <td style="color: var(--gray-500);">3 小时前</td>
                   </tr>
                   <tr>
                     <td>
@@ -745,9 +749,9 @@
                         </div>
                       </div>
                     </td>
-                    <td><span class="badge info">Developer</span></td>
-                    <td><span class="badge error">Offline</span></td>
-                    <td style="color: var(--gray-500);">2 days ago</td>
+                    <td><span class="badge info">开发者</span></td>
+                    <td><span class="badge error">离线</span></td>
+                    <td style="color: var(--gray-500);">2 天前</td>
                   </tr>
                 </tbody>
               </table>
@@ -758,24 +762,24 @@
         <!-- Settings Panel -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Settings</span>
+            <span class="card-title">设置</span>
           </div>
           <div class="card-body">
             <div class="form-group">
-              <label class="form-label">Project Name</label>
-              <input type="text" class="form-input" value="My Awesome Project">
+              <label class="form-label">项目名称</label>
+              <input type="text" class="form-input" value="我的项目">
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Theme</label>
+                <label class="form-label">主题</label>
                 <select class="form-select">
-                  <option>Light</option>
-                  <option>Dark</option>
-                  <option>Auto</option>
+                  <option>浅色</option>
+                  <option>深色</option>
+                  <option>自动</option>
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">Language</label>
+                <label class="form-label">语言</label>
                 <select class="form-select">
                   <option>English</option>
                   <option>中文</option>
@@ -785,8 +789,8 @@
             </div>
             <div class="toggle-row">
               <div>
-                <div class="toggle-label">Auto-save</div>
-                <div class="toggle-desc">Automatically save changes</div>
+                <div class="toggle-label">自动保存</div>
+                <div class="toggle-desc">自动保存变更</div>
               </div>
               <div class="switch active">
                 <div class="switch-thumb"></div>
@@ -794,8 +798,8 @@
             </div>
             <div class="toggle-row">
               <div>
-                <div class="toggle-label">Notifications</div>
-                <div class="toggle-desc">Get notified about updates</div>
+                <div class="toggle-label">通知</div>
+                <div class="toggle-desc">接收更新通知</div>
               </div>
               <div class="switch">
                 <div class="switch-thumb"></div>
@@ -803,8 +807,8 @@
             </div>
             <div class="toggle-row">
               <div>
-                <div class="toggle-label">Analytics</div>
-                <div class="toggle-desc">Share usage data</div>
+                <div class="toggle-label">分析</div>
+                <div class="toggle-desc">共享使用数据</div>
               </div>
               <div class="switch active">
                 <div class="switch-thumb"></div>
@@ -818,18 +822,18 @@
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon purple">⚡</div>
-          <div class="feature-title">Lightning Fast</div>
-          <div class="feature-desc">Zero dependencies, minimal footprint. Inspect elements instantly without any lag.</div>
+          <div class="feature-title">极速响应</div>
+          <div class="feature-desc">零依赖、体积小。可即时检查元素，几乎无延迟。</div>
         </div>
         <div class="feature-card">
           <div class="feature-icon blue">🎨</div>
-          <div class="feature-title">Design Mode</div>
-          <div class="feature-desc">Edit styles in real-time. See changes immediately and export your modifications.</div>
+          <div class="feature-title">设计模式</div>
+          <div class="feature-desc">实时编辑样式，立即看到变更并导出修改结果。</div>
         </div>
         <div class="feature-card">
           <div class="feature-icon green">📱</div>
-          <div class="feature-title">Responsive</div>
-          <div class="feature-desc">Works on any device. Desktop, tablet, or mobile - the inspector adapts seamlessly.</div>
+          <div class="feature-title">响应式</div>
+          <div class="feature-desc">适配任意设备。无论桌面、平板还是手机，检查器都能自然适配。</div>
         </div>
       </div>
 
@@ -838,32 +842,32 @@
         <!-- Activity Feed -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Recent Activity</span>
+            <span class="card-title">最近活动</span>
           </div>
           <div class="card-body">
             <div class="activity-list">
               <div class="activity-item">
                 <div class="activity-icon blue">📄</div>
                 <div class="activity-content">
-                  <div class="activity-title">New documentation added</div>
-                  <div class="activity-desc">API reference for v1.2 is now live</div>
-                  <div class="activity-time">10 minutes ago</div>
+                  <div class="activity-title">新增文档</div>
+                  <div class="activity-desc">v1.2 的 API 参考已上线</div>
+                  <div class="activity-time">10 分钟前</div>
                 </div>
               </div>
               <div class="activity-item">
                 <div class="activity-icon green">✓</div>
                 <div class="activity-content">
-                  <div class="activity-title">Deployment successful</div>
-                  <div class="activity-desc">Production build v1.2.3 deployed</div>
-                  <div class="activity-time">2 hours ago</div>
+                  <div class="activity-title">部署成功</div>
+                  <div class="activity-desc">生产构建 v1.2.3 已发布</div>
+                  <div class="activity-time">2 小时前</div>
                 </div>
               </div>
               <div class="activity-item">
                 <div class="activity-icon yellow">⚠</div>
                 <div class="activity-content">
-                  <div class="activity-title">Performance warning</div>
-                  <div class="activity-desc">Bundle size increased by 5%</div>
-                  <div class="activity-time">5 hours ago</div>
+                  <div class="activity-title">性能警告</div>
+                  <div class="activity-desc">包体积增加了 5%</div>
+                  <div class="activity-time">5 小时前</div>
                 </div>
               </div>
             </div>
@@ -873,33 +877,33 @@
         <!-- Analytics Chart -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Usage Analytics</span>
+            <span class="card-title">使用分析</span>
           </div>
           <div class="card-body">
             <div class="chart-container">
               <div class="chart-bar">
-                <span class="chart-label">Inspector</span>
+                <span class="chart-label">检查</span>
                 <div class="chart-track">
                   <div class="chart-fill" style="width: 78%; background: linear-gradient(90deg, #008DFF, #6366F1);"></div>
                 </div>
                 <span class="chart-value">78%</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">Design</span>
+                <span class="chart-label">设计</span>
                 <div class="chart-track">
                   <div class="chart-fill" style="width: 65%; background: linear-gradient(90deg, #10B981, #34D399);"></div>
                 </div>
                 <span class="chart-value">65%</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">Changes</span>
+                <span class="chart-label">变更</span>
                 <div class="chart-track">
                   <div class="chart-fill" style="width: 42%; background: linear-gradient(90deg, #F59E0B, #FBBF24);"></div>
                 </div>
                 <span class="chart-value">42%</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">Move</span>
+                <span class="chart-label">移动</span>
                 <div class="chart-track">
                   <div class="chart-fill" style="width: 28%; background: linear-gradient(90deg, #EF4444, #F87171);"></div>
                 </div>
@@ -914,28 +918,28 @@
       <footer class="footer">
         <div>
           <div class="footer-brand">◈ Elens SDK</div>
-          <div class="footer-desc">A powerful DOM element inspector for modern web development. Built with TypeScript, zero dependencies.</div>
+          <div class="footer-desc">面向现代 Web 开发的强大 DOM 元素检查器。基于 TypeScript 构建，零依赖。</div>
         </div>
         <div>
-          <div class="footer-title">Product</div>
+          <div class="footer-title">产品</div>
           <div class="footer-links">
-            <a href="#" class="footer-link">Features</a>
-            <a href="#" class="footer-link">Pricing</a>
-            <a href="#" class="footer-link">Changelog</a>
+            <a href="#" class="footer-link">功能</a>
+            <a href="#" class="footer-link">价格</a>
+            <a href="#" class="footer-link">更新日志</a>
           </div>
         </div>
         <div>
-          <div class="footer-title">Resources</div>
+          <div class="footer-title">资源</div>
           <div class="footer-links">
-            <a href="#" class="footer-link">Documentation</a>
-            <a href="#" class="footer-link">API Reference</a>
-            <a href="#" class="footer-link">Examples</a>
+            <a href="#" class="footer-link">文档</a>
+            <a href="#" class="footer-link">API 参考</a>
+            <a href="#" class="footer-link">示例</a>
           </div>
         </div>
         <div>
-          <div class="footer-title">Company</div>
+          <div class="footer-title">公司</div>
           <div class="footer-links">
-            <a href="#" class="footer-link">About</a>
+            <a href="#" class="footer-link">关于</a>
             <a href="#" class="footer-link">GitHub</a>
             <a href="#" class="footer-link">Twitter</a>
           </div>

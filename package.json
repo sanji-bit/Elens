@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "bunx vite --host 127.0.0.1 --port 4317",
     "build:demo": "bunx vite build --outDir demo-dist",
-    "sync-tokens": "bun run scripts/sync-tokens.ts"
+    "sync-tokens": "bun run scripts/sync-tokens.ts",
+    "check:design-system": "node scripts/check-design-system.mjs"
   },
   "exports": {
     ".": "./src/index.ts"

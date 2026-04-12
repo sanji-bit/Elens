@@ -6,6 +6,8 @@ export type {
   InspectorInfo,
   InspectorMode,
   InspectorTheme,
+  OutputDetail,
   StyleDiff,
 } from './types'
 export { mountElementInspector } from './mount'
+export { createInspectorStyles, createRuntimeStyles } from './runtime-styles'

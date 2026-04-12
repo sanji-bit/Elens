@@ -1,4 +1,4 @@
-import type { BoxEdges, Change, ChangeContext, ChangeIdentity, ChangePatch, ChangeSnapshot, ChangeTarget, InspectorInfo, StyleDiff } from './types'
+import type { BoxEdges, Change, ChangeContext, ChangeIdentity, ChangeLocatorHints, ChangePatch, ChangeSelector, ChangeSnapshot, ChangeSourceContext, ChangeTarget, InspectorInfo, OutputDetail, StyleDiff } from './types'
 
 export function truncate(value: string, max = 140): string {
   const trimmed = value.replace(/\s+/g, ' ').trim()
@@ -153,8 +153,8 @@ export function extractInspectorInfo(element: HTMLElement): InspectorInfo {
       textDecoration: style.textDecoration,
     },
     boxModel: {
-      width: px(rect.width),
-      height: px(rect.height),
+      width: style.width && style.width !== 'auto' ? style.width : px(rect.width),
+      height: style.height && style.height !== 'auto' ? style.height : px(rect.height),
       margin: pickEdgeBox(style, 'margin'),
       padding: pickEdgeBox(style, 'padding'),
       borderWidth: pickEdgeBox(style, 'border'),
@@ -196,6 +196,56 @@ export function rgbToHex(rgb: string): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`
 }
 
+export function normalizeColorValue(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed === 'transparent' || trimmed === 'rgba(0, 0, 0, 0)' || trimmed === 'rgba(0,0,0,0)') {
+    return null
+  }
+
+  const probe = document.createElement('div')
+  probe.style.color = ''
+  probe.style.color = trimmed
+  if (!probe.style.color) return null
+
+  const normalized = probe.style.color
+  if (normalized.startsWith('#')) return normalized.toUpperCase()
+  if (normalized.startsWith('rgb')) return rgbToHex(normalized)
+  return normalized
+}
+
+export function collectPageColors(root: ParentNode = document): string[] {
+  const elements = Array.from(root.querySelectorAll('*')).filter((node): node is HTMLElement => node instanceof HTMLElement)
+  const counts = new Map<string, number>()
+
+  for (const element of elements.slice(0, 1500)) {
+    const rect = element.getBoundingClientRect()
+    if ((rect.width === 0 && rect.height === 0) || element.offsetParent === null) continue
+
+    const style = window.getComputedStyle(element)
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue
+
+    const values = [
+      style.color,
+      style.backgroundColor,
+      style.borderTopColor,
+      style.borderRightColor,
+      style.borderBottomColor,
+      style.borderLeftColor,
+    ]
+
+    for (const value of values) {
+      const normalized = normalizeColorValue(value)
+      if (!normalized) continue
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+    }
+  }
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 24)
+    .map(([color]) => color)
+}
+
 export function getColorOpacityPercent(value: string): number {
   const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)/i)
   if (!match) return 100
@@ -227,38 +277,61 @@ function formatEdges(edges: BoxEdges): string {
   return `${edges.top} ${edges.right} ${edges.bottom} ${edges.left}`
 }
 
-function buildSelectorCandidates(element: HTMLElement, info: InspectorInfo): { primary: string; fallbacks: string[] } {
+function buildSelectorCandidates(element: HTMLElement, info: InspectorInfo): ChangeSelector {
   const candidates: string[] = []
+  const testing: string[] = []
+  const semantic: string[] = []
+  const stable: string[] = []
+  const structural: string[] = []
+  const unstable: string[] = []
 
-  const push = (value: string | null | undefined): void => {
+  const pushUnique = (bucket: string[], value: string | null | undefined): void => {
+    if (!value) return
+    const trimmed = value.trim()
+    if (!trimmed || bucket.includes(trimmed)) return
+    bucket.push(trimmed)
+  }
+
+  const pushCandidate = (value: string | null | undefined): void => {
     if (!value) return
     const trimmed = value.trim()
     if (!trimmed || candidates.includes(trimmed)) return
     candidates.push(trimmed)
   }
 
-  const testId = element.getAttribute('data-testid')
-  if (testId) push(`[data-testid="${testId}"]`)
+  const add = (bucket: string[], value: string | null | undefined): void => {
+    pushUnique(bucket, value)
+    pushCandidate(value)
+  }
+
+  for (const attr of ['data-testid', 'data-test', 'data-cy']) {
+    const value = element.getAttribute(attr)
+    if (value) add(testing, `[${attr}="${value}"]`)
+  }
 
   const ariaLabel = element.getAttribute('aria-label')
-  if (ariaLabel) push(`${info.tagName}[aria-label="${ariaLabel}"]`)
+  if (ariaLabel) add(semantic, `${info.tagName}[aria-label="${ariaLabel}"]`)
 
-  if (element.id) push(`#${element.id}`)
+  const explicitRole = element.getAttribute('role')
+  if (explicitRole) add(semantic, `${info.tagName}[role="${explicitRole}"]`)
+
+  if (element.id) add(stable, `#${element.id}`)
 
   const classList = Array.from(element.classList).filter(Boolean)
   if (classList.length > 0) {
-    push(`${info.tagName}.${classList.slice(0, 2).join('.')}`)
+    add(structural, `${info.tagName}.${classList.slice(0, 2).join('.')}`)
   }
 
-  if (info.accessibility.name && info.accessibility.name !== '—') {
-    push(`${info.tagName}[role="${info.accessibility.role}"]`)
-  }
-
-  push(info.domPath)
+  add(unstable, info.domPath)
 
   return {
     primary: candidates[0] ?? info.domPath,
     fallbacks: candidates.slice(1),
+    testing,
+    semantic,
+    stable,
+    structural,
+    unstable,
   }
 }
 
@@ -292,14 +365,131 @@ export function buildChangeContext(element: HTMLElement): ChangeContext {
   }
 }
 
+function getReactFiberKey(element: HTMLElement): string | undefined {
+  return Object.keys(element).find(key => key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$'))
+}
+
+function getReactPropsKey(element: HTMLElement): string | undefined {
+  return Object.keys(element).find(key => key.startsWith('__reactProps$'))
+}
+
+function getComponentNameFromFiber(fiber: unknown): string {
+  const candidate = fiber as { type?: unknown; elementType?: unknown }
+  const type = candidate.type || candidate.elementType
+  if (typeof type === 'string') return type
+  if (typeof type === 'function') {
+    const named = type as { displayName?: string; name?: string }
+    return named.displayName || named.name || ''
+  }
+  if (type && typeof type === 'object') {
+    const named = type as { displayName?: string; name?: string; render?: { displayName?: string; name?: string } }
+    return named.displayName || named.name || named.render?.displayName || named.render?.name || ''
+  }
+  return ''
+}
+
+function getSourceFileFromFiber(fiber: unknown): string {
+  const candidate = fiber as { _debugSource?: { fileName?: string; lineNumber?: number; columnNumber?: number } }
+  const source = candidate._debugSource
+  if (!source?.fileName) return ''
+  const suffix = source.lineNumber ? `:${source.lineNumber}${source.columnNumber ? `:${source.columnNumber}` : ''}` : ''
+  return `${source.fileName}${suffix}`
+}
+
+function buildSourceContext(element: HTMLElement): ChangeSourceContext {
+  const componentNames: string[] = []
+  const sourceFilePaths: string[] = []
+  let framework: ChangeSourceContext['framework'] = 'unknown'
+  let current: HTMLElement | null = element
+
+  while (current) {
+    const fiberKey = getReactFiberKey(current)
+    if (fiberKey) {
+      framework = 'react'
+      let fiber = (current as unknown as Record<string, unknown>)[fiberKey]
+      let depth = 0
+      while (fiber && depth < 12) {
+        const name = getComponentNameFromFiber(fiber)
+        if (name && !componentNames.includes(name)) componentNames.push(name)
+
+        const file = getSourceFileFromFiber(fiber)
+        if (file && !sourceFilePaths.includes(file)) sourceFilePaths.push(file)
+
+        fiber = (fiber as { return?: unknown }).return
+        depth += 1
+      }
+    }
+
+    current = current.parentElement
+  }
+
+  return {
+    framework,
+    componentNames,
+    componentTree: componentNames,
+    sourceFilePaths,
+  }
+}
+
+function buildLocatorHints(element: HTMLElement, info: InspectorInfo, selector: ChangeSelector, sourceContext: ChangeSourceContext): ChangeLocatorHints {
+  const terms: string[] = []
+  const textAnchors: string[] = []
+  const attributeAnchors: string[] = []
+  const componentHints = sourceContext.componentNames.slice(0, 8)
+
+  const push = (bucket: string[], value: string | null | undefined): void => {
+    if (!value) return
+    const trimmed = value.trim()
+    if (!trimmed || bucket.includes(trimmed)) return
+    bucket.push(trimmed)
+  }
+
+  push(terms, selector.primary)
+  for (const value of [...selector.testing, ...selector.semantic, ...selector.stable]) push(terms, value)
+
+  if (info.text && info.text !== '—') {
+    const text = truncate(info.text, 80)
+    push(textAnchors, text)
+    push(terms, text)
+  }
+
+  for (const attr of ['data-testid', 'data-test', 'data-cy', 'aria-label', 'name', 'type', 'href']) {
+    const value = element.getAttribute(attr)
+    if (!value) continue
+    push(attributeAnchors, `${attr}="${value}"`)
+    push(terms, value)
+  }
+
+  for (const name of componentHints.slice(0, 4)) push(terms, name)
+
+  const confidence: ChangeLocatorHints['confidence'] = sourceContext.sourceFilePaths.length > 0
+    ? 'high'
+    : selector.testing.length > 0 || (selector.semantic.length > 0 && selector.stable.length > 0)
+      ? 'medium'
+      : 'low'
+
+  return {
+    bestCodeSearchTerms: terms.slice(0, 12),
+    textAnchors,
+    attributeAnchors,
+    componentHints,
+    confidence,
+  }
+}
+
 export function buildChangeTarget(element: HTMLElement, info: InspectorInfo): ChangeTarget {
+  const selector = buildSelectorCandidates(element, info)
+  const sourceContext = buildSourceContext(element)
+
   return {
     tagName: info.tagName,
     text: info.text,
     domPath: info.domPath,
-    selector: buildSelectorCandidates(element, info),
+    selector,
     identity: buildChangeIdentity(element, info),
     context: buildChangeContext(element),
+    locatorHints: buildLocatorHints(element, info, selector, sourceContext),
+    sourceContext,
     box: {
       x: Math.round(info.rect.left),
       y: Math.round(info.rect.top),
@@ -384,117 +574,192 @@ function annotationHeading(idx: number, info: InspectorInfo): string {
   return `## ${idx + 1}. ${tag}${text}`
 }
 
-export function buildMarkdownExport(changes: Change[]): string {
+function buildMarkdownSection(lines: string[], a: Change, detail: OutputDetail): void {
+  const info = a.info
+  lines.push(`- **Selector**: \`${a.target?.selector?.primary || info.domPath}\``)
+
+  if (detail !== 'compact' && a.target?.locatorHints?.confidence) {
+    lines.push(`- **Locator confidence**: ${a.target.locatorHints.confidence}`)
+  }
+
+  if ((detail === 'standard' || detail === 'detailed' || detail === 'forensic') && a.target?.locatorHints?.bestCodeSearchTerms?.length) {
+    lines.push(`- **Code search hints**: ${a.target.locatorHints.bestCodeSearchTerms.map(term => `\`${term}\``).join(', ')}`)
+  }
+
+  if ((detail === 'detailed' || detail === 'forensic') && a.target?.sourceContext?.componentTree?.length) {
+    lines.push(`- **Component tree**: ${a.target.sourceContext.componentTree.join(' → ')}`)
+  }
+
+  if ((detail === 'detailed' || detail === 'forensic') && a.target?.sourceContext?.sourceFilePaths?.length) {
+    lines.push(`- **Source files**: ${a.target.sourceContext.sourceFilePaths.join(', ')}`)
+  }
+
+  if (a.patch.textDiff) {
+    lines.push(`- **Text**: ${a.patch.textDiff.from} → ${a.patch.textDiff.to}`)
+  }
+
+  if (a.patch.moveDiff) {
+    lines.push(`- **Move**: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
+  }
+
+  if (a.patch.styleDiffs.length > 0) {
+    lines.push(`- **Style changes**:`)
+    for (const d of a.patch.styleDiffs) {
+      lines.push(`  - \`${d.property}\`: ${d.original} → ${d.modified}`)
+    }
+  }
+
+  if (!a.patch.textDiff && !a.patch.moveDiff && a.patch.styleDiffs.length === 0) {
+    lines.push(`- **Size**: ${info.boxModel.width} × ${info.boxModel.height}`)
+    if (detail !== 'compact') {
+      lines.push(`- **Font**: ${info.typography.fontSize} / ${info.typography.fontWeight} ${info.typography.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '')}`)
+      lines.push(`- **Color**: ${rgbToHex(info.typography.color)}`)
+      lines.push(`- **Background**: ${info.visual.backgroundColor}`)
+    }
+  }
+
+  if (a.comment) lines.push(`- **Note**: ${a.comment}`)
+}
+
+export function buildMarkdownExport(changes: Change[], detail: OutputDetail = 'standard'): string {
   if (changes.length === 0) return '# UI Changes\n\nNo changes yet.'
   const lines: string[] = [`# UI Changes (${changes.length} items)\n`]
 
   for (const [i, a] of changes.entries()) {
-    const info = a.info
-    lines.push(annotationHeading(i, info))
-    lines.push(`- **Selector**: \`${a.target?.selector?.primary || info.domPath}\``)
-
-    if (a.patch.textDiff) {
-      lines.push(`- **Text**: ${a.patch.textDiff.from} → ${a.patch.textDiff.to}`)
-    }
-
-    if (a.patch.moveDiff) {
-      lines.push(`- **Move**: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
-    }
-
-    if (a.patch.styleDiffs.length > 0) {
-      lines.push(`- **Style changes**:`)
-      for (const d of a.patch.styleDiffs) {
-        lines.push(`  - \`${d.property}\`: ${d.original} → ${d.modified}`)
-      }
-    }
-
-    if (!a.patch.textDiff && !a.patch.moveDiff && a.patch.styleDiffs.length === 0) {
-      lines.push(`- **Size**: ${info.boxModel.width} × ${info.boxModel.height}`)
-      lines.push(`- **Font**: ${info.typography.fontSize} / ${info.typography.fontWeight} ${info.typography.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '')}`)
-      lines.push(`- **Color**: ${rgbToHex(info.typography.color)}`)
-      lines.push(`- **Background**: ${info.visual.backgroundColor}`)
-
-      const m = info.boxModel.margin
-      const allZeroMargin = [m.top, m.right, m.bottom, m.left].every(v => parseFloat(v) === 0)
-      if (!allZeroMargin) lines.push(`- **Margin**: ${formatEdges(m)}`)
-
-      const p = info.boxModel.padding
-      const allZeroPadding = [p.top, p.right, p.bottom, p.left].every(v => parseFloat(v) === 0)
-      if (!allZeroPadding) lines.push(`- **Padding**: ${formatEdges(p)}`)
-
-      if (info.layout.display !== 'block') lines.push(`- **Display**: ${info.layout.display}`)
-    }
-
-    if (a.comment) lines.push(`- **Note**: ${a.comment}`)
+    lines.push(annotationHeading(i, a.info))
+    buildMarkdownSection(lines, a, detail)
     lines.push('')
   }
 
   return lines.join('\n')
 }
 
-export function buildJSONExport(changes: Change[]): string {
-  const now = new Date().toISOString()
-  const data = {
-    session: {
-      url: window.location.href,
-      route: getRoute(),
-      title: document.title,
-      viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-      pageState: getPageState(),
-      timestamp: now,
+function toBaseChange(change: Change, index: number) {
+  return {
+    id: change.id || String(index + 1),
+    kind: change.type,
+    comment: change.comment,
+    patch: {
+      styleDiffs: change.patch.styleDiffs.map(diff => ({
+        property: diff.property,
+        from: diff.original,
+        to: diff.modified,
+      })),
+      ...(change.patch.textDiff ? { textDiff: change.patch.textDiff } : {}),
+      ...(change.patch.moveDiff ? { moveDiff: change.patch.moveDiff } : {}),
     },
-    changes: changes.map((change, index) => ({
-      id: change.id || String(index + 1),
-      kind: change.type,
-      comment: change.comment,
-      target: change.target,
-      patch: {
-        styleDiffs: change.patch.styleDiffs.map(diff => ({
-          property: diff.property,
-          from: diff.original,
-          to: diff.modified,
-        })),
-        ...(change.patch.textDiff ? { textDiff: change.patch.textDiff } : {}),
-        ...(change.patch.moveDiff ? { moveDiff: change.patch.moveDiff } : {}),
-      },
-      beforeSnapshot: change.beforeSnapshot,
-      afterSnapshot: change.afterSnapshot,
-      snapshot: {
-        selector: change.info.domPath,
-        boundingBox: {
-          x: Math.round(change.info.rect.left),
-          y: Math.round(change.info.rect.top),
-          width: Math.round(change.info.rect.width),
-          height: Math.round(change.info.rect.height),
+  }
+}
+
+export function buildJSONExport(changes: Change[], detail: OutputDetail = 'detailed'): string {
+  const now = new Date().toISOString()
+
+  const session = detail === 'compact'
+    ? undefined
+    : {
+        url: window.location.href,
+        route: getRoute(),
+        title: document.title,
+        ...(detail !== 'standard' ? {
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+          pageState: getPageState(),
+        } : {}),
+        timestamp: now,
+      }
+
+  const data = {
+    ...(session ? { session } : {}),
+    changes: changes.map((change, index) => {
+      const base = toBaseChange(change, index)
+      const compactTarget = {
+        tagName: change.target.tagName,
+        text: change.target.text,
+        selector: change.target.selector.primary,
+      }
+      const standardTarget = {
+        tagName: change.target.tagName,
+        text: change.target.text,
+        domPath: change.target.domPath,
+        selector: {
+          primary: change.target.selector.primary,
+          fallbacks: change.target.selector.fallbacks,
         },
-      },
-      meta: change.meta,
-    })),
+        identity: change.target.identity,
+        locatorHints: {
+          bestCodeSearchTerms: change.target.locatorHints.bestCodeSearchTerms,
+          confidence: change.target.locatorHints.confidence,
+        },
+      }
+
+      const detailedTarget = change.target
+      const forensicTarget = {
+        ...change.target,
+        forensic: {
+          textAnchors: change.target.locatorHints.textAnchors,
+          attributeAnchors: change.target.locatorHints.attributeAnchors,
+          componentHints: change.target.locatorHints.componentHints,
+        },
+      }
+
+      return {
+        ...base,
+        target: detail === 'compact'
+          ? compactTarget
+          : detail === 'standard'
+            ? standardTarget
+            : detail === 'forensic'
+              ? forensicTarget
+              : detailedTarget,
+        ...(detail === 'detailed' || detail === 'forensic' ? {
+          beforeSnapshot: change.beforeSnapshot,
+          afterSnapshot: change.afterSnapshot,
+          snapshot: {
+            selector: change.info.domPath,
+            boundingBox: {
+              x: Math.round(change.info.rect.left),
+              y: Math.round(change.info.rect.top),
+              width: Math.round(change.info.rect.width),
+              height: Math.round(change.info.rect.height),
+            },
+          },
+          meta: change.meta,
+        } : {}),
+      }
+    }),
   }
   return JSON.stringify(data, null, 2)
 }
 
-export function buildAIPayload(changes: Change[]): string {
-  const payload = buildJSONExport(changes)
+export function buildAIPayload(changes: Change[], detail: OutputDetail = 'detailed'): string {
+  if (detail === 'compact') return buildMarkdownExport(changes, 'compact')
+
+  const payload = buildJSONExport(changes, detail)
+  const levelLabel = `${detail.slice(0, 1).toUpperCase()}${detail.slice(1)}`
 
   return [
-    'You are an AI coding assistant. Update the source code to match the approved UI changes below.',
+    `You are an AI coding assistant. Update the source code to match the approved UI changes below. Output detail: ${levelLabel}.`,
     '',
     'What these fields mean:',
     '- route/pageState: current page and UI state when the change was made.',
-    '- target: how to identify the element reliably.',
+    '- target.selector: prioritized DOM selectors. Prefer testing, semantic, and stable selectors over structural or unstable selectors.',
+    '- target.sourceContext: framework, component names/tree, and source file paths when available.',
+    '- target.locatorHints: best terms to search in the codebase, text anchors, attribute anchors, component hints, and locator confidence.',
+    '- target.identity/context: element identity, nearby text, parent tag, and sibling context for verification.',
     '- patch: the exact style/text/move change.',
     '- beforeSnapshot/afterSnapshot: high-level visual state before and after the edit.',
     '',
     'Instructions:',
-    '1. Use target.selector, identity, text, and context together to locate the correct source element.',
-    '2. Prefer changing component styles, props, or source code rather than applying runtime-only fixes.',
-    '3. Treat these changes as intentional and already approved.',
-    '4. If a change looks local, keep it local; do not generalize without evidence.',
-    '5. Preserve existing architecture and coding style.',
+    '1. First use target.sourceContext.sourceFilePaths and target.sourceContext.componentTree when present.',
+    '2. If source files are missing, search target.locatorHints.bestCodeSearchTerms in order.',
+    '3. Use target.selector.testing, semantic, and stable selectors before structural or unstable fallbacks.',
+    '4. Verify the match with target.identity, text, box, and nearby context before editing.',
+    '5. Prefer changing component styles, props, or source code rather than applying runtime-only fixes.',
+    '6. Treat these changes as intentional and already approved.',
+    '7. If a change looks local, keep it local; do not generalize without evidence.',
+    '8. Preserve existing architecture and coding style.',
     '',
     'Approved UI change payload:',
     '```json',

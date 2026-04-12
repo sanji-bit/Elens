@@ -1,10 +1,16 @@
-import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode } from './types'
-import { buildDesignPanel, createStyleTracker, getDesignStyles, type StyleTracker } from './design'
-import { generateCSSVariables } from './design-tokens'
+import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, ThemeConfig } from './types'
+import { buildDesignPanel, createStyleTracker, type StyleTracker } from './design'
+import { buildTheme } from './design-tokens'
+import { i18n } from './i18n'
+import { createRuntimeStyles } from './runtime-styles'
+import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
 import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDomPath, buildJSONExport, buildMarkdownExport, extractInspectorInfo, getInspectableElementFromPoint, getRoute, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
+const CHANGES_STORAGE_KEY = 'elens-changes'
+
+type PersistedChange = Omit<Change, 'element'>
 
 function loadPersistedMode(): 'inspector' | 'design' | null {
   try {
@@ -24,6 +30,43 @@ function persistMode(mode: InspectorMode): void {
   }
 }
 
+function loadPersistedChanges(): PersistedChange[] {
+  try {
+    const value = window.localStorage.getItem(CHANGES_STORAGE_KEY)
+    if (!value) return []
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function persistChanges(changes: Change[]): void {
+  try {
+    const serializableChanges = changes.map(({ element: _element, ...change }) => change)
+    window.localStorage.setItem(CHANGES_STORAGE_KEY, JSON.stringify(serializableChanges))
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function clearPersistedChanges(): void {
+  try {
+    window.localStorage.removeItem(CHANGES_STORAGE_KEY)
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function preloadImage(url: string): void {
+  try {
+    const image = new Image()
+    image.src = url
+  } catch {
+    // Ignore preload failures.
+  }
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -33,14 +76,29 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 
 const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
-const CHANGES_AVATAR_URL = 'https://www.figma.com/api/mcp/asset/92c9a830-e49c-4d53-b27c-705b3f65356c'
-const CHANGES_HOVER_DELETE_ICON = '<img src="https://www.figma.com/api/mcp/asset/9f246482-1326-40d0-897d-6b0023883443" alt="" />'
-const CHANGES_HOVER_COPY_ICON = '<img src="https://www.figma.com/api/mcp/asset/afc3f436-d823-4e91-ab79-212be9e730a0" alt="" />'
-const CHANGES_HOVER_COPY_SUCCESS_ICON = '<img src="https://www.figma.com/api/mcp/asset/aacf7c72-b287-41f4-9b5a-64ab67657915" alt="" />'
-const CHANGES_HOVER_PREVIEW_AFTER_ICON = '<img src="https://www.figma.com/api/mcp/asset/d2454efc-4699-42ec-ba95-6dc548515489" alt="" />'
-const CHANGES_HOVER_PREVIEW_BEFORE_ICON = '<img src="https://www.figma.com/api/mcp/asset/5e0f8b56-20e8-4704-9ea2-5954b6fcd88a" alt="" />'
-const CHANGES_PANEL_CLOSE_ICON = '<img src="https://www.figma.com/api/mcp/asset/ee266fdf-36f2-498a-ace5-8eacdcf9e19d" alt="" />'
-const CHANGES_PANEL_CHEVRON_ICON = '<img src="https://www.figma.com/api/mcp/asset/2d249b32-60b9-48a1-a502-379891969a88" alt="" />'
+const CHANGES_AVATAR_URL = new URL('./assets/changes-avatar.jpg', import.meta.url).href
+const CHANGES_HOVER_DELETE_ICON = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.7559 3.66797C11.0312 3.68646 11.24 3.92478 11.2217 4.2002L10.915 8.7998C10.857 9.671 10.8106 10.3735 10.7012 10.9229C10.5889 11.4862 10.3982 11.9573 10.0039 12.3262C9.60964 12.695 9.12713 12.8542 8.55762 12.9287C8.00216 13.0014 7.29801 13 6.4248 13H5.90918C5.03589 13 4.33186 13.0014 3.77637 12.9287C3.20681 12.8542 2.72439 12.6949 2.33008 12.3262C1.93579 11.9573 1.74509 11.4862 1.63281 10.9229C1.52337 10.3735 1.47702 9.67099 1.41895 8.7998L1.1123 4.2002C1.09397 3.9247 1.30262 3.68634 1.57812 3.66797C1.85363 3.64964 2.09198 3.85828 2.11035 4.13379L2.41699 8.7334C2.47688 9.63169 2.51959 10.2572 2.61328 10.7275C2.70417 11.1835 2.83146 11.4252 3.01367 11.5957C3.19591 11.766 3.44525 11.8772 3.90625 11.9375C4.38184 11.9997 5.00868 12 5.90918 12H6.4248C7.32525 12 7.95217 11.9997 8.42773 11.9375C8.88873 11.8772 9.13809 11.7661 9.32031 11.5957C9.50253 11.4252 9.62981 11.1836 9.7207 10.7275C9.8144 10.2572 9.85711 9.6317 9.91699 8.7334L10.2236 4.13379C10.242 3.85826 10.4803 3.6496 10.7559 3.66797ZM4.4502 5.33594C4.72479 5.3085 4.96935 5.5087 4.99707 5.7832L5.33105 9.11621C5.35853 9.39097 5.15756 9.63657 4.88281 9.66406C4.60816 9.69137 4.36341 9.4905 4.33594 9.21582L4.00293 5.88281C3.97569 5.60824 4.17561 5.36345 4.4502 5.33594ZM7.88281 5.33594C8.15745 5.3634 8.3583 5.6082 8.33105 5.88281L7.99707 9.21582C7.96959 9.49059 7.72497 9.69154 7.4502 9.66406C7.17546 9.63655 6.97545 9.39096 7.00293 9.11621L7.33594 5.7832C7.36363 5.50876 7.6083 5.30863 7.88281 5.33594ZM7.2627 0C7.41993 0 7.55561 -0.00172584 7.68262 0.0185547C8.15139 0.0934693 8.5571 0.386561 8.77637 0.807617C8.83566 0.921596 8.87709 1.05022 8.92676 1.19922L8.99121 1.39355C9.00377 1.43124 9.00769 1.44175 9.01074 1.4502C9.12751 1.77289 9.43037 1.99131 9.77344 2H11.833C12.1091 2 12.3329 2.22393 12.333 2.5C12.333 2.77614 12.1091 3 11.833 3H0.5C0.223858 3 0 2.77614 0 2.5C8.57951e-05 2.22393 0.223911 2 0.5 2H2.56055C2.9034 1.99113 3.20552 1.7727 3.32227 1.4502C3.32532 1.44174 3.32925 1.4312 3.3418 1.39355L3.40625 1.19922C3.4559 1.05027 3.49737 0.921568 3.55664 0.807617C3.77587 0.386639 4.18173 0.0935364 4.65039 0.0185547C4.7774 -0.00172584 4.91308 0 5.07031 0H7.2627ZM4.80859 1.00586C4.65232 1.03081 4.51744 1.12917 4.44434 1.26953C4.43049 1.29618 4.41608 1.33378 4.35547 1.51562L4.29102 1.70898C4.28014 1.74162 4.2711 1.7668 4.2627 1.79004C4.2364 1.86274 4.20446 1.93237 4.16992 2H8.16309C8.12855 1.93237 8.09661 1.86274 8.07031 1.79004C8.06192 1.76683 8.05381 1.7415 8.04297 1.70898L7.97754 1.51562C7.91714 1.33444 7.90345 1.29616 7.88965 1.26953C7.81655 1.12917 7.68069 1.03081 7.52441 1.00586C7.49477 1.00116 7.45413 1 7.2627 1H5.07031C4.87831 1 4.83827 1.00113 4.80859 1.00586Z" fill="#D9D9D9"/></svg>`
+const CHANGES_HOVER_COPY_URL = new URL('./assets/changes-copy.svg', import.meta.url).href
+const CHANGES_HOVER_COPY_SUCCESS_URL = new URL('./assets/changes-copy-success.svg', import.meta.url).href
+const CHANGES_HOVER_PREVIEW_AFTER_URL = new URL('./assets/changes-preview-after.svg', import.meta.url).href
+const CHANGES_HOVER_PREVIEW_BEFORE_URL = new URL('./assets/changes-preview-before.svg', import.meta.url).href
+const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', import.meta.url).href
+const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
+const CAPTURE_SCRIPT_URL = new URL('./assets/capture.js', import.meta.url).href
+const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
+const CHANGES_HOVER_COPY_SUCCESS_ICON = `<img src="${CHANGES_HOVER_COPY_SUCCESS_URL}" alt="" />`
+const CHANGES_HOVER_PREVIEW_AFTER_ICON = `<img src="${CHANGES_HOVER_PREVIEW_AFTER_URL}" alt="" />`
+const CHANGES_HOVER_PREVIEW_BEFORE_ICON = `<img src="${CHANGES_HOVER_PREVIEW_BEFORE_URL}" alt="" />`
+const CHANGES_PANEL_CLOSE_ICON = `<img src="${CHANGES_PANEL_CLOSE_URL}" alt="" />`
+const CHANGES_PANEL_CHEVRON_ICON = `<img src="${CHANGES_PANEL_CHEVRON_URL}" alt="" />`
+
+preloadImage(CHANGES_AVATAR_URL)
+preloadImage(CHANGES_HOVER_COPY_URL)
+preloadImage(CHANGES_HOVER_COPY_SUCCESS_URL)
+preloadImage(CHANGES_HOVER_PREVIEW_AFTER_URL)
+preloadImage(CHANGES_HOVER_PREVIEW_BEFORE_URL)
+preloadImage(CHANGES_PANEL_CLOSE_URL)
+preloadImage(CHANGES_PANEL_CHEVRON_URL)
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
 const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
@@ -76,7 +134,7 @@ function styleRow(label: string, value: string, swatch?: string): HTMLDivElement
       e.stopPropagation()
       navigator.clipboard.writeText(value).then(() => {
         copyBtn.innerHTML = CHECK_ICON_SVG
-        copyBtn.style.color = 'rgba(0,184,148,0.9)'
+        copyBtn.style.color = 'var(--success)'
         setTimeout(() => {
           copyBtn.innerHTML = COPY_ICON_SVG
           copyBtn.style.color = ''
@@ -204,7 +262,7 @@ function buildBoxDiagram(boxModel: InspectorInfo['boxModel']): HTMLDivElement {
   )
 
   container.append(
-    corner('tl', rTL), borderCell(boxModel.borderWidth.top, 'Border'), corner('tr', rTR),
+    corner('tl', rTL), borderCell(boxModel.borderWidth.top, i18n.design.stroke), corner('tr', rTR),
     borderCell(boxModel.borderWidth.left), padArea, borderCell(boxModel.borderWidth.right),
     corner('bl', rBL), borderCell(boxModel.borderWidth.bottom), corner('br', rBR),
   )
@@ -221,336 +279,10 @@ function buildBoxDiagram(boxModel: InspectorInfo['boxModel']): HTMLDivElement {
   return diagram
 }
 
-function createStyles(zIndex: number, accentColor: string): string {
-  return `
-.ei-root, .ei-root * { box-sizing: border-box; }
-.ei-root { position: fixed; inset: 0; pointer-events: none; z-index: ${zIndex}; font-family: var(--font-family); }
-.ei-highlight { position: fixed; pointer-events: none; }
-.ei-hl-margin { position: relative; width: 100%; height: 100%; background: rgba(225, 112, 85, 0.45); }
-.ei-hl-padding { position: absolute; background: rgba(0, 184, 148, 0.50); }
-.ei-hl-content { position: absolute; background: rgba(0, 206, 201, 0.50); }
-.ei-highlight[data-design="true"] .ei-hl-margin { background: transparent; outline: none; }
-.ei-highlight[data-design="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-highlight[data-design="true"] .ei-hl-content { background: transparent; }
-.ei-highlight[data-inspector="true"] .ei-hl-margin { background: transparent; outline: none; }
-.ei-highlight[data-inspector="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-highlight[data-inspector="true"] .ei-hl-content { background: transparent; }
-.ei-highlight[data-outlines="true"] .ei-hl-margin { background: transparent; }
-.ei-highlight[data-outlines="true"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-highlight[data-outlines="true"] .ei-hl-content { background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
-.ei-highlight[data-move="true"] .ei-hl-padding { border: 1px solid ${accentColor}; background: transparent; }
-.ei-highlight[data-move="true"] .ei-hl-content { background: transparent; }
-.ei-moving { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; pointer-events: none; }
-.ei-move-indicator { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; }
-.ei-move-indicator[data-visible="true"] { display: block; }
-.ei-move-bounds { position: absolute; border: 1px dashed var(--move); border-radius: 0; background: transparent; box-shadow: none; }
-.ei-move-bounds-label { position: absolute; display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 0; background: var(--move); color: rgba(255,255,255,0.98); font-size: var(--text-sm); font-weight: var(--font-semibold); line-height: 1; white-space: nowrap; box-shadow: 0 6px 20px rgba(255,0,255,0.22); }
-.ei-move-handles { position: absolute; inset: 0; }
-.ei-move-handle { position: absolute; pointer-events: auto; width: 32px; height: 10px; margin: -5px 0 0 -16px; border: 2px solid var(--move); border-radius: 999px; background: rgba(255,255,255,0.92); cursor: grab; transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease, opacity 120ms ease; }
-.ei-move-handle::before { content: ''; position: absolute; inset: 1px 5px; border-radius: 999px; background: repeating-linear-gradient(90deg, rgba(255,0,255,0.22) 0 2px, transparent 2px 5px); }
-.ei-move-handle:hover,
-.ei-move-handle[data-active="true"] { background: var(--move); box-shadow: 0 0 0 3px rgba(255,0,255,0.14); }
-.ei-move-handle:hover::before,
-.ei-move-handle[data-active="true"]::before { background: transparent; }
-.ei-move-handle:hover { transform: scale(1.03); }
-.ei-move-handle[data-active="true"] { cursor: grabbing; transform: scale(1.04); }
-.ei-move-guide-line { position: absolute; display: none; height: 1px; background: var(--move); transform-origin: center; }
-.ei-move-guide-dot { position: absolute; display: none; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; border: 2px solid var(--move); background: #fff; }
-.ei-move-indicator[data-visible="true"] .ei-move-guide-line,
-.ei-move-indicator[data-visible="true"] .ei-move-guide-dot { display: block; }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-content { background: transparent; }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-margin { background: transparent; }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-padding { background: transparent; border: 1px solid ${accentColor}; }
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-label,
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-code,
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-badge,
-.ei-root[data-mode="move"] .ei-highlight[data-design="false"] .ei-hl-pad-line { display: none !important; }
-.ei-root[data-mode="move"] .ei-panel { user-select: none; }
-.ei-root[data-mode="move"] .ei-empty { line-height: 1.6; color: rgba(255,255,255,0.72); }
-.ei-root[data-mode="move"] .ei-badge-lock { background: color-mix(in srgb, ${accentColor} 22%, #111113); }
-.ei-root[data-mode="move"] .ei-copy-color,
-.ei-root[data-mode="move"] .ei-annotate { display: none; }
-.ei-root[data-mode="move"] [data-ei-moving="true"] { opacity: 0.72; outline: 1px solid ${accentColor}; outline-offset: 2px; }
-.ei-hl-label { position: absolute; bottom: 100%; left: 0; background: transparent; color: ${accentColor}; font-size: var(--text-base); font-weight: var(--font-medium); white-space: nowrap; padding: 0 0 2px; display: none; font-family: var(--font-family); }
-.ei-hl-code { position: absolute; bottom: 100%; right: 0; color: ${accentColor}; font-size: var(--text-lg); font-weight: var(--font-semibold); padding: 0 0 2px; display: none; font-family: var(--font-family); }
-.ei-hl-pad-badge { position: absolute; background: ${accentColor}; color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: var(--font-family); z-index: 1; }
-.ei-hl-pad-line { position: absolute; display: none; }
-.ei-hl-pad-line-h { border-top: 1px solid ${accentColor}; }
-.ei-hl-pad-line-v { border-left: 1px solid ${accentColor}; }
-.ei-hl-pad-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px); }
-.ei-hl-margin-badge { position: absolute; background: var(--margin); color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; display: none; font-family: var(--font-family); z-index: 1; }
-.ei-hl-margin-line { position: absolute; display: none; }
-.ei-hl-margin-line-h { border-top: 1px dashed #E17055; }
-.ei-hl-margin-line-v { border-left: 1px dashed #E17055; }
-.ei-hl-margin-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px); }
-.ei-highlight[data-design="true"] .ei-hl-margin-badge,
-.ei-highlight[data-design="true"] .ei-hl-margin-line,
-.ei-highlight[data-design="true"] .ei-hl-margin-edge { display: block; }
-.ei-guides-overlay { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2; }
-.ei-guides-overlay[data-visible="true"] { display: block; }
-.ei-ruler { position: fixed; background: rgba(17, 17, 19, 0.95); pointer-events: auto; z-index: 3; font-family: var(--font-family); }
-.ei-ruler-top { left: 0; top: 0; width: 100%; height: 24px; border-bottom: 1px solid rgba(255,255,255,0.15); cursor: ns-resize; }
-.ei-ruler-left { left: 0; top: 24px; width: 24px; height: calc(100vh - 24px); border-right: 1px solid rgba(255,255,255,0.15); cursor: ew-resize; }
-.ei-ruler-marks { position: absolute; inset: 0; overflow: hidden; }
-.ei-ruler-mark { position: absolute; background: rgba(255,255,255,0.35); }
-.ei-ruler-mark-major { background: rgba(255,255,255,0.55); }
-.ei-ruler-top .ei-ruler-mark { width: 1px; height: 6px; bottom: 0; }
-.ei-ruler-top .ei-ruler-mark-major { height: 10px; }
-.ei-ruler-left .ei-ruler-mark { height: 1px; width: 6px; right: 0; }
-.ei-ruler-left .ei-ruler-mark-major { width: 10px; }
-.ei-ruler-label { font-size: var(--text-xs); color: rgba(255,255,255,0.55); position: absolute; }
-.ei-reference-lines { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
-.ei-ref-line { position: absolute; pointer-events: auto; }
-.ei-ref-line-h { left: 24px; right: 0; height: 1px; background: var(--move); cursor: ns-resize; }
-.ei-ref-line-v { top: 24px; bottom: 0; width: 1px; background: var(--move); cursor: ew-resize; }
-.ei-ref-line:hover { background: #FF33FF; }
-.ei-ref-line-label { position: absolute; background: var(--move); color: white; font-size: var(--text-xs); font-weight: var(--font-semibold); padding: 2px 4px; border-radius: 2px; white-space: nowrap; pointer-events: none; }
-.ei-ref-line-h .ei-ref-line-label { left: 4px; top: -16px; }
-.ei-ref-line-v .ei-ref-line-label { top: 4px; left: 4px; }
-.ei-guide-line { position: fixed; display: none; z-index: 2; pointer-events: none; }
-.ei-guide-line-h { left: 0; right: 0; height: 0; border-top: 1px dashed #FF00FF; }
-.ei-guide-line-v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #FF00FF; }
-.ei-guide-line[data-visible="true"] { display: block; }
-.ei-distance-line { position: fixed; display: none; background: var(--move); pointer-events: none; z-index: 2; }
-.ei-distance-line[data-visible="true"] { display: block; }
-.ei-distance-line-h { height: 1px; }
-.ei-distance-line-v { width: 1px; }
-.ei-distance-label { position: fixed; display: none; background: var(--move); color: white; font-size: var(--text-base); font-weight: var(--font-semibold); padding: 3px 6px; border-radius: 3px; pointer-events: none; white-space: nowrap; z-index: 3; font-family: var(--font-family); }
-.ei-distance-label[data-visible="true"] { display: block; }
-.ei-distance-label-h { transform: translate(-50%, -50%); }
-.ei-distance-label-v { transform: translate(-50%, -50%); }
-.ei-padding-overlay { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 2; font-family: var(--font-family); }
-.ei-padding-overlay[data-visible="true"] { display: block; }
-.ei-padding-outline,
-.ei-padding-content-outline,
-.ei-padding-highlight,
-.ei-padding-band,
-.ei-padding-badge,
-.ei-padding-tag,
-.ei-padding-code { position: fixed; pointer-events: none; }
-.ei-padding-outline { border: 1px solid #FF00FF; }
-.ei-padding-content-outline { border: 1px solid rgba(255, 0, 255, 0.18); background: rgba(255,255,255,0.92); }
-.ei-padding-highlight { border: 1px dashed #FF00FF; }
-.ei-padding-band { background: repeating-linear-gradient(-45deg, rgba(255, 0, 255, 0.10), rgba(255, 0, 255, 0.10) 4px, rgba(255, 0, 255, 0.02) 4px, rgba(255, 0, 255, 0.02) 8px); }
-.ei-padding-badge { display: none; min-width: 0; height: auto; padding: 1px 4px; align-items: center; justify-content: center; background: #FF00FF; color: rgba(255,255,255,0.95); font-size: var(--text-xs); font-weight: var(--font-medium); border-radius: 3px; transform: translate(-50%, -50%); }
-.ei-padding-badge[data-visible="true"] { display: inline-flex; }
-.ei-padding-tag,
-.ei-padding-code { display: none; color: #FF00FF; line-height: 1; white-space: nowrap; }
-.ei-padding-tag { font-size: var(--text-base); font-weight: var(--font-medium); padding: 0 0 2px; }
-.ei-padding-code { font-size: var(--text-lg); font-weight: var(--font-semibold); padding: 0 0 2px; }
-.ei-padding-tag[data-visible="true"],
-.ei-padding-code[data-visible="true"] { display: block; }
-.ei-guide-anchor-highlight { position: fixed; pointer-events: none; z-index: 3; border: 1px solid #FF00FF; }
-.ei-guide-anchor-handle { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 0; border: 1px solid #FF00FF; background: #fff; }
-.ei-guide-anchor-handle[data-pos="tl"] { left: 0; top: 0; }
-.ei-guide-anchor-handle[data-pos="tm"] { left: 50%; top: 0; }
-.ei-guide-anchor-handle[data-pos="tr"] { left: 100%; top: 0; }
-.ei-guide-anchor-handle[data-pos="rm"] { left: 100%; top: 50%; }
-.ei-guide-anchor-handle[data-pos="br"] { left: 100%; top: 100%; }
-.ei-guide-anchor-handle[data-pos="bm"] { left: 50%; top: 100%; }
-.ei-guide-anchor-handle[data-pos="bl"] { left: 0; top: 100%; }
-.ei-guide-anchor-handle[data-pos="lm"] { left: 0; top: 50%; }
-.ei-root[data-mode="guides"] .ei-highlight { border: 1px dashed #FF00FF !important; }
-.ei-root[data-mode="guides"] .ei-hl-margin,
-.ei-root[data-mode="guides"] .ei-hl-padding,
-.ei-root[data-mode="guides"] .ei-hl-content { display: none !important; }
-.ei-toolbar { position: fixed; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-full); background: var(--bg-toolbar); box-shadow: var(--shadow-toolbar); pointer-events: auto; cursor: grab; user-select: none; }
-.ei-toolbar:active { cursor: grabbing; }
-.ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--shadow-inset); pointer-events: none; }
-.ei-toolbar[data-expanded="false"] { padding: var(--space-3); gap: 0; }
-.ei-toolbar[data-expanded="false"] .ei-toolbar-extra { display: none; }
-.ei-toolbar-btn { width: var(--btn-icon-size); height: var(--btn-icon-size); border-radius: var(--radius-full); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; transition: background var(--duration-slow) var(--ease-default); position: relative; }
-.ei-toolbar-btn:hover { background: var(--bg-hover-strong); }
-.ei-toolbar-btn:hover .ei-toolbar-tip { opacity: 1; }
-.ei-toolbar-btn[data-active="true"] { background: var(--accent); color: rgba(255,255,255,1); }
-.ei-toolbar-btn[data-active="true"]:hover { background: var(--accent); }
-.ei-toolbar-btn[data-disabled="true"] { opacity: 0.35; pointer-events: none; }
-.ei-toolbar-btn svg { flex-shrink: 0; }
-.ei-toolbar-divider { display: flex; align-items: center; padding: 0 2px; }
-.ei-toolbar-divider-line { width: 1px; height: 16px; background: var(--bg-hover-strong); }
-.ei-toolbar-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 4px 8px; border-radius: var(--radius-lg); background: rgba(0,0,0,0.85); color: rgba(255,255,255,0.9); font-size: var(--text-base); font-weight: var(--font-medium); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity var(--duration-slow) var(--ease-default); font-family: var(--font-family); }
-.ei-toolbar-btn-group { display: flex; align-items: center; gap: 0; }
-.ei-toolbar-btn-group .ei-toolbar-btn { border-radius: 0; }
-.ei-toolbar-btn-group .ei-toolbar-btn:first-child { border-radius: var(--radius-full) 0 0 9999px; }
-.ei-toolbar-btn-group .ei-toolbar-btn:last-child { border-radius: 0 9999px 9999px 0; }
-.ei-toolbar-dropdown-btn { width: 20px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-.ei-capture-menu { position: fixed; min-width: 220px; border-radius: var(--radius-3xl); background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: var(--space-3); z-index: ${zIndex + 5}; pointer-events: auto; font-family: var(--font-family); }
-.ei-capture-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 24px; padding: 0 8px; border-radius: var(--radius-xl); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
-.ei-capture-menu-item:hover { background: var(--bg-hover-strong); }
-.ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: var(--text-secondary); }
-.ei-capture-menu-label { font-size: var(--text-base); font-weight: 400; color: rgba(255,255,255,0.95); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-.ei-panel { position: fixed; top: 16px; left: 16px; width: 320px; border-radius: var(--radius-panel); overflow: visible; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-panel); pointer-events: auto; color: var(--text-primary); user-select: text; }
-.ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; border-radius: 18px; border: 0.5px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.55); overflow: hidden; }
-.ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.ei-panel.is-changes .ei-panel-header { padding: 16px 16px 16.5px; border-bottom: 0.5px solid #1f1f21; }
-.ei-drag-handle { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 40px; height: 12px; border: 0; background: transparent; cursor: grab; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-.ei-drag-handle:active { cursor: grabbing; }
-.ei-drag-bar { display: block; width: 24px; height: 3px; border-radius: 999px; background: rgba(255,255,255,0.2); transition: background-color var(--duration-slower) var(--ease-default); pointer-events: none; }
-.ei-drag-handle:hover .ei-drag-bar { background: rgba(255,255,255,0.45); }
-.ei-panel-title { font-size: var(--text-lg); font-weight: var(--font-bold); }
-.ei-panel.is-changes .ei-panel-title { font-size: 13px; line-height: normal; font-weight: 700; color: #e8e8ec; }
-.ei-panel-subtitle { font-size: var(--text-base); color: rgba(255,255,255,0.5); margin-top: 2px; }
-.ei-actions { display: flex; gap: var(--space-4); }
-.ei-panel.is-changes .ei-actions { gap: 0; }
-.ei-icon-btn { min-width: 32px; height: 32px; border-radius: var(--radius-xl); border: 1px solid var(--border-hover); background: var(--bg-hover); color: var(--text-primary); cursor: pointer; font-size: var(--text-lg); }
-.ei-changes-close { width: 24px; height: 24px; border: none; border-radius: 5px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
-.ei-changes-close img { width: 24px; height: 24px; display: block; }
-.ei-changes-close:hover { background: rgba(255,255,255,0.08); }
-.ei-body { padding: 4px 16px 16px; max-height: 70vh; overflow-y: auto; overflow-y: overlay; scrollbar-width: none; -ms-overflow-style: none; }
-.ei-panel.is-changes .ei-body { flex: 1; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-.ei-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
-.ei-body::-webkit-scrollbar-track { background: transparent; }
-.ei-body::-webkit-scrollbar-thumb { background: transparent; border-radius: 0; }
-.ei-body::-webkit-scrollbar-thumb:hover { background: transparent; }
-.ei-empty { font-size: var(--text-lg); color: rgba(255,255,255,0.55); line-height: 1.5; }
-.ei-badges { display: flex; align-items: center; gap: var(--space-4); margin-bottom: 10px; }
-.ei-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: var(--text-sm); font-weight: var(--font-bold); background: var(--bg-field); color: var(--text-primary); }
-.ei-badge-lock { background: color-mix(in srgb, ${accentColor} 22%, #111113); color: ${accentColor}; }
-.ei-breadcrumbs { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: 10px; }
-.ei-crumb { display: inline-flex; align-items: center; max-width: 100%; border-radius: 999px; padding: 4px 8px; font-size: var(--text-sm); font-weight: var(--font-semibold); background: var(--bg-field); color: rgba(255,255,255,0.8); border: 0; cursor: pointer; }
-.ei-crumb[data-active="true"] { background: color-mix(in srgb, ${accentColor} 22%, #111113); color: ${accentColor}; }
-.ei-text-head { font-size: var(--text-lg); font-weight: var(--font-semibold); line-height: 1.45; margin-bottom: 6px; }
-.ei-path { font-size: var(--text-base); color: var(--text-tertiary); line-height: 1.4; margin-bottom: 12px; word-break: break-word; }
-.ei-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: 12px; padding: 4px; border-radius: var(--radius-3xl); background: rgba(255,255,255,0.07); }
-.ei-tab { height: 30px; border: 0; border-radius: 9px; background: transparent; font-size: var(--text-base); font-weight: var(--font-semibold); color: rgba(255,255,255,0.55); cursor: pointer; }
-.ei-tab[data-active="true"] { background: rgba(255,255,255,0.14); color: #fff; }
-.ei-section { display: none; }
-.ei-section[data-active="true"] { display: block; }
-.ei-row { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: var(--space-4); align-items: start; font-size: var(--text-base); line-height: 1.4; margin-bottom: 7px; }
-.ei-label { color: var(--text-tertiary); }
-.ei-value { min-width: 0; display: flex; align-items: center; gap: var(--space-4); color: var(--text-primary); }
-.ei-text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-swatch { width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--border-hover); flex-shrink: 0; }
-.ei-copy-color { flex-shrink: 0; cursor: pointer; color: var(--text-muted); line-height: 0; padding: 2px; border-radius: 3px; opacity: 0; pointer-events: none; width: 16px; }
-.ei-copy-color:hover { color: rgba(255,255,255,0.8); }
-.ei-row:hover .ei-copy-color { opacity: 1; pointer-events: auto; }
-.ei-box-diagram { width: 100%; margin: 0 0 8px; border-radius: 5px; background: var(--bg-field); padding: 0; overflow: hidden; position: relative; }
-.ei-box-body { display: flex; align-items: stretch; }
-.ei-box-m { display: flex; align-items: center; justify-content: center; position: relative; }
-.ei-box-m-h { height: 32px; flex-direction: column; }
-.ei-box-m-v { width: 32px; flex-direction: row; flex-shrink: 0; }
-.ei-box-m-line { position: absolute; background: ${accentColor}; }
-.ei-box-m-h .ei-box-m-line { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
-.ei-box-m-v .ei-box-m-line { height: 1px; width: 100%; top: 50%; transform: translateY(-50%); }
-.ei-box-m-badge { position: relative; z-index: 1; background: ${accentColor}; color: #fff; font-size: var(--text-base); font-weight: 400; line-height: 16px; padding: 0 3px; border-radius: 2px; white-space: nowrap; letter-spacing: 0.055px; }
-.ei-box-container { flex: 1; min-width: 0; display: grid; grid-template-columns: 24px 1fr 24px; grid-template-rows: 24px 1fr 24px; background: var(--bg-field); border-radius: var(--radius-3xl); }
-.ei-box-corner { display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-.ei-box-corner-mark { position: absolute; width: 17px; height: 17px; border-color: rgba(255,255,255,0.5); border-style: solid; border-width: 0; }
-.ei-box-corner-tl .ei-box-corner-mark { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; border-top-left-radius: 12px; }
-.ei-box-corner-tr .ei-box-corner-mark { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; border-top-right-radius: 12px; }
-.ei-box-corner-bl .ei-box-corner-mark { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; border-bottom-left-radius: 12px; }
-.ei-box-corner-br .ei-box-corner-mark { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 12px; }
-.ei-box-corner-val { position: relative; z-index: 1; font-size: var(--text-base); color: var(--text-primary); line-height: 16px; letter-spacing: 0.055px; }
-.ei-box-b-cell { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
-.ei-box-b-label { font-size: var(--text-base); color: var(--text-tertiary); letter-spacing: 0.005px; }
-.ei-box-b-val { font-size: var(--text-base); color: var(--text-tertiary); letter-spacing: 0.055px; }
-.ei-box-pad { display: grid; grid-template-columns: minmax(24px,1fr) 3fr minmax(24px,1fr); grid-template-rows: 24px 1fr 24px; align-items: center; justify-items: center; background: rgba(9,132,227,0.18); border-radius: 2px; }
-.ei-box-pad-label { grid-column: 1; grid-row: 1; justify-self: start; font-size: var(--text-base); color: var(--text-tertiary); padding-left: 8px; letter-spacing: 0.005px; }
-.ei-box-pad-val { font-size: var(--text-base); font-weight: 400; color: var(--text-primary); line-height: 16px; letter-spacing: 0.055px; }
-.ei-box-pad-tv { grid-column: 2; grid-row: 1; }
-.ei-box-pad-lv { grid-column: 1; grid-row: 2; }
-.ei-box-pad-rv { grid-column: 3; grid-row: 2; }
-.ei-box-pad-bv { grid-column: 2; grid-row: 3; }
-.ei-box-content { grid-column: 2; grid-row: 2; border: 1px dashed rgba(255,255,255,0.35); border-radius: 2px; padding: 3px 10px; font-size: var(--text-base); font-weight: 400; color: var(--text-primary); white-space: nowrap; background: var(--bg-hover); line-height: 16px; letter-spacing: 0.055px; display: flex; align-items: center; justify-content: center; gap: 1px; }
-.ei-box-sizing { position: absolute; right: 6px; bottom: 4px; font-size: var(--text-sm); color: rgba(255,255,255,0.3); letter-spacing: 0.005px; }
-.ei-tooltip { position: fixed; max-width: 320px; border-radius: var(--radius-3xl); background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: 10px 12px; pointer-events: none; font-size: var(--text-base); line-height: 1.5; color: var(--text-primary); }
-.ei-tt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 4px; }
-.ei-tt-tag { font-weight: var(--font-bold); color: var(--purple); font-size: var(--text-lg); }
-.ei-tt-size { font-size: var(--text-base); color: rgba(255,255,255,0.5); white-space: nowrap; }
-.ei-tt-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: 2px; }
-.ei-tt-label { color: var(--text-tertiary); flex-shrink: 0; }
-.ei-tt-val { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-tt-swatch { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0; }
-.ei-tt-divider { display: flex; align-items: center; gap: var(--space-4); margin: 6px 0 4px; font-size: var(--text-xs); font-weight: var(--font-bold); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
-.ei-tt-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.12); }
-.ei-tt-no { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-field); color: var(--text-tertiary); font-size: var(--text-sm); line-height: 1; }
-.ei-tt-yes { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--success-bg); color: var(--success); font-size: var(--text-sm); line-height: 1; }
-.ei-annotate { border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 16px; }
-.ei-annotate-input { width: 100%; min-height: 56px; max-height: 120px; resize: vertical; background: var(--bg-field); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-xl); color: var(--text-primary); font-size: var(--text-lg); font-family: inherit; padding: 8px 10px; outline: none; }
-.ei-annotate-input:focus { border-color: ${accentColor}; }
-.ei-annotate-input::placeholder { color: rgba(255,255,255,0.3); }
-.ei-annotate-actions { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: 8px; }
-.ei-annotate-btn { height: 28px; border-radius: var(--radius-xl); border: 1px solid var(--border-hover); background: var(--bg-hover); color: var(--text-primary); cursor: pointer; font-size: var(--text-base); font-weight: var(--font-semibold); padding: 0 12px; }
-.ei-annotate-btn-primary { background: ${accentColor}; border-color: ${accentColor}; color: #fff; }
-.ei-marker { position: fixed; pointer-events: auto; width: 24px; height: 24px; border-radius: 50%; background: ${accentColor}; color: #fff; font-size: var(--text-sm); font-weight: var(--font-bold); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.22); border: none; z-index: 1; }
-.ei-ann-filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; min-height: 24px; }
-.ei-ann-filter { min-width: 32px; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 11px; font-weight: 400; line-height: 16px; letter-spacing: 0.055px; padding: 4px 8px; transition: background 120ms ease, color 120ms ease; }
-.ei-ann-filter.is-active { background: #383838; color: #fff; font-weight: 500; }
-.ei-ann-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.ei-ann-group:last-of-type { margin-bottom: 0; }
-.ei-ann-group-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 0 2px; }
-.ei-ann-group-title { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.86); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-group-meta { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
-.ei-ann-list { padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ei-ann-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px; border-radius: 8px; background: transparent; border: 1px solid transparent; opacity: 0.8; cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease; }
-.ei-ann-item:hover { background: rgba(255,255,255,0.05); border-color: transparent; }
-.ei-ann-item.is-active { background: rgba(0,148,255,0.15); border-color: transparent; box-shadow: none; }
-.ei-ann-num { display: none; }
-.ei-ann-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.ei-ann-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; padding-bottom: 8px; }
-.ei-ann-author { display: inline-flex; align-items: center; gap: 0; min-width: 0; flex: 1; }
-.ei-ann-avatar { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(255,255,255,0.08); flex-shrink: 0; }
-.ei-ann-avatar img { width: 24px; height: 24px; object-fit: cover; display: block; }
-.ei-ann-time { font-size: 11px; color: rgba(255,255,255,0.7); white-space: nowrap; line-height: 16px; letter-spacing: 0.005px; }
-.ei-ann-actions { display: none; align-items: center; gap: 4px; }
-.ei-ann-item:hover .ei-ann-actions { display: inline-flex; }
-.ei-ann-item:hover .ei-ann-time { display: none; }
-.ei-ann-action { width: 24px; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.82); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; transition: background 120ms ease, opacity 120ms ease, transform 120ms ease; }
-.ei-ann-action:hover, .ei-ann-filter:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.ei-ann-action-icon-stack { position: relative; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
-.ei-ann-action-icon { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; opacity: 1; transition: opacity 50ms ease; }
-.ei-ann-action-icon.is-next { opacity: 0; }
-.ei-ann-action.is-switching .ei-ann-action-icon.is-current { opacity: 0; }
-.ei-ann-action.is-switching .ei-ann-action-icon.is-next { opacity: 1; }
-.ei-ann-action img, .ei-ann-action svg { width: 24px; height: 24px; display: block; }
-.ei-ann-action.is-success .ei-ann-action-icon img, .ei-ann-action.is-success .ei-ann-action-icon svg { filter: saturate(1.05); }
-.ei-ann-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0; min-width: 0; font-size: 11px; line-height: 16px; letter-spacing: 0.055px; color: rgba(255,255,255,0.7); }
-.ei-ann-dot { color: rgba(255,255,255,0.28); margin: 0 4px; }
-.ei-ann-title, .ei-ann-type, .ei-ann-source-badge { white-space: nowrap; }
-.ei-ann-selector-inline { color: rgba(255,255,255,0.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ei-ann-summary { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ei-ann-diff { font-size: 11px; color: rgba(255,255,255,0.7); line-height: 16px; letter-spacing: 0.005px; padding-left: 8px; border-left: 2px solid #008dff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: inherit; }
-.ei-ann-note { font-size: 11px; color: #fff; line-height: 16px; letter-spacing: 0.005px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ei-ann-extra { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
-.ei-ann-meta-lines { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ei-ann-route, .ei-ann-selector { font-size: 11px; color: rgba(255,255,255,0.42); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-.ei-ann-compare-col { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px; min-width: 0; }
-.ei-ann-compare-label { font-size: 11px; font-weight: var(--font-bold); text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.42); margin-bottom: 6px; }
-.ei-ann-compare-row { font-size: 11px; color: rgba(255,255,255,0.72); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ei-ann-export { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 16px; }
-.ei-ann-export-primary { display: inline-flex; align-items: center; }
-.ei-ann-export-btn { height: 28px; border: none; background: transparent; color: #fff; cursor: pointer; font-size: 12px; font-weight: 500; line-height: 18px; padding: 5px 12px; transition: opacity 120ms ease, background 120ms ease; }
-.ei-ann-export-btn:hover { background: rgba(255,255,255,0.08); }
-.ei-ann-export-btn-primary { background: #0094ff; border-radius: 16px 0 0 16px; }
-.ei-ann-export-btn-primary:hover { background: #0094ff; opacity: 0.92; }
-.ei-ann-export-btn-dropdown { background: #0094ff; border-left: 1px solid rgba(255,255,255,0.2); border-radius: 0 16px 16px 0; padding: 5px 8px 5px 6px; width: 28px; display: inline-flex; align-items: center; justify-content: center; }
-.ei-ann-export-btn-dropdown img, .ei-ann-export-btn-dropdown svg { width: 14px; height: 14px; display: block; }
-.ei-ann-export-btn-dropdown:hover { background: #0094ff; opacity: 0.92; }
-.ei-ann-export-btn-dropdown.is-success { opacity: 0.72; }
-.ei-ann-export-btn-ghost { opacity: 0.5; border-radius: 16px; }
-.ei-ann-export-btn-ghost:hover { background: rgba(255,255,255,0.08); opacity: 1; }
-.ei-ann-empty { font-size: var(--text-lg); color: rgba(255,255,255,0.4); text-align: center; padding: 24px 16px; }
-.ei-ann-type { color: rgba(255,255,255,0.7); }
-.ei-ann-source-badge { color: rgba(255,255,255,0.7); }
-.ei-ann-more { font-size: 11px; color: rgba(255,255,255,0.42); }
-.ei-ann-previewing { font-size: 11px; color: rgba(255,255,255,0.5); }
-.ei-ann-action.is-active { background: rgba(255,255,255,0.08); color: #fff; }
-.ei-ann-action.is-danger:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.ei-ann-action.is-success { color: #7ef0c0; }
-.ei-ann-action.is-success:hover { color: #7ef0c0; }
-.ei-change-flash-target { animation: ei-change-flash 1.2s ease-out 1; }
-@keyframes ei-change-flash { 0% { outline: 2px solid rgba(108,92,231,0.95); outline-offset: 3px; } 100% { outline: 2px solid rgba(108,92,231,0); outline-offset: 8px; } }
-[data-ei-outlines="true"] * { outline: 1px solid rgba(0, 0, 0, 0.6); outline-offset: -1px; }
-[data-ei-outlines="true"] *:hover { outline-color: rgba(0, 0, 0, 0.9); }
-[data-ei-outlines="true"] .ei-hover-highlight { outline: 2px solid ${accentColor}; outline-offset: -1px; }
-${getDesignStyles(accentColor)}
-`
-}
-
 export function mountElementInspector(options: ElementInspectorOptions = {}): ElementInspectorInstance {
-  const accentColor = options.theme?.accentColor ?? '#0C8CE9'
-  const zIndex = options.theme?.zIndex ?? 999999
+  const defaultThemeConfig = getDefaultThemeConfig(options.theme, { zIndex: 2147483647 })
+  let currentThemeConfig = options.persistTheme === false ? defaultThemeConfig : mergeThemeConfig(defaultThemeConfig, loadPersistedTheme() ?? {})
+  let theme = buildTheme(currentThemeConfig)
 
   let currentMode: InspectorMode = 'off'
   let destroyed = false
@@ -569,6 +301,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let changeIdCounter = 0
   let annotateInput: HTMLTextAreaElement | null = null
   let changesFilter: 'all' | 'style' | 'text' | 'move' | 'note' = 'all'
+  let outputDetail: OutputDetail = 'standard'
   let activeChangeId: string | null = null
   let beforePreviewChangeIds = new Set<string>()
   let changeFlashTimeout: number | null = null
@@ -611,7 +344,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   root.setAttribute(IGNORE_ATTR, 'true')
 
   const styleEl = document.createElement('style')
-  styleEl.textContent = generateCSSVariables(accentColor) + createStyles(zIndex, accentColor)
+  const applyTheme = (nextThemeConfig: ThemeConfig, options: { persist?: boolean; reset?: boolean } = {}): void => {
+    currentThemeConfig = options.reset ? defaultThemeConfig : mergeThemeConfig(defaultThemeConfig, nextThemeConfig)
+    theme = buildTheme(currentThemeConfig)
+    styleEl.textContent = createRuntimeStyles(theme)
+    if (options.persist === false) return
+    if (options.reset) {
+      clearPersistedTheme()
+      return
+    }
+    persistTheme(currentThemeConfig)
+  }
+  styleEl.textContent = createRuntimeStyles(theme)
 
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
@@ -627,7 +371,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   moveIndicator.setAttribute(IGNORE_ATTR, 'true')
   moveIndicator.dataset.visible = 'false'
   const moveBounds = el('div', 'ei-move-bounds')
-  const moveBoundsLabel = el('div', 'ei-move-bounds-label', 'Drag Bounds')
+  const moveBoundsLabel = el('div', 'ei-move-bounds-label', i18n.design.dragBounds)
   const moveHandles = el('div', 'ei-move-handles')
   const moveGuideLine = el('div', 'ei-move-guide-line')
   const moveGuideDot = el('div', 'ei-move-guide-dot')
@@ -798,22 +542,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return btn
   }
 
-  const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, 'Inspector')
-  const designBtn = makeToolbarBtn(ICON_DESIGN, 'Design')
+  const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, i18n.toolbar.inspector)
+  const designBtn = makeToolbarBtn(ICON_DESIGN, i18n.toolbar.design)
   designBtn.classList.add('ei-toolbar-extra')
-  const moveBtn = makeToolbarBtn(ICON_MOVE, 'Move')
+  const moveBtn = makeToolbarBtn(ICON_MOVE, i18n.toolbar.move)
   moveBtn.classList.add('ei-toolbar-extra')
-  const changesBtn = makeToolbarBtn(ICON_CHANGES, 'Changes')
+  const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changes)
   changesBtn.classList.add('ei-toolbar-extra')
   // Screenshot button with dropdown
   const screenshotGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
   screenshotGroup.setAttribute(IGNORE_ATTR, 'true')
-  const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, 'Screenshot')
+  const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, i18n.toolbar.screenshot)
   const screenshotDropdownBtn = el('button', 'ei-toolbar-btn ei-toolbar-dropdown-btn')
   screenshotDropdownBtn.type = 'button'
   screenshotDropdownBtn.innerHTML = ICON_CHEVRON_DOWN
   screenshotDropdownBtn.setAttribute(IGNORE_ATTR, 'true')
-  const screenshotDropdownTip = el('span', 'ei-toolbar-tip', 'Capture options')
+  const screenshotDropdownTip = el('span', 'ei-toolbar-tip', i18n.toolbar.captureOptions)
   screenshotDropdownTip.setAttribute(IGNORE_ATTR, 'true')
   screenshotDropdownBtn.appendChild(screenshotDropdownTip)
   screenshotGroup.append(screenshotBtn, screenshotDropdownBtn)
@@ -822,6 +566,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const captureMenu = el('div', 'ei-capture-menu')
   captureMenu.setAttribute(IGNORE_ATTR, 'true')
   captureMenu.style.display = 'none'
+
+  const outputDetailMenu = el('div', 'ei-output-detail-menu')
+  outputDetailMenu.setAttribute(IGNORE_ATTR, 'true')
+  outputDetailMenu.style.display = 'none'
 
   function makeCaptureMenuItem(icon: string, label: string): HTMLButtonElement {
     const item = el('button', 'ei-capture-menu-item')
@@ -833,27 +581,27 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return item
   }
 
-  const captureEntireScreenItem = makeCaptureMenuItem(ICON_CAPTURE_SCREEN, 'Entire screen')
-  const captureWindowItem = makeCaptureMenuItem(ICON_CAPTURE_WINDOW, 'Capture Window')
-  const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, 'Select element')
-  const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, 'State Capture')
+  const captureEntireScreenItem = makeCaptureMenuItem(ICON_CAPTURE_SCREEN, i18n.capture.entireScreen)
+  const captureWindowItem = makeCaptureMenuItem(ICON_CAPTURE_WINDOW, i18n.capture.currentWindow)
+  const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, i18n.capture.selectElement)
+  const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, i18n.capture.stateCapture)
 
   captureMenu.append(captureEntireScreenItem, captureWindowItem, selectElementItem, stateCaptureItem)
 
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
   toolbarDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
 
-  const exitBtn = makeToolbarBtn(ICON_EXIT, 'Exit')
+  const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exit)
   exitBtn.classList.add('ei-toolbar-extra')
 
-  const guidesBtn = makeToolbarBtn(ICON_GUIDES, 'Guides')
+  const guidesBtn = makeToolbarBtn(ICON_GUIDES, i18n.toolbar.guides)
   guidesBtn.classList.add('ei-toolbar-extra')
 
-  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, 'Toggle Outlines')
+  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, i18n.toolbar.outlines)
   outlinesBtn.classList.add('ei-toolbar-extra')
 
   toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, guidesBtn, outlinesBtn, screenshotGroup, toolbarDivider, exitBtn)
-  root.appendChild(captureMenu)
+  root.append(captureMenu, outputDetailMenu)
 
   // Panel
   const panel = el('div', 'ei-panel')
@@ -863,20 +611,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const header = el('div', 'ei-panel-header')
   const dragHandle = el('button', 'ei-drag-handle')
   dragHandle.type = 'button'
-  dragHandle.title = 'Drag panel'
+  dragHandle.title = i18n.panel.dragPanel
   dragHandle.setAttribute(IGNORE_ATTR, 'true')
   dragHandle.append(el('span', 'ei-drag-bar'))
   const titleWrap = el('div')
-  const titleEl = el('div', 'ei-panel-title', 'Element Inspector')
-  const subtitle = el('div', 'ei-panel-subtitle', 'Ready')
+  const titleEl = el('div', 'ei-panel-title', i18n.panel.inspectorTitle)
+  const subtitle = el('div', 'ei-panel-subtitle', i18n.panel.ready)
   titleWrap.append(titleEl, subtitle)
 
   const markersContainer = el('div')
   markersContainer.setAttribute(IGNORE_ATTR, 'true')
 
   const actions = el('div', 'ei-actions')
-  const copyBtn = el('button', 'ei-icon-btn', 'Copy')
-  const unlockBtn = el('button', 'ei-icon-btn', 'Unlock')
+  const copyBtn = el('button', 'ei-icon-btn', i18n.actions.copy)
+  const unlockBtn = el('button', 'ei-icon-btn', i18n.actions.unlock)
   const changesCloseBtn = el('button', 'ei-changes-close') as HTMLButtonElement
   copyBtn.type = 'button'
   unlockBtn.type = 'button'
@@ -884,8 +632,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   copyBtn.setAttribute(IGNORE_ATTR, 'true')
   unlockBtn.setAttribute(IGNORE_ATTR, 'true')
   changesCloseBtn.setAttribute(IGNORE_ATTR, 'true')
-  changesCloseBtn.title = 'Close changes'
-  changesCloseBtn.ariaLabel = 'Close changes'
+  changesCloseBtn.title = i18n.panel.closeChanges
+  changesCloseBtn.ariaLabel = i18n.panel.closeChanges
   changesCloseBtn.innerHTML = CHANGES_PANEL_CLOSE_ICON
   actions.append(copyBtn, unlockBtn, changesCloseBtn)
   header.append(titleWrap, actions)
@@ -1377,12 +1125,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function saveMoveChange(element: HTMLElement, initialIndex: number, nextIndex: number): void {
     if (initialIndex === nextIndex) return
     const comment = describeMoveChange(element, initialIndex, nextIndex)
+    const moveDiff = { fromIndex: initialIndex, toIndex: nextIndex }
     const existingId = moveChangeIdByElement.get(element)
     if (existingId) {
       updateChange(existingId, comment, [])
+      const change = changes.find(c => c.id === existingId)
+      if (change) {
+        change.patch.moveDiff = moveDiff
+        persistChangesState()
+      }
       return
     }
     const changeId = addChange(element, comment, 'move', [])
+    const change = changes.find(c => c.id === changeId)
+    if (change) {
+      change.patch.moveDiff = moveDiff
+      persistChangesState()
+    }
     moveChangeIdByElement.set(element, changeId)
   }
 
@@ -1402,7 +1161,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const colorSwatch = el('span', 'ei-tt-swatch')
     colorSwatch.style.backgroundColor = info.typography.color
     colorRow.append(
-      el('span', 'ei-tt-label', 'Color'),
+      el('span', 'ei-tt-label', i18n.inspector.color),
       colorSwatch,
       el('span', 'ei-tt-val', rgbToHex(info.typography.color)),
     )
@@ -1410,7 +1169,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const fontRow = el('div', 'ei-tt-row')
     fontRow.append(
-      el('span', 'ei-tt-label', 'Font'),
+      el('span', 'ei-tt-label', i18n.inspector.font),
       el('span', 'ei-tt-val', `${info.typography.fontSize} ${truncate(info.typography.fontFamily, 36)}`),
     )
     tooltip.appendChild(fontRow)
@@ -1419,7 +1178,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const marginRow = el('div', 'ei-tt-row')
       const m = info.boxModel.margin
       marginRow.append(
-        el('span', 'ei-tt-label', 'Margin'),
+        el('span', 'ei-tt-label', i18n.inspector.margin),
         el('span', 'ei-tt-val', `${m.top} ${m.right} ${m.bottom} ${m.left}`),
       )
       tooltip.appendChild(marginRow)
@@ -1429,30 +1188,30 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const paddingRow = el('div', 'ei-tt-row')
       const p = info.boxModel.padding
       paddingRow.append(
-        el('span', 'ei-tt-label', 'Padding'),
+        el('span', 'ei-tt-label', i18n.inspector.padding),
         el('span', 'ei-tt-val', `${p.top} ${p.right} ${p.bottom} ${p.left}`),
       )
       tooltip.appendChild(paddingRow)
     }
 
     const a11y = info.accessibility
-    const divider = el('div', 'ei-tt-divider', 'Accessibility')
+    const divider = el('div', 'ei-tt-divider', i18n.inspector.accessibility)
     tooltip.appendChild(divider)
 
     if (a11y.name) {
       const nameRow = el('div', 'ei-tt-row')
-      nameRow.append(el('span', 'ei-tt-label', 'Name'), el('span', 'ei-tt-val', truncate(a11y.name, 40)))
+      nameRow.append(el('span', 'ei-tt-label', i18n.inspector.name), el('span', 'ei-tt-val', truncate(a11y.name, 40)))
       tooltip.appendChild(nameRow)
     }
 
     const roleRow = el('div', 'ei-tt-row')
-    roleRow.append(el('span', 'ei-tt-label', 'Role'), el('span', 'ei-tt-val', a11y.role))
+    roleRow.append(el('span', 'ei-tt-label', i18n.inspector.role), el('span', 'ei-tt-val', a11y.role))
     tooltip.appendChild(roleRow)
 
     const kbRow = el('div', 'ei-tt-row')
     const kbIcon = el('span', a11y.keyboardFocusable ? 'ei-tt-yes' : 'ei-tt-no')
     kbIcon.textContent = a11y.keyboardFocusable ? '\u2713' : '\u2718'
-    kbRow.append(el('span', 'ei-tt-label', 'Keyboard-focusable'), kbIcon)
+    kbRow.append(el('span', 'ei-tt-label', i18n.inspector.keyboardFocusable), kbIcon)
     tooltip.appendChild(kbRow)
   }
 
@@ -1473,20 +1232,294 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     tooltip.style.top = `${top}px`
   }
 
-  function showTooltip(info: InspectorInfo, x: number, y: number): void {
-    buildTooltipContent(info)
+  function positionTooltipForElement(target: HTMLElement): void {
+    const gap = 4
+    const rect = target.getBoundingClientRect()
+    const tooltipRect = tooltip.getBoundingClientRect()
+    const tw = tooltipRect.width || 200
+    const th = tooltipRect.height || 40
+
+    let left = rect.left + rect.width / 2 - tw / 2
+    let top = rect.top - th - gap
+
+    if (top < 8) top = rect.bottom + gap
+    if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8
+    if (left < 8) left = 8
+    if (top + th > window.innerHeight - 8) top = window.innerHeight - th - 8
+    if (top < 8) top = 8
+
+    tooltip.style.left = `${left}px`
+    tooltip.style.top = `${top}px`
+  }
+
+  function showTextTooltipForElement(text: string, target: HTMLElement): void {
+    tooltip.innerHTML = ''
+    tooltip.textContent = text
     tooltip.style.display = 'block'
-    positionTooltip(x, y)
+    positionTooltipForElement(target)
+  }
+
+  function updateTextTooltipForElement(target: HTMLElement): void {
+    if (tooltip.style.display === 'none') return
+    positionTooltipForElement(target)
+  }
+
+  function isActionTooltipVisible(text: string): boolean {
+    return tooltip.style.display !== 'none' && tooltip.textContent === text
+  }
+
+  function refreshActionTooltip(button: HTMLButtonElement): void {
+    const label = getActionButtonLabel(button)
+    if (!isActionTooltipVisible(label)) return
+    showTextTooltipForElement(label, button)
   }
 
   function hideTooltip(): void {
     tooltip.style.display = 'none'
   }
 
+  function bindActionTooltip(button: HTMLButtonElement, getText: () => string): void {
+    button.addEventListener('mouseenter', () => {
+      showTextTooltipForElement(getText(), button)
+    })
+    button.addEventListener('mousemove', () => {
+      updateTextTooltipForElement(button)
+    })
+    button.addEventListener('mouseleave', () => {
+      hideTooltip()
+    })
+    button.addEventListener('blur', () => {
+      hideTooltip()
+    })
+  }
+
+  function setActionButtonLabel(button: HTMLButtonElement, label: string): void {
+    button.ariaLabel = label
+    button.dataset.tooltip = label
+    refreshActionTooltip(button)
+  }
+
+  function getActionButtonLabel(button: HTMLButtonElement): string {
+    return button.dataset.tooltip || button.ariaLabel || ''
+  }
+
+  function showTooltip(info: InspectorInfo, x: number, y: number): void {
+    buildTooltipContent(info)
+    tooltip.style.display = 'block'
+    positionTooltip(x, y)
+  }
+
+  function showTextTooltip(text: string, x: number, y: number): void {
+    tooltip.innerHTML = ''
+    tooltip.textContent = text
+    tooltip.style.display = 'block'
+    positionTooltip(x, y)
+  }
+
   // --- Change management ---
 
   function findChangeForElement(element: HTMLElement): Change | undefined {
     return changes.find(c => c.element === element)
+  }
+
+  function moveElementToIndex(element: HTMLElement, index: number): void {
+    const container = element.parentElement
+    if (!container) return
+    const siblings = getReorderableSiblings(element)
+    const otherSiblings = siblings.filter(sibling => sibling !== element)
+    const clampedIndex = Math.max(0, Math.min(index, otherSiblings.length))
+    const target = otherSiblings[clampedIndex] ?? null
+    container.insertBefore(element, target)
+  }
+
+  function isInternalResetDiff(diff: NonNullable<Change['diffs']>[number]): boolean {
+    const modified = diff.modified.trim()
+    if (modified !== '') return false
+    return ['border', 'border-style', 'border-color', 'border-width', 'outline', 'outline-offset', 'box-shadow'].includes(diff.property)
+  }
+
+  function getUserVisibleStyleDiffs(change: Change): NonNullable<Change['diffs']> {
+    return change.patch.styleDiffs.filter(diff => !isInternalResetDiff(diff))
+  }
+
+  function mergeDiffs(existingDiffs: NonNullable<Change['diffs']> = [], nextDiffs: NonNullable<Change['diffs']> = []): NonNullable<Change['diffs']> {
+    const merged = new Map<string, NonNullable<Change['diffs']>[number]>()
+
+    existingDiffs.forEach((diff) => {
+      merged.set(diff.property, diff)
+    })
+
+    nextDiffs.forEach((diff) => {
+      const existing = merged.get(diff.property)
+      if (existing) {
+        if (diff.modified === existing.original) {
+          merged.delete(diff.property)
+          return
+        }
+        merged.set(diff.property, {
+          property: diff.property,
+          original: existing.original,
+          modified: diff.modified,
+        })
+        return
+      }
+      if (diff.original !== diff.modified) {
+        merged.set(diff.property, diff)
+      }
+    })
+
+    return Array.from(merged.values())
+  }
+
+  function applyChangeToAfter(change: Change): void {
+    if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.to
+    for (const diff of change.patch.styleDiffs) {
+      change.element.style.setProperty(diff.property, diff.modified)
+    }
+    if (change.patch.moveDiff) {
+      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.toIndex))
+    }
+  }
+
+  function resetChangeToBefore(change: Change): void {
+    if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.from
+    for (const diff of change.patch.styleDiffs) {
+      if (diff.original) change.element.style.setProperty(diff.property, diff.original)
+      else change.element.style.removeProperty(diff.property)
+    }
+    if (change.patch.moveDiff) {
+      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex))
+    }
+  }
+
+  function clearAllChanges(): void {
+    changes.forEach(resetChangeToBefore)
+    changes = []
+    changeIdCounter = 0
+    clearPersistedChanges()
+    activeChangeId = null
+    beforePreviewChangeIds.clear()
+    moveChangeIdByElement = new WeakMap<HTMLElement, string>()
+    renderMarkers()
+    if (currentMode === 'changes') renderChangesList()
+    closeOutputDetailMenu()
+  }
+
+  function persistChangesState(): void {
+    persistChanges(changes)
+  }
+
+  function findElementForPersistedChange(change: PersistedChange): HTMLElement | null {
+    const selectors = [
+      change.target?.selector?.primary,
+      ...(change.target?.selector?.stable ?? []),
+      ...(change.target?.selector?.semantic ?? []),
+      ...(change.target?.selector?.structural ?? []),
+      change.target?.domPath,
+    ].filter((selector): selector is string => Boolean(selector))
+
+    const candidates: HTMLElement[] = []
+    const seen = new Set<HTMLElement>()
+
+    selectors.forEach((selector) => {
+      try {
+        document.querySelectorAll(selector).forEach((node) => {
+          if (!(node instanceof HTMLElement)) return
+          if (seen.has(node)) return
+          seen.add(node)
+          candidates.push(node)
+        })
+      } catch {
+        // Ignore invalid selectors.
+      }
+    })
+
+    if (candidates.length === 0) return null
+    if (candidates.length === 1) return candidates[0] ?? null
+
+    const normalize = (value: string | null | undefined): string => (value || '').trim().replace(/\s+/g, ' ')
+    const targetText = normalize(change.target?.text)
+    const targetId = normalize(change.target?.identity?.id)
+    const targetRole = normalize(change.target?.identity?.role)
+    const targetAccessibleName = normalize(change.target?.identity?.accessibleName)
+    const targetParentTag = normalize(change.target?.context?.parentTag)
+    const targetPrevText = normalize(change.target?.context?.previousSiblingText)
+    const targetNextText = normalize(change.target?.context?.nextSiblingText)
+    const targetClasses = new Set(normalize(change.target?.identity?.className).split(/\s+/).filter(Boolean))
+    const targetBox = change.target?.box
+
+    const scoreCandidate = (element: HTMLElement): number => {
+      let score = 0
+      const text = normalize(element.innerText || element.textContent)
+      const id = normalize(element.id)
+      const role = normalize(element.getAttribute('role'))
+      const accessibleName = normalize(element.getAttribute('aria-label') || element.getAttribute('title'))
+      const parentTag = normalize(element.parentElement?.tagName.toLowerCase())
+      const prevText = normalize((element.previousElementSibling as HTMLElement | null)?.innerText || element.previousElementSibling?.textContent)
+      const nextText = normalize((element.nextElementSibling as HTMLElement | null)?.innerText || element.nextElementSibling?.textContent)
+      const classes = new Set((element.className || '').split(/\s+/).filter(Boolean))
+
+      if (element.tagName.toLowerCase() === change.target?.tagName.toLowerCase()) score += 20
+      if (targetId && id === targetId) score += 200
+      if (targetRole && role === targetRole) score += 30
+      if (targetAccessibleName && accessibleName === targetAccessibleName) score += 40
+      if (targetText && text === targetText) score += 80
+      else if (targetText && text.includes(targetText)) score += 30
+      if (targetParentTag && parentTag === targetParentTag) score += 20
+      if (targetPrevText && prevText === targetPrevText) score += 35
+      if (targetNextText && nextText === targetNextText) score += 35
+
+      if (targetClasses.size > 0) {
+        let classMatches = 0
+        targetClasses.forEach((className) => {
+          if (classes.has(className)) classMatches += 1
+        })
+        score += classMatches * 12
+      }
+
+      if (targetBox) {
+        const rect = element.getBoundingClientRect()
+        const dx = Math.abs(Math.round(rect.left) - targetBox.x)
+        const dy = Math.abs(Math.round(rect.top) - targetBox.y)
+        const dw = Math.abs(Math.round(rect.width) - targetBox.width)
+        const dh = Math.abs(Math.round(rect.height) - targetBox.height)
+        score += Math.max(0, 40 - Math.min(40, dx + dy))
+        score += Math.max(0, 20 - Math.min(20, dw + dh))
+      }
+
+      return score
+    }
+
+    return candidates
+      .map((element) => ({ element, score: scoreCandidate(element) }))
+      .sort((a, b) => b.score - a.score)[0]?.element ?? null
+  }
+
+  function restorePersistedChanges(): void {
+    const persistedChanges = loadPersistedChanges()
+    if (persistedChanges.length === 0) return
+
+    let maxId = 0
+    const restoredChanges: Change[] = []
+
+    persistedChanges.forEach((change) => {
+      const element = findElementForPersistedChange(change)
+      if (!element) return
+      restoredChanges.push({ ...change, element })
+      const numericId = Number.parseInt(change.id, 10)
+      if (Number.isFinite(numericId)) {
+        maxId = Math.max(maxId, numericId)
+      }
+    })
+
+    changes = restoredChanges
+    changeIdCounter = maxId
+    restoredChanges.forEach(applyChangeToAfter)
+    if (restoredChanges.length > 0) {
+      renderMarkers()
+      return
+    }
+    clearPersistedChanges()
   }
 
   function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' | 'move' = 'annotation', diffs?: Change['diffs']): string {
@@ -1515,6 +1548,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       },
     }
     changes.push(change)
+    persistChangesState()
     options.onChangeAdd?.(change)
     renderMarkers()
     return change.id
@@ -1527,15 +1561,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (!change.beforeSnapshot) {
       change.beforeSnapshot = buildChangeSnapshot(change.info)
     }
-    change.comment = comment
-    change.diffs = diffs
+    const mergedDiffs = mergeDiffs(change.diffs ?? [], diffs ?? [])
+    const mergedComment = change.type === 'design'
+      ? mergedDiffs
+        .filter(d => !isInternalResetDiff(d))
+        .map(d => `${d.property}: ${d.original} → ${d.modified}`)
+        .join(', ')
+      : comment
+    change.comment = mergedComment
+    change.diffs = mergedDiffs
     change.info = info
     change.timestamp = Date.now()
     change.target = buildChangeTarget(change.element, info)
-    change.patch = buildChangePatch(change.type, diffs, comment)
+    change.patch = buildChangePatch(change.type, mergedDiffs, mergedComment)
     change.afterSnapshot = buildChangeSnapshot(info)
     change.meta.updatedAt = new Date().toISOString()
     change.meta.route = getRoute()
+    persistChangesState()
     options.onChangeAdd?.(change)
     renderMarkers()
   }
@@ -1549,6 +1591,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
     }
     changes = changes.filter(c => c.id !== id)
+    persistChangesState()
     options.onChangeRemove?.(id)
     renderMarkers()
   }
@@ -1595,7 +1638,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
 
     const actionsRow = el('div', 'ei-annotate-actions')
-    const submitBtn = el('button', 'ei-annotate-btn ei-annotate-btn-primary', existing ? 'Update' : 'Add')
+    const submitBtn = el('button', 'ei-annotate-btn ei-annotate-btn-primary', existing ? i18n.actions.update : i18n.actions.add)
     submitBtn.type = 'button'
     submitBtn.setAttribute(IGNORE_ATTR, 'true')
     submitBtn.addEventListener('click', () => submitAnnotation(element, textarea.value))
@@ -1618,11 +1661,61 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Changes list ---
 
+  let isOutputDetailMenuOpen = false
+
+  function getOutputDetailLabel(detail: OutputDetail): string {
+    return i18n.outputDetail[detail]
+  }
+
+  function positionOutputDetailMenu(anchor: HTMLElement): void {
+    const rect = anchor.getBoundingClientRect()
+    outputDetailMenu.style.left = `${rect.left}px`
+    outputDetailMenu.style.top = `${rect.top - outputDetailMenu.offsetHeight - 8}px`
+  }
+
+  function closeOutputDetailMenu(): void {
+    if (!isOutputDetailMenuOpen) return
+    isOutputDetailMenuOpen = false
+    outputDetailMenu.style.display = 'none'
+  }
+
+  function openOutputDetailMenu(anchor: HTMLElement, onSelect: (detail: OutputDetail) => void): void {
+    outputDetailMenu.innerHTML = ''
+    const options: Array<{ value: OutputDetail; desc: string }> = [
+      { value: 'compact', desc: i18n.outputDetail.compactDesc },
+      { value: 'standard', desc: i18n.outputDetail.standardDesc },
+      { value: 'detailed', desc: i18n.outputDetail.detailedDesc },
+      { value: 'forensic', desc: i18n.outputDetail.forensicDesc },
+    ]
+
+    for (const option of options) {
+      const item = el('button', 'ei-output-detail-item') as HTMLButtonElement
+      item.type = 'button'
+      if (option.value === outputDetail) item.classList.add('is-active')
+      item.innerHTML = `<span class="ei-output-detail-name">${getOutputDetailLabel(option.value)}</span><span class="ei-output-detail-desc">${option.desc}</span>`
+      item.addEventListener('click', () => {
+        outputDetail = option.value
+        closeOutputDetailMenu()
+        onSelect(option.value)
+      })
+      outputDetailMenu.appendChild(item)
+    }
+
+    outputDetailMenu.style.display = 'block'
+    isOutputDetailMenuOpen = true
+    positionOutputDetailMenu(anchor)
+  }
+
+  function toggleOutputDetailMenu(anchor: HTMLElement, onSelect: (detail: OutputDetail) => void): void {
+    if (isOutputDetailMenuOpen) closeOutputDetailMenu()
+    else openOutputDetailMenu(anchor, onSelect)
+  }
+
   function renderChangesList(): void {
     body.innerHTML = ''
     cleanupPanelExtras()
     panel.classList.add('is-changes')
-    titleEl.textContent = 'Changes'
+    titleEl.textContent = i18n.panel.changesTitle
     subtitle.textContent = ''
     subtitle.style.display = 'none'
     copyBtn.style.display = 'none'
@@ -1640,17 +1733,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const typeLabel = (change: Change): string => {
       const key = typeKey(change)
-      if (key === 'text') return 'Text'
-      if (key === 'style') return 'Style'
-      if (key === 'move') return 'Move'
-      return 'Note'
+      if (key === 'text') return i18n.changes.text
+      if (key === 'style') return i18n.changes.style
+      if (key === 'move') return i18n.changes.move
+      return i18n.changes.note
     }
 
     const sourceLabel = (change: Change): string => change.meta.sourceMode === 'design'
-      ? 'Design'
+      ? i18n.toolbar.design
       : change.meta.sourceMode === 'move'
-        ? 'Move'
-        : 'Inspector'
+        ? i18n.toolbar.move
+        : i18n.toolbar.inspector
+
 
     const selectorText = (change: Change): string => change.target?.selector?.primary || change.target?.domPath || change.info.domPath
     const routeText = (change: Change): string => change.meta.route || currentRoute
@@ -1719,13 +1813,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }, 50)
     }
 
-    const iconButton = (svg: string, title: string, className = 'ei-ann-action'): HTMLButtonElement => {
+    const iconButton = (svg: string, label: string, className = 'ei-ann-action'): HTMLButtonElement => {
       const button = el('button', className) as HTMLButtonElement
       button.type = 'button'
-      button.title = title
-      button.ariaLabel = title
+      setActionButtonLabel(button, label)
       button.setAttribute(IGNORE_ATTR, 'true')
       setButtonIcon(button, svg)
+      bindActionTooltip(button, () => getActionButtonLabel(button))
       return button
     }
 
@@ -1775,13 +1869,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const collectSnapshotRows = (change: Change): Array<{ label: string; before: string; after: string }> => {
       const rows = [
-        { label: 'Text', before: change.beforeSnapshot.text, after: change.afterSnapshot.text },
-        { label: 'Font', before: change.beforeSnapshot.typography.fontSize, after: change.afterSnapshot.typography.fontSize },
-        { label: 'Color', before: change.beforeSnapshot.typography.color, after: change.afterSnapshot.typography.color },
-        { label: 'Background', before: change.beforeSnapshot.visual.backgroundColor, after: change.afterSnapshot.visual.backgroundColor },
-        { label: 'Radius', before: change.beforeSnapshot.box.borderRadius, after: change.afterSnapshot.box.borderRadius },
-        { label: 'Padding', before: change.beforeSnapshot.box.padding, after: change.afterSnapshot.box.padding },
-        { label: 'Gap', before: change.beforeSnapshot.layout.gap, after: change.afterSnapshot.layout.gap },
+        { label: i18n.changes.textLabel, before: change.beforeSnapshot.text, after: change.afterSnapshot.text },
+        { label: i18n.changes.font, before: change.beforeSnapshot.typography.fontSize, after: change.afterSnapshot.typography.fontSize },
+        { label: i18n.changes.color, before: change.beforeSnapshot.typography.color, after: change.afterSnapshot.typography.color },
+        { label: i18n.changes.background, before: change.beforeSnapshot.visual.backgroundColor, after: change.afterSnapshot.visual.backgroundColor },
+        { label: i18n.changes.radius, before: change.beforeSnapshot.box.borderRadius, after: change.afterSnapshot.box.borderRadius },
+        { label: i18n.changes.padding, before: change.beforeSnapshot.box.padding, after: change.afterSnapshot.box.padding },
+        { label: i18n.changes.gap, before: change.beforeSnapshot.layout.gap, after: change.afterSnapshot.layout.gap },
       ]
 
       return rows
@@ -1805,12 +1899,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         lines.push(`position: ${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`)
       }
 
-      if (change.patch.styleDiffs.length > 0) {
-        lines.push(...change.patch.styleDiffs.slice(0, 4).map(diff => `${diff.property}: ${truncate(diff.original, 22)} → ${truncate(diff.modified, 22)}`))
+      const visibleStyleDiffs = getUserVisibleStyleDiffs(change)
+      if (visibleStyleDiffs.length > 0) {
+        lines.push(...visibleStyleDiffs.map(diff => `${diff.property}: ${truncate(diff.original, 22)} → ${truncate(diff.modified, 22)}`))
       }
 
       if (lines.length > 0) return lines
-      return change.comment ? [change.comment] : ['No extra notes']
+      return change.comment ? [change.comment] : [i18n.changes.noExtraNotes]
     }
 
     const noteText = (change: Change): string => {
@@ -1836,24 +1931,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
     }
 
-    const moveElementToIndex = (element: HTMLElement, index: number): void => {
-      const container = element.parentElement
-      if (!container) return
-      const siblings = getReorderableSiblings(element)
-      const otherSiblings = siblings.filter(sibling => sibling !== element)
-      const clampedIndex = Math.max(0, Math.min(index, otherSiblings.length))
-      const target = otherSiblings[clampedIndex] ?? null
-      container.insertBefore(element, target)
-    }
-
     const resetMoveToBefore = (change: Change): void => {
       if (!change.patch.moveDiff) return
-      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex - 1))
+      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex))
     }
 
     const applyMoveToAfter = (change: Change): void => {
       if (!change.patch.moveDiff) return
-      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.toIndex - 1))
+      applyChangeToAfter(change)
     }
 
     const syncPreviewState = (): void => {
@@ -1861,7 +1946,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         if (!document.contains(change.element)) return
         if (change.type === 'design') {
           if (beforePreviewChangeIds.has(change.id)) resetElementToBefore(change)
-          else applyElementToAfter(change)
+          else applyChangeToAfter(change)
           return
         }
         if (change.type === 'move') {
@@ -1885,11 +1970,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const filterOptions: Array<{ key: typeof changesFilter; label: string }> = [
-      { key: 'all', label: 'All' },
-      { key: 'style', label: 'Style' },
-      { key: 'text', label: 'Text' },
-      { key: 'move', label: 'Move' },
-      { key: 'note', label: 'Note' },
+      { key: 'all', label: i18n.changes.all },
+      { key: 'style', label: i18n.changes.style },
+      { key: 'text', label: i18n.changes.text },
+      { key: 'move', label: i18n.changes.move },
+      { key: 'note', label: i18n.changes.note },
     ]
 
     if (changes.length === 0) {
@@ -1910,7 +1995,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       body.appendChild(filters)
 
       if (visibleChanges.length === 0) {
-        body.appendChild(el('div', 'ei-ann-empty', '当前筛选下没有记录。'))
+        body.appendChild(el('div', 'ei-ann-empty', i18n.changes.emptyFiltered))
       } else {
         const groupedChanges = visibleChanges.reduce<Record<string, Change[]>>((acc, change) => {
           const key = routeText(change)
@@ -1948,7 +2033,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             const time = el('div', 'ei-ann-time', formatRelativeTime(c.meta.updatedAt || c.meta.createdAt))
             const actions = el('div', 'ei-ann-actions')
 
-            const previewBtn = iconButton(isPreviewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON, isPreviewingBefore ? 'Show after' : 'Show before')
+            const previewBtn = iconButton(isPreviewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON, isPreviewingBefore ? i18n.actions.showAfter : i18n.actions.showBefore)
             if (c.type !== 'design' && c.type !== 'move') {
               previewBtn.disabled = true
               previewBtn.style.opacity = '0.35'
@@ -1957,8 +2042,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               const syncPreviewButton = (): void => {
                 const previewingBefore = beforePreviewChangeIds.has(c.id)
                 swapButtonIcon(previewBtn, previewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON)
-                previewBtn.title = previewingBefore ? 'Show after' : 'Show before'
-                previewBtn.ariaLabel = previewingBefore ? 'Show after' : 'Show before'
+                setActionButtonLabel(previewBtn, previewingBefore ? i18n.actions.showAfter : i18n.actions.showBefore)
                 previewBtn.classList.toggle('is-active', previewingBefore)
               }
               syncPreviewButton()
@@ -1969,14 +2053,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               })
             }
 
-            const singleCopyBtn = iconButton(CHANGES_HOVER_COPY_ICON, 'Copy AI')
+            const singleCopyBtn = iconButton(CHANGES_HOVER_COPY_ICON, i18n.actions.copyAI)
             singleCopyBtn.addEventListener('click', async (e) => {
               e.stopPropagation()
               await navigator.clipboard.writeText(buildSingleAIPayload(c))
               setActionCopied(singleCopyBtn)
             })
 
-            const closeBtn = iconButton(CHANGES_HOVER_DELETE_ICON, 'Delete', 'ei-ann-action is-danger')
+            const closeBtn = iconButton(CHANGES_HOVER_DELETE_ICON, i18n.actions.delete, 'ei-ann-action is-danger')
             closeBtn.addEventListener('click', (e) => {
               e.stopPropagation()
               beforePreviewChangeIds.delete(c.id)
@@ -2002,11 +2086,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             )
 
             const summary = el('div', 'ei-ann-summary')
-            for (const line of summaryLines.slice(0, selected ? 4 : 1)) {
+            for (const line of summaryLines) {
               summary.appendChild(el('div', 'ei-ann-diff', line))
-            }
-            if (summaryLines.length > 1 && !selected) {
-              summary.appendChild(el('div', 'ei-ann-more', `+${summaryLines.length - 1} more`))
             }
 
             main.append(top, meta, summary)
@@ -2019,7 +2100,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               const extra = el('div', 'ei-ann-extra')
 
               if (c.type === 'design') {
-                extra.appendChild(el('div', 'ei-ann-previewing', isPreviewingBefore ? 'Previewing before state on page' : 'Previewing after state on page'))
+                extra.appendChild(el('div', 'ei-ann-previewing', isPreviewingBefore ? i18n.actions.previewingBefore : i18n.actions.previewingAfter))
               }
 
               main.appendChild(extra)
@@ -2037,37 +2118,34 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const exportRow = el('div', 'ei-ann-export')
     const exportPrimary = el('div', 'ei-ann-export-primary')
-    const copyAIBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-primary', 'Copy AI')
+    const copyAIBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-primary', `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})`)
     copyAIBtn.type = 'button'
     copyAIBtn.setAttribute(IGNORE_ATTR, 'true')
     copyAIBtn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(buildAIPayload(changes))
-      copyAIBtn.textContent = 'Copied!'
-      setTimeout(() => { copyAIBtn.textContent = 'Copy AI' }, 1500)
+      await navigator.clipboard.writeText(buildAIPayload(changes, outputDetail))
+      copyAIBtn.textContent = i18n.actions.copied
+      setTimeout(() => { copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})` }, 1500)
     })
 
     const copyJSONBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-dropdown') as HTMLButtonElement
     copyJSONBtn.type = 'button'
-    copyJSONBtn.title = 'Copy JSON'
-    copyJSONBtn.ariaLabel = 'Copy JSON'
+    copyJSONBtn.title = i18n.outputDetail.title
+    copyJSONBtn.ariaLabel = i18n.outputDetail.title
     copyJSONBtn.setAttribute(IGNORE_ATTR, 'true')
     copyJSONBtn.innerHTML = CHANGES_PANEL_CHEVRON_ICON
-    copyJSONBtn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(buildJSONExport(changes))
-      copyJSONBtn.classList.add('is-success')
-      setTimeout(() => { copyJSONBtn.classList.remove('is-success') }, 1200)
+    copyJSONBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      toggleOutputDetailMenu(copyJSONBtn, (detail) => {
+        copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(detail)})`
+      })
     })
 
-    const clearBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-ghost', 'Clear All')
+    const clearBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-ghost', i18n.actions.clearAll)
     clearBtn.type = 'button'
     clearBtn.setAttribute(IGNORE_ATTR, 'true')
     clearBtn.addEventListener('click', () => {
-      changes = []
-      changeIdCounter = 0
+      clearAllChanges()
       clearActiveChangeCard()
-      beforePreviewChangeIds.clear()
-      renderMarkers()
-      refreshChangesList()
     })
 
     exportPrimary.append(copyAIBtn, copyJSONBtn)
@@ -2081,12 +2159,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Inspector rendering ---
 
   function renderEmpty(): void {
-    const modeLabel = currentMode === 'inspector' ? 'Inspect' : currentMode === 'design' ? 'Design' : currentMode === 'move' ? 'Move' : ''
-    subtitle.textContent = modeLabel ? `${modeLabel} mode \u2014 \u70B9\u51FB\u5143\u7D20\uFF0CEsc \u9000\u51FA` : 'Ready'
+    subtitle.textContent = currentMode === 'inspector'
+      ? i18n.panel.inspectMode
+      : currentMode === 'design'
+        ? i18n.panel.designMode
+        : currentMode === 'move'
+          ? i18n.panel.moveMode
+          : i18n.panel.ready
     body.innerHTML = currentMode === 'design'
-      ? `<div class="ei-empty">\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\u5F00\u59CB\u7F16\u8F91\u6837\u5F0F\u3002\u4FEE\u6539\u5373\u65F6\u751F\u6548\uFF0C\u5B8C\u6210\u540E\u70B9 Done \u4FDD\u5B58\u53D8\u66F4\u3002</div>`
+      ? `<div class="ei-empty">点击一个元素开始编辑样式。修改即时生效，完成后点完成保存变更。</div>`
       : currentMode === 'move'
-        ? `<div class="ei-empty">\u5148\u70B9\u51FB\u9501\u5B9A\u4E00\u4E2A\u5143\u7D20\u3002\u9501\u5B9A\u540E\u4F1A\u51FA\u73B0 Drag Bounds \u548C\u6BCF\u4E2A\u5143\u7D20\u4E2D\u95F4\u7684\u5C0F\u6A2A\u6761\uFF0C\u6309\u4F4F\u6A2A\u6761\u5373\u53EF\u5728 bounds \u5185\u8C03\u6574\u540C\u7EA7\u987A\u5E8F\u3002</div>`
+        ? `<div class="ei-empty">${i18n.changes.moveEmpty}</div>`
         : `<div class="ei-empty">\u5F00\u542F\u540E\u5148\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u663E\u793A\u4FE1\u606F\u9762\u677F\u3002\u79FB\u52A8\u9F20\u6807\u53EA\u9AD8\u4EAE\u5143\u7D20\uFF0C\u4E0D\u4F1A\u7ACB\u523B\u6253\u5F00\u4FE1\u606F\u6846\u3002\u9501\u5B9A\u540E\u53EF\u7528\u65B9\u5411\u952E\u5207\u7236/\u5B50/\u5144\u5F1F\u5143\u7D20\uFF0C\u4E5F\u53EF\u4EE5\u76F4\u63A5\u70B9 breadcrumbs \u8DF3\u5C42\u3002</div>`
     copyBtn.style.display = 'none'
     unlockBtn.style.display = lockedElement ? 'inline-block' : 'none'
@@ -2170,20 +2253,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
           if (side === 'top') {
             badge.style.cssText = `display:block;left:${w / 2 - 10}px;top:${pt / 2 - 7}px;`
-            line.style.cssText = `display:block;left:${w / 2}px;top:0;height:${pt}px;width:0;border-left:1px solid ${accentColor};`
-            edge.style.cssText = `display:block;left:0;top:0;width:${w}px;height:${pt}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;left:${w / 2}px;top:0;height:${pt}px;width:0;border-left:1px solid var(--interactive-accent);`
+            edge.style.cssText = `display:block;left:0;top:0;width:${w}px;height:${pt}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--interactive-accent) 12%, transparent), color-mix(in srgb, var(--interactive-accent) 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'bottom') {
             badge.style.cssText = `display:block;left:${w / 2 - 10}px;bottom:${pb / 2 - 7}px;`
-            line.style.cssText = `display:block;left:${w / 2}px;bottom:0;height:${pb}px;width:0;border-left:1px solid ${accentColor};`
-            edge.style.cssText = `display:block;left:0;bottom:0;width:${w}px;height:${pb}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;left:${w / 2}px;bottom:0;height:${pb}px;width:0;border-left:1px solid var(--interactive-accent);`
+            edge.style.cssText = `display:block;left:0;bottom:0;width:${w}px;height:${pb}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--interactive-accent) 12%, transparent), color-mix(in srgb, var(--interactive-accent) 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'left') {
             badge.style.cssText = `display:block;left:${pl / 2 - 10}px;top:${h / 2 - 7}px;`
-            line.style.cssText = `display:block;top:${h / 2}px;left:0;width:${pl}px;height:0;border-top:1px solid ${accentColor};`
-            edge.style.cssText = `display:block;left:0;top:0;width:${pl}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;top:${h / 2}px;left:0;width:${pl}px;height:0;border-top:1px solid var(--interactive-accent);`
+            edge.style.cssText = `display:block;left:0;top:0;width:${pl}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--interactive-accent) 12%, transparent), color-mix(in srgb, var(--interactive-accent) 12%, transparent) 2px, transparent 2px, transparent 4px);`
           } else {
             badge.style.cssText = `display:block;right:${pr / 2 - 10}px;top:${h / 2 - 7}px;`
-            line.style.cssText = `display:block;top:${h / 2}px;right:0;width:${pr}px;height:0;border-top:1px solid ${accentColor};`
-            edge.style.cssText = `display:block;right:0;top:0;width:${pr}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, ${accentColor} 12%, transparent), color-mix(in srgb, ${accentColor} 12%, transparent) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;top:${h / 2}px;right:0;width:${pr}px;height:0;border-top:1px solid var(--interactive-accent);`
+            edge.style.cssText = `display:block;right:0;top:0;width:${pr}px;height:${h}px;background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--interactive-accent) 12%, transparent), color-mix(in srgb, var(--interactive-accent) 12%, transparent) 2px, transparent 2px, transparent 4px);`
           }
         } else {
           badge.style.display = 'none'
@@ -2210,20 +2293,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
           if (side === 'top') {
             badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;top:${mt / 2 - 7}px;`
-            line.style.cssText = `display:block;left:${fullW / 2}px;top:0;height:${mt}px;width:0;border-left:1px dashed #E17055;`
-            edge.style.cssText = `display:block;left:0;top:0;width:${fullW}px;height:${mt}px;border-top:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;left:${fullW / 2}px;top:0;height:${mt}px;width:0;border-left:1px dashed var(--overlay-margin);`
+            edge.style.cssText = `display:block;left:0;top:0;width:${fullW}px;height:${mt}px;border-top:1px solid var(--overlay-margin);background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'bottom') {
             badge.style.cssText = `display:block;left:${fullW / 2 - 10}px;bottom:${mb / 2 - 7}px;`
-            line.style.cssText = `display:block;left:${fullW / 2}px;bottom:0;height:${mb}px;width:0;border-left:1px dashed #E17055;`
-            edge.style.cssText = `display:block;left:0;bottom:0;width:${fullW}px;height:${mb}px;border-bottom:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;left:${fullW / 2}px;bottom:0;height:${mb}px;width:0;border-left:1px dashed var(--overlay-margin);`
+            edge.style.cssText = `display:block;left:0;bottom:0;width:${fullW}px;height:${mb}px;border-bottom:1px solid var(--overlay-margin);background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px);`
           } else if (side === 'left') {
             badge.style.cssText = `display:block;left:${ml / 2 - 10}px;top:${fullH / 2 - 7}px;`
-            line.style.cssText = `display:block;top:${fullH / 2}px;left:0;width:${ml}px;height:0;border-top:1px dashed #E17055;`
-            edge.style.cssText = `display:block;left:0;top:0;width:${ml}px;height:${fullH}px;border-left:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;top:${fullH / 2}px;left:0;width:${ml}px;height:0;border-top:1px dashed var(--overlay-margin);`
+            edge.style.cssText = `display:block;left:0;top:0;width:${ml}px;height:${fullH}px;border-left:1px solid var(--overlay-margin);background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px);`
           } else {
             badge.style.cssText = `display:block;right:${mr / 2 - 10}px;top:${fullH / 2 - 7}px;`
-            line.style.cssText = `display:block;top:${fullH / 2}px;right:0;width:${mr}px;height:0;border-top:1px dashed #E17055;`
-            edge.style.cssText = `display:block;right:0;top:0;width:${mr}px;height:${fullH}px;border-right:1px solid #E17055;background:repeating-linear-gradient(-45deg, rgba(225, 112, 85, 0.16), rgba(225, 112, 85, 0.16) 2px, transparent 2px, transparent 4px);`
+            line.style.cssText = `display:block;top:${fullH / 2}px;right:0;width:${mr}px;height:0;border-top:1px dashed var(--overlay-margin);`
+            edge.style.cssText = `display:block;right:0;top:0;width:${mr}px;height:${fullH}px;border-right:1px solid var(--overlay-margin);background:repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px);`
           }
         } else {
           badge.style.display = 'none'
@@ -2257,7 +2340,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function buildTabs(): HTMLDivElement {
     const tabs = el('div', 'ei-tabs')
     ;(['typography', 'box', 'layout'] as const).forEach(tabName => {
-      const buttonLabel = tabName === 'box' ? 'Box' : `${tabName.slice(0, 1).toUpperCase()}${tabName.slice(1)}`
+      const buttonLabel = tabName === 'typography'
+        ? i18n.inspector.typography
+        : tabName === 'box'
+          ? i18n.inspector.box
+          : i18n.inspector.layout
       const button = el('button', 'ei-tab', buttonLabel)
       button.type = 'button'
       button.dataset.tab = tabName
@@ -2277,8 +2364,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
-    titleEl.textContent = 'Element Inspector'
-    subtitle.textContent = 'Inspect mode \u2014 \u70B9\u51FB\u5143\u7D20\u67E5\u770B\uFF0CEsc \u9000\u51FA'
+    titleEl.textContent = i18n.panel.inspectorTitle
+    subtitle.textContent = i18n.panel.inspectSubtitle
 
     if (currentMode === 'off' && !info) {
       setPanelVisible(false)
@@ -2303,7 +2390,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const tagBadge = el('span', 'ei-badge', info.tagName)
     badges.appendChild(tagBadge)
     if (lockedElement) {
-      badges.appendChild(el('span', 'ei-badge ei-badge-lock', 'Locked'))
+      badges.appendChild(el('span', 'ei-badge ei-badge-lock', i18n.actions.locked))
     }
 
     const breadcrumbs = el('div', 'ei-breadcrumbs')
@@ -2327,42 +2414,42 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const typography = buildSection('typography', currentTab === 'typography')
     typography.append(
-      styleRow('Font', info.typography.fontFamily),
-      styleRow('Size', info.typography.fontSize),
-      styleRow('Weight', info.typography.fontWeight),
-      styleRow('Style', info.typography.fontStyle),
-      styleRow('Line height', info.typography.lineHeight),
-      styleRow('Letter space', info.typography.letterSpacing),
-      styleRow('Color', info.typography.color, info.typography.color),
-      styleRow('Align', info.typography.textAlign),
-      styleRow('Transform', info.typography.textTransform),
-      styleRow('Decoration', info.typography.textDecoration),
+      styleRow(i18n.inspector.font, info.typography.fontFamily),
+      styleRow(i18n.inspector.size, info.typography.fontSize),
+      styleRow(i18n.inspector.weight, info.typography.fontWeight),
+      styleRow(i18n.inspector.style, info.typography.fontStyle),
+      styleRow(i18n.inspector.lineHeight, info.typography.lineHeight),
+      styleRow(i18n.inspector.letterSpacing, info.typography.letterSpacing),
+      styleRow(i18n.inspector.color, info.typography.color, info.typography.color),
+      styleRow(i18n.inspector.align, info.typography.textAlign),
+      styleRow(i18n.inspector.transform, info.typography.textTransform),
+      styleRow(i18n.inspector.decoration, info.typography.textDecoration),
     )
     const box = buildSection('box', currentTab === 'box')
     const boxDiagram = buildBoxDiagram(info.boxModel)
 
     box.append(
       boxDiagram,
-      styleRow('Background', info.visual.backgroundColor, info.visual.backgroundColor),
-      styleRow('Border color', info.visual.borderColor, info.visual.borderColor),
-      styleRow('Shadow', info.visual.boxShadow),
+      styleRow(i18n.inspector.background, info.visual.backgroundColor, info.visual.backgroundColor),
+      styleRow(i18n.inspector.borderColor, info.visual.borderColor, info.visual.borderColor),
+      styleRow(i18n.inspector.shadow, info.visual.boxShadow),
     )
 
     const layout = buildSection('layout', currentTab === 'layout')
     layout.append(
-      styleRow('Display', info.layout.display),
-      styleRow('Position', info.layout.position),
-      styleRow('Gap', info.layout.gap),
-      styleRow('Direction', info.layout.flexDirection),
-      styleRow('Justify', info.layout.justifyContent),
-      styleRow('Align', info.layout.alignItems),
-      styleRow('Wrap', info.layout.flexWrap),
-      styleRow('Grid cols', info.layout.gridTemplateColumns),
-      styleRow('Grid rows', info.layout.gridTemplateRows),
-      styleRow('Opacity', info.visual.opacity),
-      styleRow('Overflow', info.visual.overflow),
-      styleRow('Class', info.className),
-      styleRow('ID', info.id),
+      styleRow(i18n.inspector.display, info.layout.display),
+      styleRow(i18n.inspector.position, info.layout.position),
+      styleRow(i18n.inspector.gap, info.layout.gap),
+      styleRow(i18n.inspector.direction, info.layout.flexDirection),
+      styleRow(i18n.inspector.justify, info.layout.justifyContent),
+      styleRow(i18n.inspector.align, info.layout.alignItems),
+      styleRow(i18n.inspector.wrap, info.layout.flexWrap),
+      styleRow(i18n.inspector.gridCols, info.layout.gridTemplateColumns),
+      styleRow(i18n.inspector.gridRows, info.layout.gridTemplateRows),
+      styleRow(i18n.inspector.opacity, info.visual.opacity),
+      styleRow(i18n.inspector.overflow, info.visual.overflow),
+      styleRow(i18n.inspector.className, info.className),
+      styleRow(i18n.inspector.id, info.id),
     )
 
     body.append(badges, breadcrumbs, textHead, path, tabs, typography, box, layout)
@@ -2387,8 +2474,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
-    titleEl.textContent = 'Design'
-    subtitle.textContent = 'Design mode \u2014 \u70B9\u51FB\u5143\u7D20\u7F16\u8F91\uFF0CEsc \u9000\u51FA'
+    titleEl.textContent = i18n.panel.designTitle
+    subtitle.textContent = i18n.panel.designSubtitle
     copyBtn.style.display = 'none'
 
     if (!info || !lockedElement) {
@@ -2423,7 +2510,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
       }
       if (diffs.length === 0) return
-      const autoComment = diffs.map(d => `${d.property}: ${d.original} \u2192 ${d.modified}`).join(', ')
+      const autoComment = diffs
+        .filter(d => d.property === 'textContent' || !isInternalResetDiff(d as NonNullable<Change['diffs']>[number]))
+        .map(d => `${d.property}: ${d.original} → ${d.modified}`)
+        .join(', ')
       if (activeChangeId) {
         updateChange(activeChangeId, autoComment, diffs)
       } else {
@@ -2438,7 +2528,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     styleTracker = createStyleTracker(info.element, saveToChanges)
-    const designPanel = buildDesignPanel(info.element, info, styleTracker, accentColor, {
+    const designPanel = buildDesignPanel(info.element, info, styleTracker, {
       onStyleChange: () => {
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
@@ -2463,8 +2553,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
-    titleEl.textContent = 'Move'
-    subtitle.textContent = 'Move mode — 拖动 handle 调整顺序，Esc 退出'
+    titleEl.textContent = i18n.panel.moveTitle
+    subtitle.textContent = i18n.panel.moveSubtitle
     copyBtn.style.display = 'none'
 
     if (!info || !lockedElement) {
@@ -3291,11 +3381,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     tempLine.dataset.visible = 'true'
     if (type === 'horizontal') {
       tempLine.style.borderTopStyle = 'solid'
-      tempLine.style.borderTopColor = '#FF00FF'
+      tempLine.style.borderTopColor = 'var(--overlay-guide)'
       tempLine.style.top = `${e.clientY}px`
     } else {
       tempLine.style.borderLeftStyle = 'solid'
-      tempLine.style.borderLeftColor = '#FF00FF'
+      tempLine.style.borderLeftColor = 'var(--overlay-guide)'
       tempLine.style.left = `${e.clientX}px`
     }
     guidesOverlay.appendChild(tempLine)
@@ -3333,8 +3423,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderGuides(info: InspectorInfo | null): void {
     currentInfo = info
-    titleEl.textContent = 'Guides'
-    subtitle.textContent = 'Guides mode — 点击锚定元素，再悬停其他元素显示距离，Esc 退出'
+    titleEl.textContent = i18n.panel.guidesTitle
+    subtitle.textContent = i18n.panel.guidesSubtitle
     copyBtn.style.display = 'none'
     unlockBtn.style.display = guidesAnchorElement ? 'inline-block' : 'none'
 
@@ -3562,13 +3652,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       transform: translateX(-50%);
       padding: 10px 20px;
       border-radius: 20px;
-      background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#00b894' : '#111113'};
-      color: white;
+      background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--surface-panel)'};
+      color: var(--overlay-label-text);
       font-size: 13px;
       font-weight: var(--font-medium);
-      z-index: ${zIndex + 10};
-      border: 1px solid var(--border-default);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: ${theme.config.zIndex + 10};
+      border: 1px solid ${type === 'error' ? 'var(--danger-bg)' : type === 'success' ? 'var(--success-bg)' : 'var(--border-default)'};
+      box-shadow: var(--shadow-dropdown);
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.3s ease;
@@ -3664,7 +3754,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     isCaptureMenuOpen = true
     captureMenu.style.display = 'block'
     positionCaptureMenu()
-    screenshotDropdownBtn.style.background = 'rgba(255,255,255,0.15)'
+    screenshotDropdownBtn.style.background = 'var(--surface-active)'
   }
 
   function closeCaptureMenu(): void {
@@ -3682,19 +3772,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // Capture functions for each mode
   async function captureEntireScreen(): Promise<void> {
     if (currentMode !== 'off') setMode('off')
-    showToast('Capturing entire page...', 'info')
+    showToast(i18n.capture.capturingEntirePage, 'info')
     await performCapture('body', { scroll: true })
   }
 
   async function captureWindow(): Promise<void> {
     if (currentMode !== 'off') setMode('off')
-    showToast('Capturing current window...', 'info')
+    showToast(i18n.capture.capturingCurrentWindow, 'info')
     await performCapture('body', { scroll: false })
   }
 
   async function startSelectElementCapture(): Promise<void> {
     if (currentMode !== 'off') setMode('off')
-    showToast('Hover to preview, click to capture', 'info')
+    showToast(i18n.capture.hoverToCapture, 'info')
     captureMenuMode = 'element'
 
     // Show highlight overlay for element selection
@@ -3722,7 +3812,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         highlight.style.display = 'none'
         tooltip.style.display = 'none'
         const selector = buildDomPath(element)
-        showToast(`Capturing selected element...`, 'info')
+        showToast(i18n.capture.capturingSelectedElement, 'info')
         await performCapture(selector, { scroll: false })
       }
     }
@@ -3734,7 +3824,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   async function startStateCapture(): Promise<void> {
     if (currentMode !== 'off') setMode('off')
     captureMenuMode = 'state'
-    showToast('Hover to preview, click element with hover state...', 'info')
+    showToast(i18n.capture.hoverToCaptureState, 'info')
 
     // Show highlight overlay for element selection
     let selectedElement: HTMLElement | null = null
@@ -3802,7 +3892,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       await sleep(200)
     }
 
-    showToast('All states captured! Paste in Figma', 'success')
+    showToast(i18n.capture.allStatesCaptured, 'success')
     stateCaptureElement = null
   }
 
@@ -3815,7 +3905,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     try {
       // 1) 注入 capture.js
       if (!window.figma?.captureForDesign) {
-        const r = await fetch('https://mcp.figma.com/mcp/html-to-design/capture.js')
+        const r = await fetch(CAPTURE_SCRIPT_URL)
         const s = await r.text()
         const el_script = document.createElement('script')
         el_script.textContent = s
@@ -3849,24 +3939,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       // 4) 执行抓取
       const result = await window.figma?.captureForDesign({ selector })
 
-      showToast(options.state ? `${options.state} state captured!` : 'Captured! Paste in Figma (Ctrl+V)', 'success')
+      showToast(options.state ? `${options.state} state captured!` : i18n.capture.captured, 'success')
       console.log('[Elens] Capture result:', result)
     } catch (error) {
       console.error('[Elens] Capture failed:', error)
-      showToast('Capture failed: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error')
+      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
     }
   }
 
   // Close menu when clicking outside
   document.addEventListener('click', (e) => {
-    if (isCaptureMenuOpen && !captureMenu.contains(e.target as Node) && !screenshotDropdownBtn.contains(e.target as Node)) {
+    const target = e.target as Node
+    if (isCaptureMenuOpen && !captureMenu.contains(target) && !screenshotDropdownBtn.contains(target)) {
       closeCaptureMenu()
+    }
+    if (isOutputDetailMenuOpen && !outputDetailMenu.contains(target)) {
+      closeOutputDetailMenu()
     }
   })
 
   // Update window resize handler to reposition menu
   window.addEventListener('resize', () => {
     if (isCaptureMenuOpen) positionCaptureMenu()
+    if (isOutputDetailMenuOpen) closeOutputDetailMenu()
   })
 
   screenshotBtn.addEventListener('click', () => captureEntireScreen())
@@ -3899,6 +3994,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   toolbar.style.right = '16px'
   toolbar.style.bottom = '16px'
 
+  restorePersistedChanges()
+
   // Initial state
   if (options.enabled) {
     expandToolbar()
@@ -3910,23 +4007,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   return {
     setMode,
     getMode: () => currentMode,
+    updateTheme: (nextTheme, updateOptions) => {
+      applyTheme(nextTheme, { persist: updateOptions?.persist })
+    },
+    getTheme: () => theme.config,
+    resetTheme: (resetOptions) => {
+      applyTheme(defaultThemeConfig, { persist: resetOptions?.persist, reset: true })
+    },
     destroy,
     getCurrentInfo: () => currentInfo,
     getChanges: () => [...changes],
     clearChanges: () => {
-      changes.forEach(c => {
-        if (c.type === 'design' && c.diffs) {
-          for (const diff of c.diffs) c.element.style.removeProperty(diff.property)
-        }
-      })
-      changes = []
-      changeIdCounter = 0
-      activeChangeId = null
-      beforePreviewChangeIds.clear()
-      renderMarkers()
-      if (currentMode === 'changes') renderChangesList()
+      clearAllChanges()
     },
-    exportMarkdown: () => buildMarkdownExport(changes),
-    exportJSON: () => buildJSONExport(changes),
+    exportMarkdown: (detail?: OutputDetail) => buildMarkdownExport(changes, detail),
+    exportJSON: (detail?: OutputDetail) => buildJSONExport(changes, detail),
   }
 }

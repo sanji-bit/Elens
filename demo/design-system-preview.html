@@ -4,14 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Elens Design System Workbench</title>
-    <script type="module" src="./src/workbench.ts"></script>
-    <script>
-      if (window.location.protocol === 'file:') {
-        document.addEventListener('DOMContentLoaded', () => {
-          document.body.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;background:#070708;color:rgba(255,255,255,.86);font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:32px;text-align:center"><div><h1 style="margin:0 0 12px;font-size:22px">请通过开发服务器打开 Workbench</h1><p style="margin:0;color:rgba(255,255,255,.62);line-height:1.7">这个页面依赖 Vite 加载 TypeScript 模块，直接双击 HTML 浏览器会拦截模块加载。<br/>运行 <code style="color:#0C8CE9">npm run dev</code> 后打开 <code style="color:#0C8CE9">http://127.0.0.1:4317/design-system-preview.html</code></p></div></div>'
-        })
-      }
-    </script>
+    <script type="module" src="./workbench.ts"></script>
     <style>
       * { box-sizing: border-box; }
 
@@ -134,6 +127,30 @@
 
       .wb-help-tooltip[hidden] {
         display: none !important;
+      }
+
+      .wb-help-tooltip .ei-tt-head {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .wb-help-tooltip .ei-tt-tag {
+        color: var(--interactive-accent, #0C8CE9);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .wb-help-tooltip .ei-tt-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .wb-help-tooltip .ei-tt-val {
+        color: var(--text-primary, rgba(255,255,255,0.86));
+        font-size: 12px;
+        line-height: 1.5;
       }
 
       .wb-input,
@@ -648,360 +665,6 @@
         top: auto !important;
         left: auto !important;
         width: 100% !important;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 16px;
-        margin-bottom: 4px;
-      }
-
-      .wb-help-tooltip .ei-tt-tag {
-        font-weight: 700;
-        color: var(--interactive-accent, #0C8CE9);
-        font-size: 12px;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        color: var(--text-primary, rgba(255,255,255,0.86));
-        font-size: 12px;
-        line-height: 1.5;
-      }
-
-      .wb-help-tooltip .ei-tt-label {
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-size {
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-swatch {
-        width: 10px;
-        height: 10px;
-        border-radius: 3px;
-        border: 1px solid var(--border-hover, rgba(255,255,255,0.12));
-      }
-
-      .wb-help-tooltip .ei-tt-divider {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 6px 0 4px;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-divider::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: var(--border-default, rgba(255,255,255,0.1));
-      }
-
-      .wb-help-tooltip .ei-tt-no,
-      .wb-help-tooltip .ei-tt-yes {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        font-size: 10px;
-        line-height: 1;
-      }
-
-      .wb-help-tooltip .ei-tt-no {
-        background: var(--surface-field, rgba(255,255,255,0.06));
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-yes {
-        background: var(--success-bg, rgba(25,196,125,0.16));
-        color: var(--success, #19c47d);
-      }
-
-      .wb-help-tooltip .ei-tt-val,
-      .wb-help-tooltip .ei-tt-tag,
-      .wb-help-tooltip .ei-tt-size,
-      .wb-help-tooltip .ei-tt-label {
-        white-space: normal;
-      }
-
-      .wb-help-tooltip .ei-tt-row:last-child {
-        margin-bottom: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-head:last-child {
-        margin-bottom: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-row:only-child {
-        margin-bottom: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-val code {
-        color: var(--interactive-accent, #0C8CE9);
-      }
-
-      .wb-help-tooltip .ei-tt-val br {
-        content: '';
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        overflow: visible;
-        text-overflow: initial;
-      }
-
-      .wb-help-tooltip .ei-tt-row + .ei-tt-row {
-        margin-top: 2px;
-      }
-
-      .wb-help-tooltip .ei-tt-head + .ei-tt-row {
-        margin-top: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-row span {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        flex: 1;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        align-items: flex-start;
-      }
-
-      .wb-help-tooltip .ei-tt-label {
-        flex-shrink: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-tag {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-size {
-        flex-shrink: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-head,
-      .wb-help-tooltip .ei-tt-row {
-        font-family: inherit;
-      }
-
-      .wb-help-tooltip .ei-tt-val,
-      .wb-help-tooltip .ei-tt-label,
-      .wb-help-tooltip .ei-tt-tag,
-      .wb-help-tooltip .ei-tt-size {
-        word-break: break-word;
-      }
-
-      .wb-help-tooltip .ei-tt-row,
-      .wb-help-tooltip .ei-tt-head {
-        max-width: 100%;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        max-width: 100%;
-      }
-
-      .wb-help-tooltip {
-        min-width: 180px;
-      }
-
-      .wb-help-tooltip {
-        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      .wb-help-tooltip {
-        color: var(--text-primary, rgba(255,255,255,0.86));
-      }
-
-      .wb-help-tooltip {
-        line-height: 1.4;
-      }
-
-      .wb-help-tooltip {
-        font-size: 12px;
-      }
-
-      .wb-help-tooltip {
-        overflow: hidden;
-      }
-
-      .wb-help-tooltip {
-        backdrop-filter: blur(12px);
-      }
-
-      .wb-help-tooltip {
-        inset: auto;
-      }
-
-      .wb-help-tooltip {
-        top: 0;
-        left: 0;
-      }
-
-      .wb-help-tooltip {
-        transform: none;
-      }
-
-      .wb-help-tooltip {
-        opacity: 1;
-      }
-
-      .wb-help-tooltip {
-        visibility: visible;
-      }
-
-      .wb-help-tooltip {
-        transition: none;
-      }
-
-      .wb-help-tooltip {
-        white-space: normal;
-      }
-
-      .wb-help-tooltip {
-        user-select: none;
-      }
-
-      .wb-help-tooltip {
-        isolation: isolate;
-      }
-
-      .wb-help-tooltip {
-        contain: layout paint;
-      }
-
-      .wb-help-tooltip {
-        will-change: top, left;
-      }
-
-      .wb-help-tooltip {
-        box-sizing: border-box;
-      }
-
-      .wb-help-tooltip {
-        margin: 0;
-      }
-
-      .wb-help-tooltip {
-        display: block;
-      }
-
-      .wb-help-tooltip[hidden] {
-        display: none !important;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        margin: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-head,
-      .wb-help-tooltip .ei-tt-row,
-      .wb-help-tooltip .ei-tt-val,
-      .wb-help-tooltip .ei-tt-label,
-      .wb-help-tooltip .ei-tt-tag,
-      .wb-help-tooltip .ei-tt-size {
-        pointer-events: none;
-      }
-
-      .wb-help-tooltip .ei-tt-val,
-      .wb-help-tooltip .ei-tt-label,
-      .wb-help-tooltip .ei-tt-tag,
-      .wb-help-tooltip .ei-tt-size {
-        display: inline;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        display: flex;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        display: flex;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        display: block;
-      }
-
-      .wb-help-tooltip .ei-tt-tag,
-      .wb-help-tooltip .ei-tt-size,
-      .wb-help-tooltip .ei-tt-label {
-        display: inline-block;
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        min-width: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        justify-content: flex-start;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        justify-content: flex-start;
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        gap: 8px;
-      }
-
-      .wb-help-tooltip .ei-tt-tag {
-        color: var(--interactive-accent, #0C8CE9);
-      }
-
-      .wb-help-tooltip .ei-tt-size {
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-label {
-        color: var(--text-tertiary, rgba(255,255,255,0.45));
-      }
-
-      .wb-help-tooltip .ei-tt-val {
-        color: var(--text-primary, rgba(255,255,255,0.86));
-      }
-
-      .wb-help-tooltip .ei-tt-head {
-        margin-bottom: 6px;
-      }
-
-      .wb-help-tooltip .ei-tt-row {
-        margin-bottom: 0;
-      }
-
-      .wb-help-tooltip .ei-tt-row + .ei-tt-row {
-        margin-top: 4px;
-      }
-
-      .wb-help-tooltip .ei-tt-head + .ei-tt-row {
-        margin-top: 0;
       }
 
       .wb-mini-toolbar {

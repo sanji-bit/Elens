@@ -1,6 +1,6 @@
 import type { InspectorInfo, StyleDiff } from './types'
-import { rgbToHex } from './utils'
-import { generateCSSVariables } from './design-tokens'
+import { i18n } from './i18n'
+import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 
@@ -22,12 +22,16 @@ export type StyleTracker = {
 
 export function createStyleTracker(element: HTMLElement, onChange?: () => void): StyleTracker {
   const originals = new Map<string, string>()
+  const applied = new Map<string, string>()
 
   return {
     apply(property: string, value: string): void {
       if (!originals.has(property)) {
         originals.set(property, window.getComputedStyle(element).getPropertyValue(property))
       }
+      const original = originals.get(property) ?? ''
+      if (value === original) applied.delete(property)
+      else applied.set(property, value)
       element.style.setProperty(property, value)
       onChange?.()
     },
@@ -37,13 +41,13 @@ export function createStyleTracker(element: HTMLElement, onChange?: () => void):
         element.style.removeProperty(prop)
       }
       originals.clear()
+      applied.clear()
     },
 
     getDiffs(): StyleDiff[] {
       const diffs: StyleDiff[] = []
-      const computed = window.getComputedStyle(element)
       for (const [prop, original] of originals) {
-        const current = computed.getPropertyValue(prop)
+        const current = applied.get(prop) ?? element.style.getPropertyValue(prop)
         if (current !== original) {
           diffs.push({ property: prop, original, modified: current })
         }
@@ -220,14 +224,14 @@ const SIZE_ICONS: Record<string, string> = {
 type SizingMode = 'fixed' | 'hug' | 'fill'
 
 const SIZING_LABELS: Record<SizingMode, string> = {
-  fixed: 'Fixed',
-  hug: 'Hug',
-  fill: 'Fill',
+  fixed: i18n.design.fixed,
+  hug: i18n.design.hug,
+  fill: i18n.design.fill,
 }
 
 const SIZING_FULL_LABELS: Record<string, Record<SizingMode, string>> = {
-  width: { fixed: 'Fixed width', hug: 'Hug contents', fill: 'Fill container' },
-  height: { fixed: 'Fixed height', hug: 'Hug contents', fill: 'Fill container' },
+  width: { fixed: i18n.design.fixedWidth, hug: i18n.design.hugContents, fill: i18n.design.fillContainer },
+  height: { fixed: i18n.design.fixedHeight, hug: i18n.design.hugContents, fill: i18n.design.fillContainer },
 }
 
 function detectSizingMode(element: HTMLElement, dimension: 'width' | 'height'): SizingMode {
@@ -258,12 +262,11 @@ const GAP_DROPDOWN_ICON = `<svg width="23" height="24" viewBox="0 0 23 24" fill=
 type GapFieldOptions = {
   value: number
   tracker: StyleTracker
-  accentColor: string
   onChange: () => void
 }
 
 function createGapField(options: GapFieldOptions): HTMLDivElement {
-  const { value, tracker, accentColor, onChange } = options
+  const { value, tracker, onChange } = options
   const isAuto = value === 0 && !document.querySelector('[style*="gap"]') // fallback heuristic
 
   const wrap = el('div', 'ei-dp-gap-field')
@@ -301,8 +304,8 @@ function createGapField(options: GapFieldOptions): HTMLDivElement {
       if (mode === 'auto') {
         autoMode = true
         tracker.apply('gap', 'normal')
-        input.value = 'Auto'
-        input.style.color = 'rgba(255,255,255,0.45)'
+        input.value = i18n.design.auto
+        input.style.color = 'var(--text-tertiary)'
         trigger.dataset.auto = 'true'
       } else {
         autoMode = false
@@ -313,7 +316,7 @@ function createGapField(options: GapFieldOptions): HTMLDivElement {
         trigger.dataset.auto = 'false'
       }
       onChange()
-    }, accentColor)
+    })
   })
 
   wrap.append(iconEl, input, trigger)
@@ -341,7 +344,6 @@ function openGapDropdown(
   anchor: HTMLElement,
   isAuto: boolean,
   onSelect: (mode: 'fixed' | 'auto') => void,
-  accentColor: string,
 ): void {
   closeGapDropdown()
 
@@ -356,13 +358,13 @@ function openGapDropdown(
     const active = mode === 'auto' ? isAuto : !isAuto
     if (active) {
       check.innerHTML = SIZE_ICONS.checkmark ?? ''
-      check.style.color = accentColor
+      check.style.color = 'var(--interactive-accent)'
     }
 
     const iconWrap = el('span', 'ei-dp-size-option-icon')
     iconWrap.innerHTML = mode === 'fixed' ? (SIZE_ICONS.fixed ?? '') : (SIZE_ICONS.hug ?? '')
 
-    const label = el('span', 'ei-dp-size-option-label', mode === 'fixed' ? 'Fixed' : 'Auto')
+    const label = el('span', 'ei-dp-size-option-label', mode === 'fixed' ? i18n.design.fixed : i18n.design.auto)
 
     item.append(check, iconWrap, label)
     item.addEventListener('click', (e) => {
@@ -518,7 +520,7 @@ function createRadiusField(options: RadiusFieldOptions): HTMLDivElement {
   button.type = 'button'
   button.className = 'ei-dp-field-action'
   button.setAttribute(IGNORE_ATTR, 'true')
-  button.title = 'Edit corner radii'
+  button.title = i18n.design.editCornerRadii
   button.innerHTML = FIELD_ICONS.radiusSettings || ''
   button.addEventListener('click', (event) => {
     event.stopPropagation()
@@ -611,12 +613,11 @@ type SizeFieldOptions = {
   value: number
   element: HTMLElement
   tracker: StyleTracker
-  accentColor: string
   onChange: () => void
 }
 
 function createSizeField(options: SizeFieldOptions): HTMLDivElement {
-  const { icon, dimension, value, element, tracker, accentColor, onChange } = options
+  const { icon, dimension, value, element, tracker, onChange } = options
 
   const wrap = el('div', 'ei-dp-size-field')
   const iconEl = el('div', 'ei-dp-field-icon')
@@ -666,7 +667,7 @@ function createSizeField(options: SizeFieldOptions): HTMLDivElement {
         })
       }
       onChange()
-    }, accentColor)
+    })
   })
 
   wrap.append(iconEl, input, trigger)
@@ -701,7 +702,6 @@ function openSizingDropdown(
   dimension: 'width' | 'height',
   element: HTMLElement,
   onSelect: (mode: SizingMode) => void,
-  accentColor: string,
 ): void {
   closeSizingDropdown()
 
@@ -719,7 +719,7 @@ function openSizingDropdown(
     const check = el('span', 'ei-dp-size-check')
     if (mode === currentMode) {
       check.innerHTML = SIZE_ICONS.checkmark ?? ''
-      check.style.color = accentColor
+      check.style.color = 'var(--interactive-accent)'
     }
 
     const iconWrap = el('span', 'ei-dp-size-option-icon')
@@ -757,49 +757,277 @@ function openSizingDropdown(
   })
 }
 
-// --- Color Fill Row (swatch + hex + opacity) ---
+// --- Color Fill Controls ---
+
+type FillKind = 'solid' | 'gradient' | 'image'
+type GradientType = 'linear' | 'radial'
+type ImageFit = 'cover' | 'contain' | 'auto'
+
+type GradientStop = {
+  id: string
+  color: string
+  position: number
+  opacity: number
+}
+
+type FillDraft = {
+  kind: FillKind
+  color: string
+  opacity: number
+  gradientType: GradientType
+  gradientAngle: number
+  gradientStops: GradientStop[]
+  activeGradientStopId: string
+  imageUrl: string
+  imageFit: ImageFit
+}
 
 type FillRowOptions = {
   value: string
   opacity?: number
+  className?: string
   onChange: (value: string) => void
   onOpacityChange?: (opacity: number, currentHex: string) => void
+  onSwatchClick?: (swatch: HTMLDivElement) => void
+}
+
+function ensureHexColor(value: string, fallback = '#FFFFFF'): string {
+  const normalized = normalizeColorValue(value)
+  if (!normalized) return fallback
+  if (normalized.startsWith('#')) return normalized.length === 4
+    ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`.toUpperCase()
+    : normalized.slice(0, 7).toUpperCase()
+  return fallback
+}
+
+function cssUrlValue(url: string): string {
+  return `url("${url.replace(/"/g, '%22')}")`
+}
+
+function extractCssUrl(value: string): string {
+  const match = value.match(/url\((['"]?)(.*?)\1\)/i)
+  return match?.[2] ?? ''
+}
+
+function createGradientCss(draft: FillDraft): string {
+  const withAlpha = (hex: string, opacity: number): string => {
+    const { r, g, b } = hexToRgb(hex)
+    return opacity >= 100 ? hex : `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
+  }
+  const stops = draft.gradientStops
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map(stop => `${withAlpha(stop.color, stop.opacity)} ${stop.position}%`)
+    .join(', ')
+  if (draft.gradientType === 'radial') {
+    return `radial-gradient(circle, ${stops})`
+  }
+  return `linear-gradient(${draft.gradientAngle}deg, ${stops})`
+}
+
+function createGradientStop(color: string, position: number, opacity = 100): GradientStop {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    color,
+    position,
+    opacity,
+  }
+}
+
+function getActiveGradientStop(draft: FillDraft): GradientStop {
+  return draft.gradientStops.find(stop => stop.id === draft.activeGradientStopId) ?? draft.gradientStops[0]!
+}
+
+function setActiveGradientStop(draft: FillDraft, id: string): void {
+  draft.activeGradientStopId = id
+}
+
+function removeGradientStop(draft: FillDraft, id: string): void {
+  if (draft.gradientStops.length <= 2) return
+  draft.gradientStops = draft.gradientStops.filter(stop => stop.id !== id)
+  if (draft.activeGradientStopId === id) {
+    draft.activeGradientStopId = draft.gradientStops[0]!.id
+  }
+}
+
+function addGradientStop(draft: FillDraft): void {
+  const active = getActiveGradientStop(draft)
+  const nextPosition = clamp(active.position + 10, 0, 100)
+  const stop = createGradientStop(active.color, nextPosition, active.opacity)
+  draft.gradientStops = [...draft.gradientStops, stop]
+  draft.activeGradientStopId = stop.id
+}
+
+function sortGradientStops(draft: FillDraft): void {
+  draft.gradientStops = draft.gradientStops.slice().sort((a, b) => a.position - b.position)
+}
+
+function updateGradientStop(draft: FillDraft, id: string, patch: Partial<GradientStop>): void {
+  draft.gradientStops = draft.gradientStops.map(stop => stop.id === id ? { ...stop, ...patch } : stop)
+  sortGradientStops(draft)
+}
+
+function parseGradientStops(backgroundImage: string, fallbackColor: string): GradientStop[] {
+  const matches = [...backgroundImage.matchAll(/(rgba?\([^)]*\)|#[0-9A-Fa-f]{3,8})\s+(\d+)%/g)]
+  if (matches.length >= 2) {
+    return matches.slice(0, 8).map((match, index) => createGradientStop(ensureHexColor(match[1] ?? fallbackColor, fallbackColor), Number(match[2] ?? index * 100), 100))
+  }
+  return [
+    createGradientStop(fallbackColor, 0, 100),
+    createGradientStop('#737373', 100, 100),
+  ]
+}
+
+type RgbColor = { r: number; g: number; b: number }
+type HsvColor = { h: number; s: number; v: number }
+type HslColor = { h: number; s: number; l: number }
+type ColorFormat = 'hex' | 'rgb' | 'css' | 'hsl' | 'hsb'
+
+function hexToRgb(value: string): RgbColor {
+  const hex = ensureHexColor(value).slice(1)
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  }
+}
+
+function rgbToHsvColor(rgb: RgbColor): HsvColor {
+  const r = rgb.r / 255
+  const g = rgb.g / 255
+  const b = rgb.b / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+  let h = 0
+  if (delta !== 0) {
+    if (max === r) h = ((g - b) / delta) % 6
+    else if (max === g) h = (b - r) / delta + 2
+    else h = (r - g) / delta + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return { h, s: max === 0 ? 0 : delta / max, v: max }
+}
+
+function hsvToHexColor(hsv: HsvColor): string {
+  const c = hsv.v * hsv.s
+  const x = c * (1 - Math.abs((hsv.h / 60) % 2 - 1))
+  const m = hsv.v - c
+  let r = 0
+  let g = 0
+  let b = 0
+  if (hsv.h < 60) [r, g, b] = [c, x, 0]
+  else if (hsv.h < 120) [r, g, b] = [x, c, 0]
+  else if (hsv.h < 180) [r, g, b] = [0, c, x]
+  else if (hsv.h < 240) [r, g, b] = [0, x, c]
+  else if (hsv.h < 300) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  return `#${[r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+}
+
+function rgbToHslColor(rgb: RgbColor): HslColor {
+  const r = rgb.r / 255
+  const g = rgb.g / 255
+  const b = rgb.b / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+  const l = (max + min) / 2
+  let h = 0
+  let s = 0
+  if (delta !== 0) {
+    s = delta / (1 - Math.abs(2 * l - 1))
+    if (max === r) h = ((g - b) / delta) % 6
+    else if (max === g) h = (b - r) / delta + 2
+    else h = (r - g) / delta + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return { h, s, l }
+}
+
+function hslToHexColor(hsl: HslColor): string {
+  const h = hsl.h
+  const s = hsl.s
+  const l = hsl.l
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1))
+  const m = l - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) [r, g, b] = [c, x, 0]
+  else if (h < 120) [r, g, b] = [x, c, 0]
+  else if (h < 180) [r, g, b] = [0, c, x]
+  else if (h < 240) [r, g, b] = [0, x, c]
+  else if (h < 300) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  return `#${[r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+}
+
+function rgbToHexColor(rgb: RgbColor): string {
+  return `#${[rgb.r, rgb.g, rgb.b].map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+}
+
+function formatColorValue(value: string, format: ColorFormat, opacity = 100): string {
+  const hex = ensureHexColor(value)
+  const rgb = hexToRgb(hex)
+  if (format === 'hex') return hex.replace('#', '')
+  if (format === 'rgb') return `${rgb.r}, ${rgb.g}, ${rgb.b}`
+  if (format === 'css') return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.round(opacity) / 100})`
+  if (format === 'hsl') {
+    const hsl = rgbToHslColor(rgb)
+    return `${Math.round(hsl.h)}°, ${Math.round(hsl.s * 100)}%, ${Math.round(hsl.l * 100)}%`
+  }
+  const hsv = rgbToHsvColor(rgb)
+  return `${Math.round(hsv.h)}°, ${Math.round(hsv.s * 100)}%, ${Math.round(hsv.v * 100)}%`
+}
+
+function createFillDraft(element: HTMLElement, info: InspectorInfo): FillDraft {
+  const style = window.getComputedStyle(element)
+  const backgroundImage = style.getPropertyValue('background-image')
+  const backgroundColor = ensureHexColor(style.getPropertyValue('background-color'), '#FFFFFF')
+  const isGradient = backgroundImage.includes('gradient(')
+  const isImage = backgroundImage.includes('url(')
+
+  const gradientStops = parseGradientStops(backgroundImage, backgroundColor)
+  return {
+    kind: isImage ? 'image' : isGradient ? 'gradient' : 'solid',
+    color: backgroundColor,
+    opacity: Number(info.visual.backgroundOpacity) || 100,
+    gradientType: backgroundImage.includes('radial-gradient(') ? 'radial' : 'linear',
+    gradientAngle: 90,
+    gradientStops,
+    activeGradientStopId: gradientStops[0]!.id,
+    imageUrl: isImage ? extractCssUrl(backgroundImage) : '',
+    imageFit: (style.getPropertyValue('background-size') as ImageFit) || 'cover',
+  }
 }
 
 function createFillRow(options: FillRowOptions): HTMLDivElement {
-  const { value, opacity = 100, onChange, onOpacityChange } = options
-  const isGradient = value.includes('gradient(')
-
-  const wrap = el('div', 'ei-dp-fill-row')
-
-  // Track current color for opacity changes
-  let currentHex = rgbToHex(value)
+  const { value, opacity = 100, className = '', onChange, onOpacityChange, onSwatchClick } = options
+  const wrap = el('div', `ei-dp-fill-row${className ? ` ${className}` : ''}`)
+  let currentHex = ensureHexColor(value)
 
   const swatch = el('div', 'ei-dp-swatch')
-  if (isGradient) {
-    swatch.style.background = value
-  } else {
-    swatch.style.backgroundColor = value
-  }
+  swatch.style.background = currentHex
 
   const picker = document.createElement('input')
   picker.type = 'color'
   picker.className = 'ei-dp-picker'
   picker.setAttribute(IGNORE_ATTR, 'true')
+  picker.value = currentHex
+  picker.tabIndex = -1
+  if (onSwatchClick) {
+    picker.style.pointerEvents = 'none'
+  }
 
   const hexInput = document.createElement('input')
   hexInput.type = 'text'
   hexInput.className = 'ei-dp-hex'
   hexInput.setAttribute(IGNORE_ATTR, 'true')
-
-  if (isGradient) {
-    hexInput.value = value
-    hexInput.style.color = 'rgba(255,255,255,0.85)'
-    picker.value = '#000000'
-  } else {
-    hexInput.value = currentHex.replace('#', '')
-    picker.value = currentHex
-  }
+  hexInput.value = currentHex.replace('#', '')
 
   const opacityInput = createNumberInput({
     value: opacity,
@@ -807,7 +1035,6 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     max: 100,
     step: 1,
     onChange: (v) => {
-      if (hexInput.value.includes('gradient(')) return
       currentHex = picker.value || currentHex
       onOpacityChange?.(v, currentHex)
     },
@@ -816,18 +1043,12 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
 
   function applyColor(hex: string): void {
-    currentHex = hex
-    swatch.style.background = hex
-    hexInput.value = hex.replace('#', '').toUpperCase()
-    hexInput.style.color = ''
-    onChange(hex)
-  }
-
-  function applyGradient(gradient: string): void {
-    swatch.style.background = gradient
-    hexInput.value = gradient
-    hexInput.style.color = 'rgba(255,255,255,0.85)'
-    onChange(gradient)
+    const normalized = ensureHexColor(hex, currentHex)
+    currentHex = normalized
+    swatch.style.background = normalized
+    hexInput.value = normalized.replace('#', '').toUpperCase()
+    picker.value = normalized
+    onChange(normalized)
   }
 
   picker.addEventListener('input', (e) => {
@@ -835,42 +1056,1067 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     applyColor(picker.value)
   })
 
+  picker.addEventListener('click', (e) => {
+    if (!onSwatchClick) return
+    e.preventDefault()
+    e.stopPropagation()
+  })
+
+  swatch.addEventListener('click', (e) => {
+    if (!onSwatchClick) return
+    e.preventDefault()
+    e.stopPropagation()
+    onSwatchClick(swatch)
+  })
+
   hexInput.addEventListener('keydown', (e) => {
     e.stopPropagation()
     if (e.key === 'Enter') {
       e.preventDefault()
-      const raw = hexInput.value.trim()
-      if (raw.includes('gradient(')) {
-        applyGradient(raw)
-      } else {
-        let hex = raw
-        if (!hex.startsWith('#')) hex = '#' + hex
-        applyColor(hex)
-        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-      }
+      let hex = hexInput.value.trim()
+      if (!hex.startsWith('#')) hex = '#' + hex
+      applyColor(hex)
       hexInput.blur()
     }
   })
 
   hexInput.addEventListener('blur', () => {
-    const raw = hexInput.value.trim()
-    if (raw.includes('gradient(')) {
-      applyGradient(raw)
-      return
-    }
-    let hex = raw
+    let hex = hexInput.value.trim()
     if (!hex.startsWith('#')) hex = '#' + hex
-    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
-      currentHex = hex
-      swatch.style.background = hex
-      picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-      onChange(hex)
-    }
+    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) applyColor(hex)
   })
 
   swatch.appendChild(picker)
   wrap.append(swatch, hexInput, opacityInput, opacitySuffix)
   return wrap
+}
+
+function createTextInput(value: string, placeholder: string, onChange: (value: string) => void): HTMLInputElement {
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'ei-dp-text-field'
+  input.value = value
+  input.placeholder = placeholder
+  input.setAttribute(IGNORE_ATTR, 'true')
+  input.addEventListener('input', (e) => {
+    e.stopPropagation()
+    onChange(input.value.trim())
+  })
+  input.addEventListener('keydown', (e) => e.stopPropagation())
+  return input
+}
+
+function createColorSegmentGroup(
+  format: ColorFormat,
+  draft: FillDraft,
+  applySolid: () => void,
+  applyImage: () => void,
+  render: () => void,
+): HTMLDivElement {
+  const group = el('div', 'ei-dp-color-segment-group')
+  group.dataset.format = format
+  group.setAttribute(IGNORE_ATTR, 'true')
+
+  if (draft.kind === 'image') {
+    group.dataset.single = 'true'
+    group.appendChild(createColorSegmentInput(draft.imageUrl, (value) => {
+      draft.imageUrl = value
+      applyImage()
+    }))
+    return group
+  }
+
+  if (draft.kind === 'gradient') {
+    group.dataset.single = 'true'
+    group.appendChild(createColorSegmentInput(createGradientCss(draft), () => undefined))
+    return group
+  }
+
+  const rgb = hexToRgb(draft.color)
+  const hsl = rgbToHslColor(rgb)
+  const hsv = rgbToHsvColor(rgb)
+
+  if (format === 'hex') {
+    group.append(
+      createColorSegmentInput(formatColorValue(draft.color, 'hex'), (value) => {
+        draft.color = ensureHexColor(value.startsWith('#') ? value : `#${value}`, draft.color)
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
+        draft.opacity = value
+        applySolid()
+      }),
+      el('span', 'ei-dp-color-segment-suffix', '%'),
+    )
+    return group
+  }
+
+  if (format === 'css') {
+    group.dataset.single = 'true'
+    group.appendChild(createColorSegmentInput(formatColorValue(draft.color, 'css', draft.opacity), (value) => {
+      const hex = rgbToHex(value)
+      if (hex) {
+        draft.color = hex
+        const alphaMatch = value.match(/rgba?\([^)]*,\s*([\d.]+)\s*\)/i)
+        if (alphaMatch) draft.opacity = clamp(Number(alphaMatch[1]) * 100, 0, 100)
+        applySolid()
+        render()
+      }
+    }))
+    return group
+  }
+
+  if (format === 'rgb') {
+    group.append(
+      createColorNumberSegment(rgb.r, 0, 255, (value) => {
+        draft.color = rgbToHexColor({ ...rgb, r: value })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(rgb.g, 0, 255, (value) => {
+        draft.color = rgbToHexColor({ ...rgb, g: value })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(rgb.b, 0, 255, (value) => {
+        draft.color = rgbToHexColor({ ...rgb, b: value })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
+        draft.opacity = value
+        applySolid()
+      }),
+      el('span', 'ei-dp-color-segment-suffix', '%'),
+    )
+    return group
+  }
+
+  if (format === 'hsl') {
+    group.append(
+      createColorNumberSegment(Math.round(hsl.h), 0, 360, (value) => {
+        draft.color = hslToHexColor({ ...hsl, h: value })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(Math.round(hsl.s * 100), 0, 100, (value) => {
+        draft.color = hslToHexColor({ ...hsl, s: value / 100 })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(Math.round(hsl.l * 100), 0, 100, (value) => {
+        draft.color = hslToHexColor({ ...hsl, l: value / 100 })
+        applySolid()
+        render()
+      }),
+      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
+        draft.opacity = value
+        applySolid()
+      }),
+      el('span', 'ei-dp-color-segment-suffix', '%'),
+    )
+    return group
+  }
+
+  group.append(
+    createColorNumberSegment(Math.round(hsv.h), 0, 360, (value) => {
+      draft.color = hsvToHexColor({ ...hsv, h: value })
+      applySolid()
+      render()
+    }),
+    createColorNumberSegment(Math.round(hsv.s * 100), 0, 100, (value) => {
+      draft.color = hsvToHexColor({ ...hsv, s: value / 100 })
+      applySolid()
+      render()
+    }),
+    createColorNumberSegment(Math.round(hsv.v * 100), 0, 100, (value) => {
+      draft.color = hsvToHexColor({ ...hsv, v: value / 100 })
+      applySolid()
+      render()
+    }),
+    createColorNumberSegment(draft.opacity, 0, 100, (value) => {
+      draft.opacity = value
+      applySolid()
+    }),
+    el('span', 'ei-dp-color-segment-suffix', '%'),
+  )
+  return group
+}
+
+function createColorSegmentInput(value: string, onChange: (value: string) => void): HTMLInputElement {
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'ei-dp-color-segment-input'
+  input.value = value
+  input.setAttribute(IGNORE_ATTR, 'true')
+  input.addEventListener('input', (event) => {
+    event.stopPropagation()
+    onChange(input.value.trim())
+  })
+  input.addEventListener('keydown', (event) => event.stopPropagation())
+  return input
+}
+
+function createColorNumberSegment(value: number, min: number, max: number, onChange: (value: number) => void): HTMLInputElement {
+  const input = createNumberInput({
+    value,
+    min,
+    max,
+    step: 1,
+    onChange,
+  })
+  input.className = 'ei-dp-color-segment-input ei-dp-color-segment-number'
+  return input
+}
+
+function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void): HTMLDivElement {
+  const tabs = el('div', 'ei-dp-fill-modebar')
+  const items: Array<{ kind: FillKind; icon: string; label: string }> = [
+    { kind: 'solid', label: 'Solid', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/></svg>' },
+    { kind: 'gradient', label: 'Gradient', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>' },
+    { kind: 'image', label: 'Image', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><path d="M6 14l3-3 2 2 2-3 2 4"/></svg>' },
+  ]
+  for (const item of items) {
+    const btn = el('button', 'ei-dp-fill-mode-btn')
+    btn.type = 'button'
+    btn.title = item.label
+    btn.innerHTML = item.icon
+    btn.setAttribute(IGNORE_ATTR, 'true')
+    if (item.kind === active) btn.dataset.active = 'true'
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(item.kind)
+    })
+    tabs.appendChild(btn)
+  }
+  return tabs
+}
+
+function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
+  const chrome = el('div', 'ei-dp-fill-chrome')
+  const header = el('div', 'ei-dp-fill-chrome-header')
+  const tabs = el('div', 'ei-dp-fill-chrome-tabs')
+  const custom = el('button', 'ei-dp-fill-chrome-tab', 'Custom')
+  const libraries = el('button', 'ei-dp-fill-chrome-tab', 'Libraries')
+  custom.type = 'button'
+  libraries.type = 'button'
+  custom.dataset.active = 'true'
+  custom.setAttribute(IGNORE_ATTR, 'true')
+  libraries.setAttribute(IGNORE_ATTR, 'true')
+  const setChromeTab = (active: HTMLButtonElement): void => {
+    custom.dataset.active = active === custom ? 'true' : 'false'
+    libraries.dataset.active = active === libraries ? 'true' : 'false'
+  }
+  custom.addEventListener('click', (e) => {
+    e.stopPropagation()
+    setChromeTab(custom)
+  })
+  libraries.addEventListener('click', (e) => {
+    e.stopPropagation()
+    setChromeTab(libraries)
+  })
+  tabs.append(custom, libraries)
+  const actions = el('div', 'ei-dp-fill-chrome-actions')
+  const add = el('button', 'ei-dp-fill-chrome-action', '+')
+  const close = el('button', 'ei-dp-fill-chrome-action', '×')
+  add.type = 'button'
+  close.type = 'button'
+  add.setAttribute(IGNORE_ATTR, 'true')
+  close.setAttribute(IGNORE_ATTR, 'true')
+  add.addEventListener('click', (e) => {
+    e.stopPropagation()
+    custom.click()
+  })
+  close.addEventListener('click', (e) => {
+    e.stopPropagation()
+    closeFillPopover()
+  })
+  actions.append(add, close)
+  header.append(tabs, actions)
+  chrome.append(header, content)
+  return chrome
+}
+
+function createPageColorGrid(colors: string[], onSelect: (color: string) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-page-colors')
+  const title = el('button', 'ei-dp-page-colors-title') as HTMLButtonElement
+  title.type = 'button'
+  title.setAttribute(IGNORE_ATTR, 'true')
+  title.dataset.open = 'true'
+  const arrow = el('span', 'ei-dp-page-colors-title-arrow')
+  arrow.innerHTML = DOWN_ARROW_ICON
+  title.append(
+    el('span', 'ei-dp-page-colors-title-text', 'On this page'),
+    arrow,
+  )
+  const grid = el('div', 'ei-dp-page-colors-grid')
+  title.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const open = title.dataset.open !== 'false'
+    title.dataset.open = open ? 'false' : 'true'
+    grid.style.display = open ? 'none' : 'grid'
+  })
+
+  for (const color of colors) {
+    const swatch = el('button', 'ei-dp-page-color')
+    swatch.type = 'button'
+    swatch.title = color
+    swatch.style.background = color
+    swatch.setAttribute(IGNORE_ATTR, 'true')
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(color)
+    })
+    grid.appendChild(swatch)
+  }
+
+  wrap.append(title, grid)
+  return wrap
+}
+
+function describeFillDraft(draft: FillDraft): string {
+  if (draft.kind === 'gradient') return draft.gradientType === 'radial' ? 'Radial gradient' : `Linear ${draft.gradientAngle}°`
+  if (draft.kind === 'image') return draft.imageUrl ? 'Image fill' : 'Select image'
+  return draft.color.toUpperCase()
+}
+
+function getFillTriggerSwatchBackground(draft: FillDraft): string {
+  return draft.kind === 'gradient'
+    ? createGradientCss(draft)
+    : draft.kind === 'image' && draft.imageUrl
+      ? cssUrlValue(draft.imageUrl)
+      : draft.color
+}
+
+function getFillTriggerValue(draft: FillDraft): string {
+  return draft.kind === 'solid' ? draft.color.toUpperCase() : describeFillDraft(draft)
+}
+
+function createFillTrigger(draft: FillDraft, onChange: () => void): HTMLDivElement {
+  const trigger = createFillRow({
+    value: draft.color,
+    opacity: draft.opacity,
+    onChange: (value) => {
+      draft.color = value
+      onChange()
+    },
+    onOpacityChange: (opacity, currentHex) => {
+      draft.opacity = opacity
+      draft.color = currentHex
+      onChange()
+    },
+  })
+  trigger.classList.add('ei-dp-fill-trigger')
+  return trigger
+}
+
+function updateFillTrigger(trigger: HTMLDivElement, draft: FillDraft): void {
+  const swatch = trigger.querySelector<HTMLDivElement>('.ei-dp-swatch')
+  const picker = trigger.querySelector<HTMLInputElement>('.ei-dp-picker')
+  const value = trigger.querySelector<HTMLInputElement>('.ei-dp-hex')
+  const opacity = trigger.querySelector<HTMLInputElement>('.ei-dp-fill-opacity')
+
+  if (swatch) {
+    swatch.style.background = getFillTriggerSwatchBackground(draft)
+  }
+  if (picker) {
+    picker.value = ensureHexColor(draft.color)
+  }
+  if (value && document.activeElement !== value) {
+    value.value = draft.color.replace('#', '').toUpperCase()
+  }
+  if (opacity && document.activeElement !== opacity) {
+    opacity.value = String(draft.opacity)
+  }
+}
+
+function attachFillTriggerEvents(
+  trigger: HTMLDivElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+): void {
+  const swatch = trigger.querySelector<HTMLDivElement>('.ei-dp-swatch')
+  const picker = trigger.querySelector<HTMLInputElement>('.ei-dp-picker')
+  if (picker) {
+    picker.style.pointerEvents = 'none'
+    picker.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+    })
+  }
+  swatch?.addEventListener('click', (event) => {
+    event.stopPropagation()
+    if (activeFillPopover) {
+      closeFillPopover()
+      return
+    }
+    openFillPopover(swatch, draft, pageColors, tracker, onChange, () => {
+      updateFillTrigger(trigger, draft)
+    })
+  })
+
+  trigger.addEventListener('click', (event) => {
+    const target = event.target as Element | null
+    if (
+      target instanceof HTMLInputElement &&
+      (target.classList.contains('ei-dp-hex') || target.classList.contains('ei-dp-fill-opacity') || target.classList.contains('ei-dp-picker'))
+    ) {
+      return
+    }
+    event.stopPropagation()
+  })
+}
+
+function isFillTriggerElement(element: Element | null): element is HTMLDivElement {
+  return element instanceof HTMLDivElement && element.classList.contains('ei-dp-fill-row')
+}
+
+function getFillTriggerElement(container: HTMLDivElement): HTMLDivElement | null {
+  return isFillTriggerElement(container.firstElementChild) ? container.firstElementChild : null
+}
+
+function mountFillTrigger(
+  container: HTMLDivElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+): void {
+  const trigger = createFillTrigger(draft, onChange)
+  attachFillTriggerEvents(trigger, draft, pageColors, tracker, onChange)
+  updateFillTrigger(trigger, draft)
+  container.appendChild(trigger)
+}
+
+function refreshFillTrigger(container: HTMLDivElement, draft: FillDraft): void {
+  const trigger = getFillTriggerElement(container)
+  if (trigger) {
+    updateFillTrigger(trigger, draft)
+  }
+}
+
+function toggleFillTriggerPopover(
+  container: HTMLDivElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+): void {
+  const trigger = getFillTriggerElement(container)
+  const swatch = trigger?.querySelector<HTMLElement>('.ei-dp-swatch')
+  if (!trigger || !swatch) return
+  if (activeFillPopover) {
+    closeFillPopover()
+    return
+  }
+  openFillPopover(swatch, draft, pageColors, tracker, onChange, () => {
+    updateFillTrigger(trigger, draft)
+  })
+}
+
+function renderFillTrigger(
+  container: HTMLDivElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+): void {
+  const trigger = getFillTriggerElement(container)
+  if (trigger) {
+    updateFillTrigger(trigger, draft)
+    return
+  }
+  mountFillTrigger(container, draft, pageColors, tracker, onChange)
+}
+
+function createSolidColorDraft(value: string, opacity = 100): FillDraft {
+  const color = ensureHexColor(value)
+  return {
+    kind: 'solid',
+    color,
+    opacity,
+    gradientType: 'linear',
+    gradientAngle: 90,
+    gradientStops: [createGradientStop(color, 0), createGradientStop('#737373', 100)],
+    activeGradientStopId: '',
+    imageUrl: '',
+    imageFit: 'cover',
+  }
+}
+
+function openSolidColorPopover(
+  anchor: HTMLElement,
+  value: string,
+  opacity: number,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onColorChange: (value: string, opacity: number) => void,
+  onChange: () => void,
+): void {
+  const draft = createSolidColorDraft(value, opacity)
+  draft.activeGradientStopId = draft.gradientStops[0]!.id
+  openFillPopover(anchor, draft, pageColors, tracker, onChange, () => {
+    onColorChange(draft.color, draft.opacity)
+  }, {
+    showModes: false,
+    applySolid: () => onColorChange(draft.color, draft.opacity),
+  })
+}
+
+function updateFillTriggerInContainer(container: HTMLDivElement, draft: FillDraft): void {
+  refreshFillTrigger(container, draft)
+}
+
+function openFillTriggerFromContainer(
+  container: HTMLDivElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+): void {
+  toggleFillTriggerPopover(container, draft, pageColors, tracker, onChange)
+}
+
+let activeFillPopover: HTMLDivElement | null = null
+let fillPopoverDragCleanup: (() => void) | null = null
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function enableFillPopoverDrag(popover: HTMLDivElement): void {
+  let startX = 0
+  let startY = 0
+  let startLeft = 0
+  let startTop = 0
+  let dragging = false
+
+  const onMove = (event: PointerEvent): void => {
+    if (!dragging) return
+    const nextLeft = startLeft + event.clientX - startX
+    const nextTop = startTop + event.clientY - startY
+    popover.style.left = `${clamp(nextLeft, 8, window.innerWidth - popover.offsetWidth - 8)}px`
+    popover.style.top = `${clamp(nextTop, 8, window.innerHeight - popover.offsetHeight - 8)}px`
+  }
+
+  const onUp = (): void => {
+    dragging = false
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+  }
+
+  const onDown = (event: PointerEvent): void => {
+    if (!(event.target instanceof Element) || !event.target.closest('.ei-dp-fill-chrome-header') || event.target.closest('button,input,textarea,select')) return
+    dragging = true
+    startX = event.clientX
+    startY = event.clientY
+    startLeft = popover.offsetLeft
+    startTop = popover.offsetTop
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }
+
+  popover.addEventListener('pointerdown', onDown)
+  fillPopoverDragCleanup = () => {
+    popover.removeEventListener('pointerdown', onDown)
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+  }
+}
+
+function closeFillPopover(): void {
+  if (fillPopoverDragCleanup) {
+    fillPopoverDragCleanup()
+    fillPopoverDragCleanup = null
+  }
+  if (activeFillPopover) {
+    activeFillPopover.remove()
+    activeFillPopover = null
+  }
+  document.removeEventListener('mousedown', handleFillPopoverOutside, true)
+}
+
+function handleFillPopoverOutside(e: MouseEvent): void {
+  if (activeFillPopover && e.target instanceof Element && !activeFillPopover.contains(e.target)) {
+    closeFillPopover()
+  }
+}
+
+type FillPanelOptions = {
+  showModes?: boolean
+  applySolid?: (draft: FillDraft) => void
+  applyGradient?: (draft: FillDraft) => void
+  applyImage?: (draft: FillDraft) => void
+}
+
+function openFillPopover(
+  anchor: HTMLElement,
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+  onDraftChange: () => void,
+  panelOptions: FillPanelOptions = {},
+): void {
+  closeFillPopover()
+  const popover = el('div', 'ei-dp-fill-popover')
+  popover.setAttribute(IGNORE_ATTR, 'true')
+  popover.appendChild(createFillPopoverChrome(createFillPanel(draft, pageColors, tracker, onChange, onDraftChange, panelOptions)))
+
+  document.body.appendChild(popover)
+  const anchorRect = anchor.getBoundingClientRect()
+  const left = clamp(anchorRect.left, 8, window.innerWidth - popover.offsetWidth - 8)
+  const top = clamp(anchorRect.bottom + 8, 8, window.innerHeight - popover.offsetHeight - 8)
+  popover.style.left = `${left}px`
+  popover.style.top = `${top}px`
+  enableFillPopoverDrag(popover)
+
+  activeFillPopover = popover
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleFillPopoverOutside, true)
+  })
+}
+
+function createFillPanel(
+  draft: FillDraft,
+  pageColors: string[],
+  tracker: StyleTracker,
+  onChange: () => void,
+  onDraftChange: () => void,
+  options: FillPanelOptions = {},
+): HTMLDivElement {
+  const panel = el('div', 'ei-dp-fill-panel')
+
+  function applySolid(): void {
+    if (options.applySolid) {
+      options.applySolid(draft)
+      onDraftChange()
+      onChange()
+      return
+    }
+    const alpha = draft.opacity / 100
+    if (alpha < 1) {
+      const hex = ensureHexColor(draft.color)
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
+    } else {
+      tracker.apply('background-color', draft.color)
+    }
+    tracker.apply('background-image', 'none')
+    onDraftChange()
+    onChange()
+  }
+
+  function applyGradient(): void {
+    if (options.applyGradient) {
+      options.applyGradient(draft)
+      onDraftChange()
+      onChange()
+      return
+    }
+    tracker.apply('background-image', createGradientCss(draft))
+    onDraftChange()
+    onChange()
+  }
+
+  function applyImage(): void {
+    if (!draft.imageUrl) return
+    if (options.applyImage) {
+      options.applyImage(draft)
+      onDraftChange()
+      onChange()
+      return
+    }
+    tracker.apply('background-image', cssUrlValue(draft.imageUrl))
+    tracker.apply('background-size', draft.imageFit)
+    tracker.apply('background-position', 'center')
+    tracker.apply('background-repeat', 'no-repeat')
+    onDraftChange()
+    onChange()
+  }
+
+  function applyCurrent(): void {
+    if (draft.kind === 'solid') applySolid()
+    else if (draft.kind === 'gradient') applyGradient()
+    else applyImage()
+  }
+
+  function editableColor(): string {
+    if (draft.kind === 'gradient') return getActiveGradientStop(draft).color
+    return draft.color
+  }
+
+  function updateEditableColor(hex: string): void {
+    const nextColor = ensureHexColor(hex, editableColor())
+    if (draft.kind === 'gradient') {
+      updateGradientStop(draft, draft.activeGradientStopId, { color: nextColor })
+      applyGradient()
+    } else {
+      draft.color = nextColor
+      if (draft.kind === 'solid') applySolid()
+    }
+  }
+
+  function bindColorPlane(area: HTMLDivElement, handle: HTMLDivElement): void {
+    let hsv = rgbToHsvColor(hexToRgb(editableColor()))
+
+    const updateFromPointer = (event: PointerEvent): void => {
+      const rect = area.getBoundingClientRect()
+      const x = clamp(event.clientX - rect.left, 0, rect.width)
+      const y = clamp(event.clientY - rect.top, 0, rect.height)
+      hsv = { ...hsv, s: x / rect.width, v: 1 - y / rect.height }
+      handle.style.left = `${x - 8}px`
+      handle.style.top = `${y - 8}px`
+      updateEditableColor(hsvToHexColor(hsv))
+    }
+
+    const onMove = (event: PointerEvent): void => updateFromPointer(event)
+    const onUp = (): void => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      render()
+    }
+
+    area.addEventListener('pointerdown', (event) => {
+      event.stopPropagation()
+      event.preventDefault()
+      updateFromPointer(event)
+      document.addEventListener('pointermove', onMove)
+      document.addEventListener('pointerup', onUp)
+    })
+  }
+
+  function bindColorSlider(slider: HTMLDivElement, handle: HTMLDivElement, type: 'hue' | 'alpha'): void {
+    const updateFromPointer = (event: PointerEvent): void => {
+      const rect = slider.getBoundingClientRect()
+      const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
+      handle.style.left = `${ratio * rect.width - 8}px`
+      if (type === 'hue') {
+        const hsv = rgbToHsvColor(hexToRgb(editableColor()))
+        updateEditableColor(hsvToHexColor({ ...hsv, h: ratio * 360 }))
+      } else {
+        draft.opacity = Math.round(ratio * 100)
+        if (draft.kind === 'solid') applySolid()
+      }
+    }
+
+    const onMove = (event: PointerEvent): void => updateFromPointer(event)
+    const onUp = (): void => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      render()
+    }
+
+    slider.addEventListener('pointerdown', (event) => {
+      event.stopPropagation()
+      event.preventDefault()
+      updateFromPointer(event)
+      document.addEventListener('pointermove', onMove)
+      document.addEventListener('pointerup', onUp)
+    })
+  }
+
+  function render(): void {
+    panel.innerHTML = ''
+    if (options.showModes !== false) {
+      panel.appendChild(createFillModeTabs(draft.kind, (kind) => {
+        draft.kind = kind
+        render()
+        applyCurrent()
+      }))
+    }
+
+    const body = el('div', 'ei-dp-fill-body')
+    const pickerArea = el('div', 'ei-dp-color-square')
+    const pickerBase = editableColor()
+    pickerArea.style.background = draft.kind === 'gradient'
+      ? `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pickerBase})`
+      : `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pickerBase})`
+    const pickerHandle = el('div', 'ei-dp-color-square-handle')
+    const pickerHsv = rgbToHsvColor(hexToRgb(pickerBase))
+    pickerHandle.style.left = `${pickerHsv.s * 208 - 8}px`
+    pickerHandle.style.top = `${(1 - pickerHsv.v) * 208 - 8}px`
+    pickerArea.appendChild(pickerHandle)
+    bindColorPlane(pickerArea, pickerHandle)
+    const eyedropper = el('button', 'ei-dp-eyedropper') as HTMLButtonElement
+    eyedropper.type = 'button'
+    eyedropper.setAttribute(IGNORE_ATTR, 'true')
+    eyedropper.innerHTML = '<svg viewBox="0 0 20 20"><path d="M13.5 3.5l3 3-8.8 8.8-3.2.7.7-3.2 8.3-8.3zM12 5l3 3"/></svg>'
+    eyedropper.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const EyeDropperCtor = (window as Window & { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
+      if (!EyeDropperCtor) return
+      try {
+        const result = await new EyeDropperCtor().open()
+        updateEditableColor(result.sRGBHex)
+        render()
+      } catch {}
+    })
+    const sliderStack = el('div', 'ei-dp-color-sliders')
+    body.appendChild(pickerArea)
+
+    if (draft.kind === 'solid') {
+      body.appendChild(sliderStack)
+    } else if (draft.kind === 'gradient') {
+      const gradientTypeRow = el('div', 'ei-dp-gradient-type-row')
+      const typeBtn = el('button', 'ei-dp-gradient-type-btn', draft.gradientType === 'linear' ? '线性渐变' : '径向渐变') as HTMLButtonElement
+      typeBtn.type = 'button'
+      typeBtn.setAttribute(IGNORE_ATTR, 'true')
+      typeBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        draft.gradientType = draft.gradientType === 'linear' ? 'radial' : 'linear'
+        applyGradient()
+        render()
+      })
+      const swapBtn = el('button', 'ei-dp-gradient-icon-btn') as HTMLButtonElement
+      swapBtn.type = 'button'
+      swapBtn.setAttribute(IGNORE_ATTR, 'true')
+      swapBtn.innerHTML = '<svg viewBox="0 0 20 20"><path d="M4 6h10m0 0-3-3m3 3-3 3M16 14H6m0 0 3-3m-3 3 3 3"/></svg>'
+      swapBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        draft.gradientStops = draft.gradientStops.slice().reverse()
+        const active = getActiveGradientStop(draft)
+        draft.gradientStops = draft.gradientStops.map(stop => ({ ...stop, position: 100 - stop.position }))
+        sortGradientStops(draft)
+        draft.activeGradientStopId = active.id
+        applyGradient()
+        render()
+      })
+      gradientTypeRow.append(typeBtn, swapBtn)
+      body.appendChild(gradientTypeRow)
+
+      const preview = el('div', 'ei-dp-gradient-strip')
+      preview.style.background = createGradientCss(draft)
+      const onPreviewPointerDown = (stopId: string) => (event: PointerEvent): void => {
+        event.stopPropagation()
+        event.preventDefault()
+        setActiveGradientStop(draft, stopId)
+        const onMove = (moveEvent: PointerEvent): void => {
+          const rect = preview.getBoundingClientRect()
+          updateGradientStop(draft, stopId, { position: Math.round(clamp((moveEvent.clientX - rect.left) / rect.width, 0, 1) * 100) })
+          preview.style.background = createGradientCss(draft)
+          const stopEl = preview.querySelector(`[data-stop-id="${stopId}"]`) as HTMLButtonElement | null
+          if (stopEl) stopEl.style.left = `calc(${getActiveGradientStop(draft).position}% - 10px)`
+        }
+        const onUp = (): void => {
+          document.removeEventListener('pointermove', onMove)
+          document.removeEventListener('pointerup', onUp)
+          applyGradient()
+          render()
+        }
+        onMove(event)
+        document.addEventListener('pointermove', onMove)
+        document.addEventListener('pointerup', onUp)
+      }
+      for (const stop of draft.gradientStops) {
+        const stopBtn = el('button', `ei-dp-gradient-stop${stop.color === '#737373' ? ' ei-dp-gradient-stop-dark' : ''}`) as HTMLButtonElement
+        stopBtn.type = 'button'
+        stopBtn.setAttribute(IGNORE_ATTR, 'true')
+        stopBtn.dataset.stopId = stop.id
+        stopBtn.dataset.active = stop.id === draft.activeGradientStopId ? 'true' : 'false'
+        stopBtn.style.left = `calc(${stop.position}% - 10px)`
+        const chip = el('span', 'ei-dp-gradient-stop-chip')
+        chip.style.background = stop.color
+        stopBtn.appendChild(chip)
+        stopBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          setActiveGradientStop(draft, stop.id)
+          render()
+        })
+        stopBtn.addEventListener('pointerdown', onPreviewPointerDown(stop.id))
+        preview.appendChild(stopBtn)
+      }
+      body.appendChild(preview)
+
+      const stopsHeader = el('div', 'ei-dp-gradient-stops-header')
+      stopsHeader.append(el('span', 'ei-dp-gradient-stops-label', '断点'))
+      const addStopBtn = el('button', 'ei-dp-gradient-icon-btn', '+') as HTMLButtonElement
+      addStopBtn.type = 'button'
+      addStopBtn.setAttribute(IGNORE_ATTR, 'true')
+      addStopBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        addGradientStop(draft)
+        applyGradient()
+        render()
+      })
+      stopsHeader.appendChild(addStopBtn)
+      body.appendChild(stopsHeader)
+
+      const createStopRow = (stop: GradientStop): HTMLDivElement => {
+        const active = stop.id === draft.activeGradientStopId
+        const row = el('div', 'ei-dp-gradient-stop-row')
+        if (active) row.dataset.active = 'true'
+        row.addEventListener('click', () => {
+          setActiveGradientStop(draft, stop.id)
+          render()
+        })
+        const positionWrap = el('div', 'ei-dp-gradient-stop-position')
+        const positionInput = createNumberInput({
+          value: stop.position,
+          min: 0,
+          max: 100,
+          step: 1,
+          onChange: (value) => {
+            updateGradientStop(draft, stop.id, { position: value })
+            applyGradient()
+          },
+        })
+        positionInput.className = 'ei-dp-gradient-stop-position-input'
+        positionWrap.append(positionInput, el('span', 'ei-dp-gradient-stop-position-suffix', '%'))
+        const colorRow = el('div', 'ei-dp-gradient-stop-color')
+        const swatchBtn = el('button', 'ei-dp-gradient-stop-swatch-btn') as HTMLButtonElement
+        swatchBtn.type = 'button'
+        swatchBtn.setAttribute(IGNORE_ATTR, 'true')
+        const swatch = el('span', 'ei-dp-gradient-stop-swatch')
+        swatch.style.background = stop.color
+        const picker = document.createElement('input')
+        picker.type = 'color'
+        picker.className = 'ei-dp-picker'
+        picker.value = ensureHexColor(stop.color)
+        picker.setAttribute(IGNORE_ATTR, 'true')
+        picker.addEventListener('input', (e) => {
+          e.stopPropagation()
+          updateGradientStop(draft, stop.id, { color: picker.value })
+          applyGradient()
+          render()
+        })
+        swatchBtn.append(swatch, picker)
+        const colorInput = document.createElement('input')
+        colorInput.type = 'text'
+        colorInput.className = 'ei-dp-gradient-stop-color-input'
+        colorInput.value = stop.color.replace('#', '')
+        colorInput.setAttribute(IGNORE_ATTR, 'true')
+        colorInput.addEventListener('input', (e) => {
+          e.stopPropagation()
+          updateGradientStop(draft, stop.id, { color: ensureHexColor(colorInput.value.startsWith('#') ? colorInput.value : `#${colorInput.value}`, stop.color) })
+          applyGradient()
+        })
+        const opacityWrap = el('div', 'ei-dp-gradient-stop-opacity')
+        const opacityInput = createNumberInput({
+          value: stop.opacity,
+          min: 0,
+          max: 100,
+          step: 1,
+          onChange: (value) => {
+            updateGradientStop(draft, stop.id, { opacity: value })
+            applyGradient()
+          },
+        })
+        opacityInput.className = 'ei-dp-gradient-stop-opacity-input'
+        opacityWrap.append(opacityInput, el('span', 'ei-dp-gradient-stop-position-suffix', '%'))
+        const removeBtn = el('button', 'ei-dp-gradient-stop-remove', '−') as HTMLButtonElement
+        removeBtn.type = 'button'
+        removeBtn.setAttribute(IGNORE_ATTR, 'true')
+        removeBtn.disabled = draft.gradientStops.length <= 2
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          removeGradientStop(draft, stop.id)
+          applyGradient()
+          render()
+        })
+        colorRow.append(swatchBtn, colorInput, opacityWrap)
+        row.append(positionWrap, colorRow, removeBtn)
+        return row
+      }
+
+      for (const stop of draft.gradientStops) {
+        body.appendChild(createStopRow(stop))
+      }
+
+      if (draft.gradientType === 'linear') {
+        body.appendChild(createLabeledField({
+          icon: '°',
+          value: draft.gradientAngle,
+          min: 0,
+          max: 360,
+          onChange: (value) => {
+            draft.gradientAngle = value
+            applyGradient()
+          },
+        }))
+      }
+    } else {
+      body.appendChild(createTextInput(draft.imageUrl, 'Image URL', (value) => {
+        draft.imageUrl = value
+        applyImage()
+      }))
+      const fitBtns = el('div', 'ei-dp-btn-group')
+      for (const fit of ['cover', 'contain', 'auto'] as ImageFit[]) {
+        const btn = el('button', 'ei-dp-btn', fit)
+        btn.type = 'button'
+        btn.setAttribute(IGNORE_ATTR, 'true')
+        if (draft.imageFit === fit) btn.dataset.active = 'true'
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          draft.imageFit = fit
+          applyImage()
+          render()
+        })
+        fitBtns.appendChild(btn)
+      }
+      body.appendChild(fitBtns)
+    }
+
+    const hue = el('div', 'ei-dp-color-slider ei-dp-color-slider-hue')
+    const hueHandle = el('div', 'ei-dp-color-slider-handle')
+    hueHandle.style.left = `${rgbToHsvColor(hexToRgb(editableColor())).h / 360 * 180 - 8}px`
+    hue.appendChild(hueHandle)
+    bindColorSlider(hue, hueHandle, 'hue')
+    const alphaRow = el('div', 'ei-dp-color-slider-row')
+    alphaRow.appendChild(eyedropper)
+    const alpha = el('div', 'ei-dp-color-slider ei-dp-color-slider-alpha')
+    alpha.style.background = `linear-gradient(90deg, color-mix(in srgb, var(--text-inverse) 0%, transparent) 0%, ${editableColor()} 100%), conic-gradient(from 90deg, var(--border-hover) 0 25%, transparent 0 50%, var(--border-hover) 0 75%, transparent 0)`
+    alpha.style.backgroundSize = '100% 100%, 12px 12px'
+    const alphaHandle = el('div', 'ei-dp-color-slider-handle ei-dp-color-slider-handle-alpha')
+    alphaHandle.style.left = `${draft.opacity / 100 * 180 - 8}px`
+    alpha.appendChild(alphaHandle)
+    bindColorSlider(alpha, alphaHandle, 'alpha')
+    alphaRow.appendChild(alpha)
+    sliderStack.append(hue, alphaRow)
+
+    const valueRow = el('div', 'ei-dp-color-value-row')
+    const currentFormat = (panel.dataset.colorFormat as ColorFormat | undefined) ?? 'hex'
+    const formatLabels: Record<ColorFormat, string> = { hex: 'Hex', rgb: 'RGB', css: 'CSS', hsl: 'HSL', hsb: 'HSB' }
+    const formatBtn = el('button', 'ei-dp-color-format')
+    formatBtn.innerHTML = `<span>${formatLabels[currentFormat]}</span><span class="ei-dp-color-format-arrow">${DOWN_ARROW_ICON}</span>`
+    formatBtn.type = 'button'
+    formatBtn.setAttribute(IGNORE_ATTR, 'true')
+    formatBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      openColorFormatDropdown(formatBtn, currentFormat, (format) => {
+        panel.dataset.colorFormat = format
+        render()
+      })
+    })
+    const segmentGroup = createColorSegmentGroup(currentFormat, draft, applySolid, applyImage, render)
+    valueRow.append(formatBtn, segmentGroup)
+    body.appendChild(valueRow)
+
+    if (pageColors.length > 0) {
+      body.appendChild(createPageColorGrid(pageColors, (color) => {
+        if (draft.kind === 'gradient') {
+          updateGradientStop(draft, draft.activeGradientStopId, { color: ensureHexColor(color, editableColor()) })
+          applyGradient()
+          render()
+          return
+        }
+        draft.color = ensureHexColor(color, draft.color)
+        draft.kind = 'solid'
+        applySolid()
+        render()
+      }))
+    }
+
+    panel.appendChild(body)
+  }
+
+  render()
+  return panel
 }
 
 // --- Weight Select ---
@@ -991,7 +2237,56 @@ function createFontSelect(value: string, onChange: (value: string) => void): HTM
   return wrap
 }
 
+let activeColorFormatDropdown: HTMLDivElement | null = null
 let activeFontDropdown: HTMLDivElement | null = null
+
+function closeColorFormatDropdown(): void {
+  if (activeColorFormatDropdown) {
+    activeColorFormatDropdown.remove()
+    activeColorFormatDropdown = null
+  }
+  document.removeEventListener('mousedown', handleColorFormatDropdownOutside, true)
+}
+
+function handleColorFormatDropdownOutside(e: MouseEvent): void {
+  if (activeColorFormatDropdown && e.target instanceof Element && !activeColorFormatDropdown.contains(e.target)) {
+    closeColorFormatDropdown()
+  }
+}
+
+function openColorFormatDropdown(anchor: HTMLElement, currentFormat: ColorFormat, onSelect: (format: ColorFormat) => void): void {
+  closeColorFormatDropdown()
+  const labels: Record<ColorFormat, string> = { hex: 'Hex', rgb: 'RGB', css: 'CSS', hsl: 'HSL', hsb: 'HSB' }
+  const dropdown = el('div', 'ei-dp-color-format-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  for (const format of ['hex', 'rgb', 'css', 'hsl', 'hsb'] as ColorFormat[]) {
+    const item = el('div', 'ei-dp-color-format-option')
+    item.setAttribute(IGNORE_ATTR, 'true')
+    item.innerHTML = `${format === currentFormat ? '<span class="ei-dp-color-format-check">✓</span>' : '<span class="ei-dp-color-format-check"></span>'}<span>${labels[format]}</span>`
+    if (format === currentFormat) item.dataset.active = 'true'
+    item.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(format)
+      closeColorFormatDropdown()
+    })
+    dropdown.appendChild(item)
+  }
+
+  const panel = anchor.closest('.ei-dp-fill-popover')
+  if (panel) {
+    panel.appendChild(dropdown)
+    const anchorRect = anchor.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
+    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
+  }
+
+  activeColorFormatDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleColorFormatDropdownOutside, true)
+  })
+}
 
 function closeFontDropdown(): void {
   if (activeFontDropdown) {
@@ -1194,9 +2489,9 @@ const STROKE_POSITION_ICONS: Record<string, string> = {
 type StrokePosition = 'inside' | 'center' | 'outside'
 
 const STROKE_POSITION_LABELS: Record<StrokePosition, string> = {
-  inside: 'Inside',
-  center: 'Center',
-  outside: 'Outside',
+  inside: i18n.design.inside,
+  center: i18n.design.center,
+  outside: i18n.design.outside,
 }
 
 type StrokeValues = {
@@ -1214,8 +2509,8 @@ type StrokeValues = {
 type ShadowType = 'drop' | 'inner'
 
 const SHADOW_TYPE_LABELS: Record<ShadowType, string> = {
-  drop: 'Drop shadow',
-  inner: 'Inner shadow',
+  drop: i18n.design.dropShadow,
+  inner: i18n.design.innerShadow,
 }
 
 type ShadowValues = {
@@ -1255,7 +2550,6 @@ function openPosDropdown(
   anchor: HTMLElement,
   currentPos: StrokePosition,
   onSelect: (pos: StrokePosition) => void,
-  accentColor: string,
   onClose?: () => void,
 ): void {
   closePosDropdown()
@@ -1268,7 +2562,7 @@ function openPosDropdown(
     const check = el('span', 'ei-dp-size-check')
     if (pos === currentPos) {
       check.innerHTML = SIZE_ICONS.checkmark ?? ''
-      check.style.color = accentColor
+      check.style.color = 'var(--interactive-accent)'
     }
     const label = el('span', 'ei-dp-size-option-label', STROKE_POSITION_LABELS[pos])
     label.style.paddingLeft = '8px'
@@ -1318,7 +2612,6 @@ function openShadowDropdown(
   anchor: HTMLElement,
   currentType: ShadowType,
   onSelect: (type: ShadowType) => void,
-  accentColor: string,
 ): void {
   closeShadowDropdown()
   const dropdown = el('div', 'ei-dp-size-dropdown')
@@ -1330,7 +2623,7 @@ function openShadowDropdown(
     const check = el('span', 'ei-dp-size-check')
     if (t === currentType) {
       check.innerHTML = SIZE_ICONS.checkmark ?? ''
-      check.style.color = accentColor
+      check.style.color = 'var(--interactive-accent)'
     }
     const label = el('span', 'ei-dp-size-option-label', SHADOW_TYPE_LABELS[t])
     label.style.paddingLeft = '8px'
@@ -1363,7 +2656,6 @@ function openShadowDropdown(
 function createEffectsPanel(
   initialValues: ShadowValues,
   tracker: StyleTracker,
-  accentColor: string,
   onChange: () => void,
 ): HTMLDivElement {
   const panel = el('div', 'ei-dp-effects-panel')
@@ -1390,77 +2682,35 @@ function createEffectsPanel(
       typeLabel.textContent = SHADOW_TYPE_LABELS[t]
       applyShadow(tracker, values)
       onChange()
-    }, accentColor)
+    })
   })
 
   // Color inputs
-  const colorInputs = el('div', 'ei-dp-effects-color-row')
-
-  const swatch = el('div', 'ei-dp-swatch')
-  swatch.style.backgroundColor = values.color
-
-  const picker = document.createElement('input')
-  picker.type = 'color'
-  picker.className = 'ei-dp-picker'
-  picker.setAttribute(IGNORE_ATTR, 'true')
-  picker.value = values.color
-
-  const hexInput = document.createElement('input')
-  hexInput.type = 'text'
-  hexInput.className = 'ei-dp-hex'
-  hexInput.setAttribute(IGNORE_ATTR, 'true')
-  hexInput.value = values.color.replace('#', '').toUpperCase()
-
-  const opacityInput = createNumberInput({
-    value: values.opacity,
-    min: 0, max: 100, step: 1,
-    onChange: (v) => {
-      values.opacity = v
+  const shadowPageColors = collectPageColors(document).filter(color => color !== values.color)
+  const colorInputs = createFillRow({
+    value: values.color,
+    opacity: values.opacity,
+    className: 'ei-dp-effects-color-row',
+    onChange: (hex) => {
+      values.color = hex
       applyShadow(tracker, values)
       onChange()
     },
+    onOpacityChange: (opacity, currentHex) => {
+      values.opacity = opacity
+      values.color = currentHex
+      applyShadow(tracker, values)
+      onChange()
+    },
+    onSwatchClick: (swatch) => {
+      openSolidColorPopover(swatch, values.color, values.opacity, shadowPageColors, tracker, (nextColor, nextOpacity) => {
+        values.color = nextColor
+        values.opacity = nextOpacity
+        applyShadow(tracker, values)
+        onChange()
+      }, onChange)
+    },
   })
-  opacityInput.className = 'ei-dp-fill-opacity'
-  const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
-
-  function applyColor(hex: string): void {
-    values.color = hex
-    swatch.style.backgroundColor = hex
-    hexInput.value = hex.replace('#', '').toUpperCase()
-    applyShadow(tracker, values)
-    onChange()
-  }
-
-  picker.addEventListener('input', (e) => {
-    e.stopPropagation()
-    applyColor(picker.value)
-  })
-
-  hexInput.addEventListener('keydown', (e) => {
-    e.stopPropagation()
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      let hex = hexInput.value.trim()
-      if (!hex.startsWith('#')) hex = '#' + hex
-      if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
-        applyColor(hex)
-        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-      }
-      hexInput.blur()
-    }
-  })
-
-  hexInput.addEventListener('blur', () => {
-    let hex = hexInput.value.trim()
-    if (!hex.startsWith('#')) hex = '#' + hex
-    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
-      applyColor(hex)
-      picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-    }
-  })
-
-  swatch.appendChild(picker)
-  colorInputs.append(swatch, hexInput, opacityInput, opacitySuffix)
   row1.append(typeBtn, colorInputs)
 
   // Row 3: X + Y
@@ -1598,7 +2848,6 @@ function detectShadowValues(element: HTMLElement): ShadowValues | null {
 function createStrokePanel(
   initialValues: StrokeValues,
   tracker: StyleTracker,
-  accentColor: string,
   onRemove: () => void,
   onChange: () => void,
 ): HTMLDivElement {
@@ -1610,77 +2859,31 @@ function createStrokePanel(
 
   // Row 1: Color + Opacity (remove button outside)
   const colorWrapper = el('div', 'ei-dp-stroke-color-wrapper')
-  const colorInputs = el('div', 'ei-dp-stroke-color-row')
-
-  // Color swatch
-  const swatch = el('div', 'ei-dp-swatch')
-  swatch.style.backgroundColor = values.color
-
-  const picker = document.createElement('input')
-  picker.type = 'color'
-  picker.className = 'ei-dp-picker'
-  picker.setAttribute(IGNORE_ATTR, 'true')
-  picker.value = values.color
-
-  // Hex input
-  const hexInput = document.createElement('input')
-  hexInput.type = 'text'
-  hexInput.className = 'ei-dp-hex'
-  hexInput.setAttribute(IGNORE_ATTR, 'true')
-  hexInput.value = values.color.replace('#', '').toUpperCase()
-
-  // Opacity input
-  const opacityInput = createNumberInput({
-    value: values.opacity,
-    min: 0, max: 100, step: 1,
-    onChange: (v) => {
-      values.opacity = v
+  const strokePageColors = collectPageColors(document).filter(color => color !== values.color)
+  const colorInputs = createFillRow({
+    value: values.color,
+    opacity: values.opacity,
+    className: 'ei-dp-stroke-color-row',
+    onChange: (hex) => {
+      values.color = hex
       applyStroke(tracker, values)
       onChange()
     },
+    onOpacityChange: (opacity, currentHex) => {
+      values.opacity = opacity
+      values.color = currentHex
+      applyStroke(tracker, values)
+      onChange()
+    },
+    onSwatchClick: (swatch) => {
+      openSolidColorPopover(swatch, values.color, values.opacity, strokePageColors, tracker, (nextColor, nextOpacity) => {
+        values.color = nextColor
+        values.opacity = nextOpacity
+        applyStroke(tracker, values)
+        onChange()
+      }, onChange)
+    },
   })
-  opacityInput.className = 'ei-dp-fill-opacity'
-  const opacitySuffix = el('div', 'ei-dp-fill-opacity-suffix', '%')
-
-
-  function applyColor(hex: string): void {
-    values.color = hex
-    swatch.style.backgroundColor = hex
-    hexInput.value = hex.replace('#', '').toUpperCase()
-    applyStroke(tracker, values)
-    onChange()
-  }
-
-  picker.addEventListener('input', (e) => {
-    e.stopPropagation()
-    applyColor(picker.value)
-  })
-
-  hexInput.addEventListener('keydown', (e) => {
-    e.stopPropagation()
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      let hex = hexInput.value.trim()
-      if (!hex.startsWith('#')) hex = '#' + hex
-      if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
-        applyColor(hex)
-        picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-      }
-      hexInput.blur()
-    }
-  })
-
-  hexInput.addEventListener('blur', () => {
-    let hex = hexInput.value.trim()
-    if (!hex.startsWith('#')) hex = '#' + hex
-    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
-      applyColor(hex)
-      picker.value = hex.length <= 7 ? hex : hex.slice(0, 7)
-    }
-  })
-
-  swatch.appendChild(picker)
-  colorInputs.append(swatch, hexInput, opacityInput, opacitySuffix)
   colorWrapper.append(colorInputs)
 
   // Row 2: Position dropdown + Stroke weight + Settings button
@@ -1721,7 +2924,7 @@ function createStrokePanel(
   const settingsBtn = el('button', 'ei-dp-field-action')
   settingsBtn.type = 'button'
   settingsBtn.setAttribute(IGNORE_ATTR, 'true')
-  settingsBtn.title = 'Edit individual sides'
+  settingsBtn.title = i18n.design.editIndividualSides
   settingsBtn.innerHTML = STROKE_SETTINGS_ICON
   let expanded = false
 
@@ -1814,7 +3017,7 @@ function createStrokePanel(
       posLabel.textContent = STROKE_POSITION_LABELS[pos]
       applyStroke(tracker, values)
       onChange()
-    }, accentColor, () => {
+    }, () => {
       posDropdownOpen = false
     })
     posDropdownOpen = true
@@ -1961,7 +3164,6 @@ export function buildDesignPanel(
   element: HTMLElement,
   info: InspectorInfo,
   tracker: StyleTracker,
-  accentColor: string,
   callbacks: DesignPanelCallbacks,
 ): HTMLDivElement {
   // Close any stale dropdown from previous panel
@@ -1970,6 +3172,7 @@ export function buildDesignPanel(
   closeWeightDropdown()
   closeFontDropdown()
   closePosDropdown()
+  closeFillPopover()
   const container = el('div', 'ei-dp')
 
   // --- Text Content Section (for text elements) ---
@@ -1986,7 +3189,7 @@ export function buildDesignPanel(
 
     // Header with label and restore button
     const header = el('div', 'ei-dp-text-header')
-    const label = el('span', 'ei-dp-text-label', 'Text')
+    const label = el('span', 'ei-dp-text-label', i18n.changes.textLabel)
 
     const restoreBtn = el('button', 'ei-dp-text-restore')
     restoreBtn.type = 'button'
@@ -2127,7 +3330,7 @@ export function buildDesignPanel(
   // --- Padding helper ---
   function appendPaddingFields(target: HTMLElement): void {
     const label = el('div', 'ei-dp-sublabel')
-    label.textContent = 'Padding'
+    label.textContent = i18n.design.padding
     target.appendChild(label)
     target.appendChild(grid(
       createLabeledField({
@@ -2166,7 +3369,7 @@ export function buildDesignPanel(
   // --- Margin helper ---
   function appendMarginFields(target: HTMLElement): void {
     const label = el('div', 'ei-dp-sublabel')
-    label.textContent = 'Margin'
+    label.textContent = i18n.design.margin
     target.appendChild(label)
     target.appendChild(grid(
       createLabeledField({
@@ -2205,7 +3408,7 @@ export function buildDesignPanel(
 
   if (isLayoutElement) {
     // === 1. Auto layout section ===
-    const layoutSec = createSection('Auto layout', { isFirst: true })
+    const layoutSec = createSection(i18n.design.autoLayout, { isFirst: true })
 
     if (display.includes('flex')) {
       const dirBtns = el('div', 'ei-dp-btn-group')
@@ -2227,8 +3430,8 @@ export function buildDesignPanel(
     }
 
     layoutSec.content.appendChild(grid(
-      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
-      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, onChange: callbacks.onStyleChange }),
     ))
 
     if (display.includes('flex')) {
@@ -2262,8 +3465,8 @@ export function buildDesignPanel(
       })
       gapInput.className = 'ei-dp-field-input'
       if (autoGap) {
-        gapInput.value = 'Auto'
-        gapInput.style.color = 'rgba(255,255,255,0.45)'
+        gapInput.value = i18n.design.auto
+        gapInput.style.color = 'var(--text-tertiary)'
       }
 
       const gapTrigger = el('div', 'ei-dp-gap-trigger')
@@ -2278,8 +3481,8 @@ export function buildDesignPanel(
             autoGap = true
             tracker.apply('gap', 'normal')
             tracker.apply('justify-content', 'space-between')
-            gapInput.value = 'Auto'
-            gapInput.style.color = 'rgba(255,255,255,0.45)'
+            gapInput.value = i18n.design.auto
+            gapInput.style.color = 'var(--text-tertiary)'
             gapTrigger.dataset.auto = 'true'
             gapIconEl.innerHTML = GAP_ICON_DISTRIBUTE
           } else {
@@ -2294,7 +3497,7 @@ export function buildDesignPanel(
           }
           rebuildGrid()
           callbacks.onStyleChange()
-        }, accentColor)
+        })
       })
 
       gapWrap.append(gapIconEl, gapInput, gapTrigger)
@@ -2349,7 +3552,7 @@ export function buildDesignPanel(
       layoutSec.content.appendChild(alignRow)
     } else {
       layoutSec.content.appendChild(grid(
-        createGapField({ value: parsePxValue(info.layout.gap), tracker, accentColor, onChange: callbacks.onStyleChange }),
+        createGapField({ value: parsePxValue(info.layout.gap), tracker, onChange: callbacks.onStyleChange }),
         el('div'),
       ))
     }
@@ -2360,22 +3563,22 @@ export function buildDesignPanel(
 
   } else {
     // === 1. Size section (non-layout) ===
-    const sizeSec = createSection('Size', { isFirst: true })
+    const sizeSec = createSection(i18n.design.size, { isFirst: true })
     sizeSec.content.appendChild(grid(
-      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
-      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, accentColor, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, onChange: callbacks.onStyleChange }),
+      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, onChange: callbacks.onStyleChange }),
     ))
     container.appendChild(sizeSec.container)
 
     // === 2. Spacing section (non-layout) ===
-    const spacingSec = createSection('Spacing')
+    const spacingSec = createSection(i18n.design.spacing)
     appendPaddingFields(spacingSec.content)
     appendMarginFields(spacingSec.content)
     container.appendChild(spacingSec.container)
   }
 
   // === 3. Appearance ===
-  const appearanceSec = createSection('Appearance')
+  const appearanceSec = createSection(i18n.design.appearance)
   const radiusField = createRadiusField({
     icon: '',
     iconHtml: FIELD_ICONS.radius,
@@ -2410,7 +3613,7 @@ export function buildDesignPanel(
 
   // === 4. Typography ===
   if (showTypography) {
-    const typoSec = createSection('Typography')
+    const typoSec = createSection(i18n.design.typography)
 
     // Row 1: Font family
     typoSec.content.appendChild(createFontSelect(
@@ -2483,56 +3686,59 @@ export function buildDesignPanel(
     typoSec.content.appendChild(row4)
 
     // Row 5: Text color
+    const textPageColors = collectPageColors(document).filter(color => color !== info.typography.color)
     typoSec.content.appendChild(createFillRow({
       value: info.typography.color,
       onChange: (v) => tracker.apply('color', v),
+      onSwatchClick: (swatch) => {
+        openSolidColorPopover(swatch, info.typography.color, 100, textPageColors, tracker, (nextColor) => {
+          info.typography.color = nextColor
+          tracker.apply('color', nextColor)
+        }, callbacks.onStyleChange)
+      },
     }))
 
     container.appendChild(typoSec.container)
   }
 
   // === 5. Fill ===
-  const bgIsGradient = info.visual.backgroundColor.includes('gradient(')
-  const hasFill = info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
+  const fillDraft = createFillDraft(element, info)
+  const hasFill = fillDraft.kind !== 'solid' || info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
+  const pageColors = collectPageColors(document).filter(color => color !== fillDraft.color)
 
-  function populateFillContent(contentEl: HTMLDivElement, bgColor: string, bgOpacity: number): void {
+  function populateFillContent(contentEl: HTMLDivElement): void {
     contentEl.innerHTML = ''
-    contentEl.appendChild(createFillRow({
-      value: bgColor,
-      opacity: bgOpacity,
-      onChange: (v) => {
-        if (v.includes('gradient(')) {
-          tracker.apply('background', v)
-          tracker.apply('background-image', 'none')
-          return
-        }
-        if (bgIsGradient) {
-          tracker.apply('background', v)
-          tracker.apply('background-image', 'none')
-        } else {
-          tracker.apply('background-color', v)
-        }
-      },
-      onOpacityChange: (opacity, hex) => {
-        const alpha = opacity / 100
-        const r = parseInt(hex.slice(1, 3), 16)
-        const g = parseInt(hex.slice(3, 5), 16)
-        const b = parseInt(hex.slice(5, 7), 16)
-        tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
-      },
-    }))
+    mountFillTrigger(contentEl, fillDraft, pageColors, tracker, callbacks.onStyleChange)
   }
 
-  fillSection = createSection('Fill', {
+  function refreshFillSectionTrigger(): void {
+    updateFillTriggerInContainer(fillSection.content, fillDraft)
+  }
+
+  function openFillSectionTriggerPopover(): void {
+    openFillTriggerFromContainer(fillSection.content, fillDraft, pageColors, tracker, callbacks.onStyleChange)
+  }
+
+  fillSection = createSection(i18n.design.fill, {
     addRemove: {
       onAdd: () => {
+        fillDraft.kind = 'solid'
+        fillDraft.color = '#FFFFFF'
+        fillDraft.opacity = 100
         tracker.apply('background-color', '#FFFFFF')
-        populateFillContent(fillSection.content, '#FFFFFF', 100)
+        tracker.apply('background-image', 'none')
+        closeFillPopover()
+        populateFillContent(fillSection.content)
         fillSection.setHasContent(true)
         callbacks.onStyleChange()
       },
       onRemove: () => {
         tracker.apply('background-color', 'transparent')
+        tracker.apply('background-image', 'none')
+        tracker.apply('background-size', '')
+        tracker.apply('background-position', '')
+        tracker.apply('background-repeat', '')
+        closeFillPopover()
         fillSection.content.innerHTML = ''
         fillSection.setHasContent(false)
         callbacks.onStyleChange()
@@ -2540,7 +3746,8 @@ export function buildDesignPanel(
     },
   })
   if (hasFill) {
-    populateFillContent(fillSection.content, info.visual.backgroundColor, Number(info.visual.backgroundOpacity))
+    populateFillContent(fillSection.content)
+    fillSection.setHasContent(true)
   } else {
     fillSection.setHasContent(false)
   }
@@ -2554,7 +3761,6 @@ export function buildDesignPanel(
     contentEl.appendChild(createStrokePanel(
       values,
       tracker,
-      accentColor,
       () => {
         // Remove via section button, not stroke panel's internal remove
       },
@@ -2562,7 +3768,7 @@ export function buildDesignPanel(
     ))
   }
 
-  strokeSection = createSection('Stroke', {
+  strokeSection = createSection(i18n.design.stroke, {
     addRemove: {
       onAdd: () => {
         const defaultStroke: StrokeValues = {
@@ -2607,12 +3813,11 @@ export function buildDesignPanel(
     contentEl.appendChild(createEffectsPanel(
       values,
       tracker,
-      accentColor,
       callbacks.onStyleChange,
     ))
   }
 
-  effectsSection = createSection('Effects', {
+  effectsSection = createSection(i18n.design.effects, {
     addRemove: {
       onAdd: () => {
         const defaultShadow: ShadowValues = {
@@ -2649,145 +3854,394 @@ export function buildDesignPanel(
 
 // --- Design Panel Styles ---
 
-export function getDesignStyles(accentColor: string): string {
-  return `${generateCSSVariables(accentColor)}
+export function getDesignStyles(): string {
+  return `
 .ei-dp { padding: 4px 0 0; }
 .ei-dp-section { }
-.ei-dp-section-border { border-top: 0.5px solid rgba(255,255,255,0.08); }
+.ei-dp-section-border { border-top: 0.5px solid var(--border-subtle); }
 .ei-dp-section-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
-.ei-dp-section-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: 0.11px; }
-.ei-dp-section-btn { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; transition: color 0.12s ease; }
-.ei-dp-section-btn:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-section-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.11px; }
+.ei-dp-section-btn { display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--field-radius); transition: color 0.12s ease; }
+.ei-dp-section-btn:hover { color: var(--text-secondary); }
 .ei-dp-section-btn:focus { outline: none; }
 .ei-dp-section-btn svg { display: block; }
 .ei-dp-section-content { padding-bottom: 16px; }
 .ei-dp-section-content[data-visible="false"] { display: none; }
 .ei-dp-section-content > :last-child { margin-bottom: 0; }
-.ei-dp-sublabel { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.35); letter-spacing: 0.1px; margin-bottom: 4px; padding-left: 2px; }
+.ei-dp-sublabel { font-size: 10px; font-weight: 400; color: var(--text-muted); letter-spacing: 0.1px; margin-bottom: 4px; padding-left: 2px; }
 .ei-dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.ei-dp-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; }
-.ei-dp-field:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-field:focus-within { border-color: ${accentColor}; }
-.ei-dp-field-icon { flex-shrink: 0; width: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(255,255,255,0.4); user-select: none; line-height: 0; }
+.ei-dp-field { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); border: 1px solid transparent; background: var(--surface-field); cursor: text; overflow: hidden; transition: border-color 0.15s ease; }
+.ei-dp-field:hover { border-color: var(--border-default); }
+.ei-dp-field:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-field-icon { flex-shrink: 0; width: var(--input-height); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); user-select: none; line-height: 0; }
 .ei-dp-field-icon svg { display: block; }
-.ei-dp-field-input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 6px 0 0; outline: none; cursor: ew-resize; letter-spacing: 0.055px; }
+.ei-dp-field-input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 6px 0 0; outline: none; cursor: ew-resize; letter-spacing: 0.055px; }
 .ei-dp-field-input:focus { cursor: text; }
-.ei-dp-field-suffix { flex-shrink: 0; font-size: 11px; color: rgba(255,255,255,0.4); padding-right: 6px; user-select: none; }
-.ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.45); cursor: pointer; border-radius: 4px; transition: background 0.12s ease, color 0.12s ease; }
-.ei-dp-field-action:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-field-suffix { flex-shrink: 0; font-size: 11px; color: var(--text-muted); padding-right: 6px; user-select: none; }
+.ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: var(--field-radius); transition: background 0.12s ease, color 0.12s ease; }
+.ei-dp-field-action:hover { color: var(--text-secondary); }
 .ei-dp-field-action:focus { outline: none; }
-.ei-dp-field-action[data-active="true"] { color: ${accentColor}; }
+.ei-dp-field-action[data-active="true"] { color: var(--interactive-accent); }
 .ei-dp-field-radius { gap: 4px; }
-.ei-dp-field-select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 4px 0 0; outline: none; cursor: pointer; -webkit-appearance: none; }
-.ei-dp-fill-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); margin-bottom: 8px; overflow: hidden; transition: border-color 0.15s ease; }
-.ei-dp-fill-row:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-fill-row:focus-within { border-color: ${accentColor}; }
-.ei-dp-swatch { width: 14px; height: 14px; border-radius: 2px; border: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); flex-shrink: 0; position: relative; cursor: pointer; overflow: hidden; margin-left: 4px; }
+.ei-dp-field-select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 4px 0 0; outline: none; cursor: pointer; -webkit-appearance: none; }
+.ei-dp-fill-trigger { display: flex; align-items: center; width: 100%; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); padding: 0 8px; gap: 8px; font: inherit; overflow: hidden; }
+.ei-dp-fill-trigger:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-fill-trigger-swatch { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border-input); flex-shrink: 0; background-size: cover; background-position: center; cursor: pointer; }
+.ei-dp-fill-trigger-swatch:hover { box-shadow: inset 0 0 0 1px var(--interactive-accent); }
+.ei-dp-fill-trigger-swatch:focus { outline: none; box-shadow: inset 0 0 0 1px var(--interactive-accent), 0 0 0 2px color-mix(in srgb, var(--interactive-focus-ring) 30%, transparent); }
+.ei-dp-fill-trigger-value { min-width: 0; flex: 1; height: 100%; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; line-height: var(--input-height); letter-spacing: 0.055px; outline: none; padding: 0; }
+.ei-dp-fill-trigger-opacity-wrap { display: flex; align-items: center; height: 100%; flex-shrink: 0; }
+.ei-dp-fill-trigger-opacity { width: 34px; height: 100%; border: 0; background: transparent; color: var(--text-secondary); font-size: 11px; font-family: inherit; line-height: var(--input-height); letter-spacing: 0.055px; text-align: right; outline: none; padding: 0; }
+.ei-dp-fill-trigger-opacity-suffix { color: var(--text-tertiary); font-size: 11px; line-height: var(--input-height); padding-left: 2px; }
+.ei-dp-fill-popover { position: fixed; z-index: 2147483646; width: 240px; max-height: min(720px, calc(100vh - 32px)); overflow: hidden; background: color-mix(in srgb, var(--surface-panel) 98%, transparent); border-radius: 16px; box-shadow: var(--panel-shadow), inset 0 0 0 1px var(--border-subtle); cursor: default; user-select: none; backdrop-filter: blur(18px); }
+.ei-dp-fill-chrome-header { cursor: grab; }
+.ei-dp-fill-chrome-header:active { cursor: grabbing; }
+.ei-dp-fill-popover input,
+.ei-dp-fill-popover textarea,
+.ei-dp-fill-popover button { user-select: auto; }
+.ei-dp-fill-popover button,
+.ei-dp-fill-popover input,
+.ei-dp-fill-popover textarea,
+.ei-dp-fill-popover select { cursor: auto; }
+.ei-dp-fill-chrome { display: flex; flex-direction: column; max-height: inherit; overflow: hidden; }
+.ei-dp-fill-chrome-header { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); }
+.ei-dp-fill-chrome-tabs { display: flex; gap: 4px; align-items: center; }
+.ei-dp-fill-chrome-tab { height: var(--input-height); min-width: 58px; border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-secondary); padding: 0 10px; font: inherit; font-size: 11px; font-weight: 500; line-height: var(--input-height); cursor: pointer; }
+.ei-dp-fill-chrome-tab:hover { background: var(--surface-hover); color: var(--text-primary); }
+.ei-dp-fill-chrome-tab[data-active="true"] { background: var(--border-subtle); color: var(--text-primary); }
+.ei-dp-fill-chrome-tab[data-active="false"] { background: transparent; }
+.ei-dp-fill-chrome-actions { display: flex; gap: 6px; align-items: center; }
+.ei-dp-fill-chrome-action { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ei-dp-fill-chrome-action:hover { background: var(--border-subtle); }
+.ei-dp-fill-popover::-webkit-scrollbar { width: 8px; }
+.ei-dp-fill-popover::-webkit-scrollbar-track { background: transparent; }
+.ei-dp-fill-popover::-webkit-scrollbar-thumb { background: var(--surface-hover-strong); border-radius: 999px; }
+.ei-dp-fill-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 0 12px 14px; }
+.ei-dp-fill-modebar { display: flex; align-items: center; justify-content: flex-start; gap: 32px; height: 41px; padding: 0 0 0 4px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
+.ei-dp-fill-mode-btn { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-secondary); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ei-dp-fill-mode-btn:hover { background: var(--surface-field); color: var(--text-primary); }
+.ei-dp-fill-mode-btn[data-active="true"] { background: var(--border-default); color: var(--text-primary); }
+.ei-dp-fill-mode-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.ei-dp-fill-body { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
+.ei-dp-fill-row { display: flex; align-items: center; width: 100%; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); padding: 0; gap: 0; overflow: hidden; }
+.ei-dp-fill-row:hover { border-color: var(--border-default); }
+.ei-dp-fill-row:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-color-square { position: relative; width: 208px; height: 208px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-subtle); cursor: default; }
+.ei-dp-color-square-handle { position: absolute; left: -8px; top: 62px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-inverse); box-shadow: var(--shadow-dropdown); border: 5px solid var(--text-inverse); box-sizing: border-box; }
+.ei-dp-color-sliders { width: 208px; display: flex; flex-direction: column; gap: 10px; }
+.ei-dp-color-slider-row { width: 208px; display: flex; align-items: center; gap: 8px; }
+.ei-dp-eyedropper { width: 16px; height: 16px; color: var(--text-secondary); flex-shrink: 0; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.ei-dp-eyedropper svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.ei-dp-eyedropper:hover { color: var(--text-primary); }
+.ei-dp-color-slider { position: relative; width: 180px; height: 12px; border-radius: 999px; overflow: visible; align-self: flex-end; cursor: default; }
+.ei-dp-color-slider-hue { background: linear-gradient(90deg, #ff2a2a 0%, #ffd600 16%, #2cff66 33%, #1ad7ff 50%, #3156ff 66%, #ff37f2 83%, #ff2a2a 100%); }
+.ei-dp-color-slider-alpha { }
+.ei-dp-color-slider-handle { position: absolute; left: 14px; top: -3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-inverse); box-shadow: var(--shadow-dropdown); border: 3px solid var(--text-inverse); box-sizing: border-box; }
+.ei-dp-color-slider-handle::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid var(--control-handle-border); }
+.ei-dp-color-slider-handle-alpha::after { border-color: var(--text-secondary); }
+.ei-dp-color-slider-handle-alpha { left: calc(100% - 18px); }
+.ei-dp-gradient-type-row { width: 208px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ei-dp-gradient-type-btn { height: var(--input-height); min-width: 112px; border: 1px solid var(--border-hover); border-radius: var(--field-radius); background: color-mix(in srgb, var(--surface-field) 40%, transparent); color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 12px; text-align: left; cursor: pointer; }
+.ei-dp-gradient-type-btn:hover { background: var(--surface-field); }
+.ei-dp-gradient-icon-btn { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.ei-dp-gradient-icon-btn:hover { background: var(--border-subtle); }
+.ei-dp-gradient-icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.ei-dp-gradient-strip { position: relative; width: 208px; height: 64px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.ei-dp-gradient-stop { position: absolute; top: -8px; width: 20px; height: 20px; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.ei-dp-gradient-stop-chip { display: block; width: 20px; height: 20px; border-radius: 6px; border: 4px solid var(--control-handle); box-shadow: var(--control-handle-shadow); box-sizing: border-box; }
+.ei-dp-gradient-stop-dark .ei-dp-gradient-stop-chip { border-color: var(--text-muted); }
+.ei-dp-gradient-stop[data-active="true"]::after { content: ''; position: absolute; left: 6px; top: 20px; width: 8px; height: 8px; border-radius: 50%; background: var(--interactive-accent); }
+.ei-dp-gradient-stops-header { width: 208px; display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.ei-dp-gradient-stops-label { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.ei-dp-gradient-stop-row { width: 208px; height: 32px; display: grid; grid-template-columns: 54px 1fr 24px; gap: 8px; align-items: center; padding: 0 6px; border-radius: 8px; }
+.ei-dp-gradient-stop-row[data-active="true"] { background: var(--interactive-selection); }
+.ei-dp-gradient-stop-position { height: var(--input-height); display: flex; align-items: center; justify-content: center; gap: 1px; border-radius: var(--field-radius); background: var(--surface-field); }
+.ei-dp-gradient-stop-position-input { width: 26px; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; text-align: right; outline: none; }
+.ei-dp-gradient-stop-position-suffix { color: var(--text-secondary); font-size: 11px; }
+.ei-dp-gradient-stop-color { height: var(--input-height); display: grid; grid-template-columns: var(--input-height) 1fr 54px; align-items: center; border-radius: var(--field-radius); overflow: hidden; background: var(--surface-field); }
+.ei-dp-gradient-stop-swatch-btn { position: relative; width: var(--input-height); height: var(--input-height); border: 0; padding: 0; background: transparent; cursor: pointer; }
+.ei-dp-gradient-stop-swatch { display: block; width: 16px; height: 16px; border-radius: 4px; margin-left: 4px; box-shadow: inset 0 0 0 1px var(--border-hover); }
+.ei-dp-gradient-stop-color-input { width: 100%; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 6px; outline: none; text-transform: uppercase; }
+.ei-dp-gradient-stop-opacity { height: 100%; display: flex; align-items: center; justify-content: center; gap: 1px; border-left: 1px solid var(--border-subtle); }
+.ei-dp-gradient-stop-opacity-input { width: 28px; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; text-align: right; outline: none; }
+.ei-dp-gradient-stop-remove { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; cursor: pointer; }
+.ei-dp-gradient-stop-remove:hover { background: var(--border-subtle); }
+.ei-dp-gradient-stop-remove:disabled { opacity: 0.35; cursor: default; }
+.ei-dp-gradient-stop-remove:disabled:hover { background: transparent; }
+.ei-dp-gradient-stop-row input { cursor: text; }
+.ei-dp-gradient-stop-row .ei-dp-picker { cursor: pointer; }
+.ei-dp-gradient-strip .ei-dp-gradient-stop { cursor: pointer; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn .ei-dp-picker { inset: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { border: 1px solid transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position:hover,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color:hover { border-color: var(--border-default); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position:focus-within,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color { background: var(--border-subtle); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { box-sizing: border-box; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { box-sizing: border-box; }
+.ei-dp-gradient-strip { overflow: visible; }
+.ei-dp-gradient-strip::before { content: ''; position: absolute; inset: 12px 0 0; border-radius: 10px; background: inherit; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.ei-dp-gradient-stop { z-index: 1; }
+.ei-dp-gradient-stop[data-active="true"] { z-index: 2; }
+.ei-dp-gradient-stop-row { cursor: pointer; }
+.ei-dp-gradient-stop-row > * { min-width: 0; }
+.ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-color-input,
+.ei-dp-gradient-stop-opacity-input { min-width: 0; }
+.ei-dp-gradient-icon-btn { cursor: pointer; }
+.ei-dp-gradient-type-btn { cursor: pointer; }
+.ei-dp-gradient-stop-swatch-btn:hover .ei-dp-gradient-stop-swatch { box-shadow: inset 0 0 0 1px var(--text-muted); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop-chip { pointer-events: none; }
+.ei-dp-gradient-strip .ei-dp-gradient-stop::before { content: ''; position: absolute; left: 9px; top: 20px; width: 2px; height: 10px; background: var(--text-muted); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop-dark::before { background: var(--text-muted); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop[data-active="true"]::before { background: var(--interactive-accent); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop[data-active="true"]::after { content: ''; position: absolute; left: 6px; top: 30px; width: 8px; height: 8px; border-radius: 50%; background: var(--interactive-accent); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop-dark[data-active="true"]::after { background: var(--interactive-accent); }
+.ei-dp-gradient-stop-chip { pointer-events: none; }
+.ei-dp-gradient-strip { padding-top: 12px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { min-width: var(--input-height); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { letter-spacing: 0.02em; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { letter-spacing: 0.02em; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-suffix { flex-shrink: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { min-width: 54px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { min-width: 54px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { min-width: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { flex-shrink: 0; }
+.ei-dp-gradient-strip button { user-select: none; }
+.ei-dp-gradient-stop-row button { user-select: none; }
+.ei-dp-gradient-strip { user-select: none; }
+.ei-dp-gradient-stop-row { user-select: none; }
+.ei-dp-gradient-strip .ei-dp-gradient-stop { touch-action: none; }
+.ei-dp-color-square,
+.ei-dp-color-slider { touch-action: none; }
+.ei-dp-gradient-strip { touch-action: none; }
+.ei-dp-gradient-type-row { touch-action: auto; }
+.ei-dp-gradient-stop-row { touch-action: auto; }
+.ei-dp-gradient-stop-swatch-btn { touch-action: auto; }
+.ei-dp-gradient-stop-remove { touch-action: auto; }
+.ei-dp-gradient-icon-btn { touch-action: auto; }
+.ei-dp-gradient-type-btn { touch-action: auto; }
+.ei-dp-page-colors-title { touch-action: auto; }
+.ei-dp-fill-chrome-header { touch-action: none; }
+.ei-dp-fill-chrome-header button { touch-action: auto; }
+.ei-dp-fill-mode-btn { touch-action: auto; }
+.ei-dp-color-format { touch-action: auto; }
+.ei-dp-eyedropper { touch-action: auto; }
+.ei-dp-gradient-stop-swatch-btn .ei-dp-swatch { margin-left: 0; }
+.ei-dp-gradient-stop-swatch-btn .ei-dp-picker { width: 100%; height: 100%; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input::placeholder { color: var(--text-muted); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input:focus,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input:focus,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input:focus { outline: none; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn:focus { outline: none; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn:focus-visible .ei-dp-gradient-stop-swatch { box-shadow: inset 0 0 0 1px var(--text-muted), 0 0 0 1px var(--interactive-accent); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop:focus { outline: none; }
+.ei-dp-gradient-strip .ei-dp-gradient-stop:focus-visible .ei-dp-gradient-stop-chip { box-shadow: inset 0 0 0 1px var(--border-hover), 0 0 0 1px var(--interactive-accent); }
+.ei-dp-gradient-type-btn:focus-visible,
+.ei-dp-gradient-icon-btn:focus-visible,
+.ei-dp-gradient-stop-remove:focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 0; }
+.ei-dp-gradient-stop-row[data-active="true"] { box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color { border-color: var(--surface-field); }
+.ei-dp-gradient-stops-header .ei-dp-gradient-icon-btn { font-size: 22px; line-height: 22px; }
+.ei-dp-gradient-type-row .ei-dp-gradient-icon-btn { color: var(--text-secondary); }
+.ei-dp-gradient-type-row .ei-dp-gradient-icon-btn:hover { color: var(--text-primary); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop-dark .ei-dp-gradient-stop-chip { box-shadow: var(--control-handle-shadow); }
+.ei-dp-gradient-strip .ei-dp-gradient-stop-chip { box-sizing: border-box; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { box-sizing: border-box; }
+.ei-dp-gradient-strip .ei-dp-gradient-stop[data-active="true"] .ei-dp-gradient-stop-chip { box-shadow: var(--control-handle-shadow), 0 0 0 1px var(--interactive-accent-soft); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn .ei-dp-picker { opacity: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { overflow: hidden; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { margin-top: 4px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { display: flex; align-items: center; justify-content: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { padding-right: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { padding-right: 4px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { padding-right: 4px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input { width: 22px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { width: 24px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { padding-left: 4px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { border-right: 1px solid var(--border-subtle); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { grid-template-columns: 24px 1fr 54px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { border-right: 1px solid var(--border-subtle); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { border-left: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { justify-content: flex-end; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { justify-content: flex-end; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { padding-left: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { text-align: right; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-suffix { margin-left: 1px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { padding-left: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { margin: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { margin-left: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { width: var(--input-height); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { width: 16px; height: 16px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { text-transform: uppercase; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { transition: background 0.12s ease, border-color 0.12s ease; }
+.ei-dp-gradient-stop-row:hover .ei-dp-gradient-stop-remove { background: var(--surface-hover); }
+.ei-dp-gradient-stop-row:hover .ei-dp-gradient-stop-remove:disabled { background: transparent; }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-remove { background: var(--surface-field); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:hover { background: var(--surface-hover-strong); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled:hover { background: transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled { color: var(--text-muted); }
+.ei-dp-gradient-preview { width: 208px; height: 96px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--border-default); }
+.ei-dp-text-field { width: 208px; height: 28px; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 8px; outline: none; }
+.ei-dp-text-field:hover { border-color: var(--border-default); }
+.ei-dp-text-field:focus { border-color: var(--interactive-accent); }
+.ei-dp-color-value-row { display: flex; align-items: center; gap: 8px; width: 208px; }
+.ei-dp-color-format { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; font-weight: 500; cursor: pointer; padding: 0 8px; transition: border-color 0.15s ease, background 0.12s ease; }
+.ei-dp-color-format:hover { border-color: var(--border-default); background: var(--surface-hover-strong); }
+.ei-dp-color-format:focus { outline: none; border-color: var(--interactive-accent); }
+.ei-dp-color-format-arrow { display: flex; align-items: center; color: var(--text-tertiary); flex-shrink: 0; }
+.ei-dp-color-format-arrow svg { width: 10px; height: 10px; }
+.ei-dp-color-segment-group { display: flex; align-items: stretch; flex: 1 1 auto; min-width: 0; height: var(--input-height); border-radius: var(--field-radius); overflow: hidden; background: var(--surface-field); }
+.ei-dp-color-segment-group[data-single="true"] { display: block; }
+.ei-dp-color-segment-group:focus-within { box-shadow: inset 0 0 0 1px var(--interactive-accent); }
+.ei-dp-color-segment-input { width: 100%; min-width: 0; height: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 8px; outline: none; }
+.ei-dp-color-segment-number { text-align: center; padding: 0 6px; }
+.ei-dp-color-segment-group > .ei-dp-color-segment-input + .ei-dp-color-segment-input,
+.ei-dp-color-segment-group > .ei-dp-color-segment-input + .ei-dp-color-segment-suffix,
+.ei-dp-color-segment-group > .ei-dp-color-segment-suffix + .ei-dp-color-segment-input { box-shadow: inset 1px 0 0 var(--surface-field); }
+.ei-dp-color-segment-suffix { flex-shrink: 0; display: flex; align-items: center; justify-content: center; min-width: 28px; padding: 0 8px; color: var(--text-secondary); font-size: 11px; }
+.ei-dp-color-segment-group[data-format="rgb"] > .ei-dp-color-segment-number,
+.ei-dp-color-segment-group[data-format="hsl"] > .ei-dp-color-segment-number,
+.ei-dp-color-segment-group[data-format="hsb"] > .ei-dp-color-segment-number { width: 0; flex: 1 1 0; }
+.ei-dp-color-segment-group[data-format="hex"] > .ei-dp-color-segment-input:first-child { flex: 1 1 auto; }
+.ei-dp-color-segment-group[data-format="hex"] > .ei-dp-color-segment-number { width: 40px; flex: 0 0 40px; }
+.ei-dp-color-segment-group[data-format="css"] > .ei-dp-color-segment-input,
+.ei-dp-color-segment-group[data-single="true"] > .ei-dp-color-segment-input { width: 100%; }
+.ei-dp-color-segment-input::-webkit-outer-spin-button,
+.ei-dp-color-segment-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ei-dp-color-segment-input { -moz-appearance: textfield; }
+.ei-dp-page-colors { width: 208px; padding-top: 0; }
+.ei-dp-page-colors-title { width: 100%; height: var(--input-height); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; font-weight: 500; letter-spacing: 0.01em; cursor: pointer; transition: border-color 0.15s ease, background 0.12s ease; }
+.ei-dp-page-colors-title:hover { border-color: var(--border-default); background: var(--border-subtle); }
+.ei-dp-page-colors-title:focus { outline: none; }
+.ei-dp-page-colors-title:focus-visible { border-color: var(--interactive-accent); }
+.ei-dp-page-colors-title-text { pointer-events: none; }
+.ei-dp-page-colors-title-arrow { display: flex; align-items: center; color: var(--text-tertiary); transition: transform 0.12s ease; }
+.ei-dp-page-colors-title[data-open="false"] .ei-dp-page-colors-title-arrow { transform: rotate(-90deg); }
+.ei-dp-page-colors-title-arrow svg { width: 10px; height: 10px; }
+.ei-dp-page-colors-grid { display: grid; grid-template-columns: repeat(8, 18px); justify-content: space-between; gap: 8px 8px; margin-top: 10px; }
+.ei-dp-page-color { width: 18px; height: 18px; border: 0; border-radius: 4px; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px var(--border-input); }
+.ei-dp-page-color:hover { box-shadow: inset 0 0 0 1px var(--text-tertiary); }
+.ei-dp-swatch { width: 14px; height: 14px; border-radius: 2px; border: none; box-shadow: inset 0 0 0 1px var(--border-default); flex-shrink: 0; position: relative; cursor: pointer; overflow: hidden; margin-left: 4px; }
 .ei-dp-picker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.ei-dp-hex { flex: 1; min-width: 0; height: 100%; border: none; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 8px; outline: none; }
-.ei-dp-fill-opacity { flex-shrink: 0; width: 32px; height: 100%; border: none; border-left: none; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; padding: 0 4px; outline: none; text-align: right; cursor: ew-resize; }
+.ei-dp-hex { flex: 1; min-width: 0; height: 100%; border: none; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 8px; outline: none; }
+.ei-dp-fill-opacity { flex-shrink: 0; width: 32px; height: 100%; border: none; border-left: none; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 4px; outline: none; text-align: right; cursor: ew-resize; }
 .ei-dp-fill-opacity:focus { cursor: text; }
-.ei-dp-fill-opacity-suffix { flex-shrink: 0; font-size: 11px; color: rgba(255,255,255,0.4); padding-right: 8px; }
-.ei-dp-btn-group { display: flex; gap: 0; margin-bottom: 8px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
-.ei-dp-btn { flex: 1; height: 24px; border-radius: 5px; border: none; background: transparent; color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 600; cursor: pointer; padding: 0; transition: all 0.12s ease; display: flex; align-items: center; justify-content: center; }
+.ei-dp-fill-opacity-suffix { flex-shrink: 0; font-size: 11px; color: var(--text-muted); padding-right: 8px; }
+.ei-dp-btn-group { display: flex; gap: 0; margin-bottom: 8px; background: var(--surface-field); border-radius: var(--field-radius); overflow: hidden; }
+.ei-dp-btn { flex: 1; height: var(--input-height); border-radius: var(--field-radius); border: none; background: transparent; color: var(--text-muted); font-size: 10px; font-weight: 600; cursor: pointer; padding: 0; transition: all 0.12s ease; display: flex; align-items: center; justify-content: center; }
 .ei-dp-btn svg { display: block; }
-.ei-dp-btn:hover { color: rgba(255,255,255,0.7); }
-.ei-dp-btn[data-active="true"] { background: transparent; color: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.15); }
+.ei-dp-btn:hover { color: var(--text-secondary); }
+.ei-dp-btn[data-active="true"] { background: transparent; color: var(--text-primary); box-shadow: inset 0 0 0 0.5px var(--border-input); }
 .ei-dp-align-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
 .ei-dp-align-row .ei-dp-field { flex: 1; }
 .ei-dp-align-row > * { flex: 1; min-width: 0; }
-.ei-dp-align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; background: rgba(255,255,255,0.06); border: none; border-radius: 5px; padding: 5px 1px; }
-.ei-dp-align-cell { display: flex; align-items: center; justify-content: center; width: 28px; height: 15px; background: transparent; border: none; border-radius: 3px; color: rgba(255,255,255,0.25); cursor: pointer; padding: 0; transition: all 0.12s ease; }
-.ei-dp-align-cell:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
-.ei-dp-align-cell[data-active="true"] { color: ${accentColor}; }
-.ei-dp-align-cell[data-row-active="true"] { color: rgba(255,255,255,0.45); }
-.ei-dp-gap-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
-.ei-dp-gap-field:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-gap-field:focus-within { border-color: ${accentColor}; }
+.ei-dp-align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; background: var(--surface-field); border: none; border-radius: var(--field-radius); padding: 5px 1px; }
+.ei-dp-align-cell { display: flex; align-items: center; justify-content: center; width: 28px; height: 15px; background: transparent; border: none; border-radius: 3px; color: var(--text-faint); cursor: pointer; padding: 0; transition: all 0.12s ease; }
+.ei-dp-align-cell:hover { background: var(--border-subtle); color: var(--text-muted); }
+.ei-dp-align-cell[data-active="true"] { color: var(--interactive-accent); }
+.ei-dp-align-cell[data-row-active="true"] { color: var(--text-tertiary); }
+.ei-dp-gap-field { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); border: 1px solid transparent; background: var(--surface-field); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
+.ei-dp-gap-field:hover { border-color: var(--border-default); }
+.ei-dp-gap-field:focus-within { border-color: var(--interactive-accent); }
 .ei-dp-gap-field .ei-dp-field-input { flex: 1; min-width: 0; }
-.ei-dp-gap-trigger { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; width: 25px; cursor: pointer; color: rgba(255,255,255,0.4); transition: color 0.12s ease; }
-.ei-dp-gap-trigger:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-gap-trigger { flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 100%; width: 25px; cursor: pointer; color: var(--text-muted); transition: color 0.12s ease; }
+.ei-dp-gap-trigger:hover { color: var(--text-secondary); }
 .ei-dp-gap-trigger svg { display: block; }
-.ei-dp-size-field { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
-.ei-dp-size-field:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-size-field:focus-within { border-color: ${accentColor}; }
+.ei-dp-size-field { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); border: 1px solid transparent; background: var(--surface-field); cursor: text; overflow: hidden; transition: border-color 0.15s ease; position: relative; min-width: 0; }
+.ei-dp-size-field:hover { border-color: var(--border-default); }
+.ei-dp-size-field:focus-within { border-color: var(--interactive-accent); }
 .ei-dp-size-field .ei-dp-field-input { flex: 1; min-width: 0; }
-.ei-dp-size-trigger { flex-shrink: 0; display: flex; align-items: center; height: 100%; padding: 0 4px; cursor: pointer; color: rgba(255,255,255,0.45); font-size: 10px; border-left: none; transition: color 0.12s ease; }
-.ei-dp-size-trigger:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-size-trigger { flex-shrink: 0; display: flex; align-items: center; height: 100%; padding: 0 4px; cursor: pointer; color: var(--text-tertiary); font-size: 10px; border-left: none; transition: color 0.12s ease; }
+.ei-dp-size-trigger:hover { color: var(--text-secondary); }
 .ei-dp-size-mode { font-size: 10px; letter-spacing: 0.05px; white-space: nowrap; }
-.ei-dp-size-dropdown { position: absolute; z-index: 100; background: rgba(30,30,30,1); border-radius: 13px; padding: 8px; box-shadow: 0px 10px 16px rgba(0,0,0,0.35), 0px 2px 5px rgba(0,0,0,0.35), inset 0px 0.5px 0px rgba(255,255,255,0.08), inset 0px 0px 0.5px rgba(255,255,255,0.35); min-width: 150px; }
-.ei-dp-size-option { display: flex; align-items: center; height: 24px; border-radius: 5px; cursor: pointer; padding: 0; gap: 0; color: rgba(255,255,255,0.85); transition: background 0.1s ease; }
-.ei-dp-size-option:hover { background: rgba(255,255,255,0.08); }
-.ei-dp-size-check { flex-shrink: 0; width: 26px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85); }
+.ei-dp-size-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 150px; }
+.ei-dp-size-option { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); cursor: pointer; padding: 0; gap: 0; color: var(--text-primary); transition: background 0.1s ease; }
+.ei-dp-size-option:hover { background: var(--border-subtle); }
+.ei-dp-size-check { flex-shrink: 0; width: 26px; display: flex; align-items: center; justify-content: center; color: var(--text-primary); }
 .ei-dp-size-check svg { display: block; }
-.ei-dp-size-option-icon { flex-shrink: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.85); }
+.ei-dp-size-option-icon { flex-shrink: 0; width: var(--input-height); height: var(--input-height); display: flex; align-items: center; justify-content: center; color: var(--text-primary); }
 .ei-dp-size-option-icon svg { display: block; }
 .ei-dp-size-option-label { font-size: 11px; letter-spacing: 0.055px; white-space: nowrap; }
 .ei-dp-stroke-panel { }
 .ei-dp-stroke-color-wrapper { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
-.ei-dp-stroke-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; flex: 1; transition: border-color 0.15s ease; }
-.ei-dp-stroke-color-row:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-stroke-color-row:focus-within { border-color: ${accentColor}; }
-.ei-dp-stroke-remove { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; flex-shrink: 0; transition: color 0.12s ease; }
-.ei-dp-stroke-remove:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-stroke-color-row { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); border: 1px solid transparent; background: var(--surface-field); overflow: hidden; flex: 1; transition: border-color 0.15s ease; }
+.ei-dp-stroke-color-row:hover { border-color: var(--border-default); }
+.ei-dp-stroke-color-row:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-stroke-remove { display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--field-radius); flex-shrink: 0; transition: color 0.12s ease; }
+.ei-dp-stroke-remove:hover { color: var(--text-secondary); }
 .ei-dp-stroke-remove:focus { outline: none; }
 .ei-dp-stroke-remove svg { display: block; }
 .ei-dp-stroke-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; align-items: center; }
-.ei-dp-stroke-pos-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: none; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; width: 100%; transition: background 0.12s ease; }
-.ei-dp-stroke-pos-btn:hover { background: rgba(255,255,255,0.1); }
+.ei-dp-stroke-pos-btn { display: flex; align-items: center; justify-content: space-between; height: var(--input-height); padding: 0 8px; border: none; background: var(--surface-field); color: var(--text-primary); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: var(--field-radius); width: 100%; transition: background 0.12s ease; }
+.ei-dp-stroke-pos-btn:hover { background: var(--surface-hover-strong); }
 .ei-dp-stroke-pos-btn:focus { outline: none; }
-.ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
+.ei-dp-stroke-pos-arrow { display: flex; align-items: center; color: var(--text-muted); }
 .ei-dp-stroke-pos-arrow svg { display: block; }
 .ei-dp-stroke-sides-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.ei-dp-font-select { display: flex; align-items: center; justify-content: space-between; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); padding: 0 8px; cursor: pointer; transition: background 0.12s ease; }
+.ei-dp-font-select { display: flex; align-items: center; justify-content: space-between; height: var(--input-height); border-radius: var(--field-radius); background: var(--surface-field); padding: 0 8px; cursor: pointer; transition: background 0.12s ease; }
 .ei-dp-font-family-select { margin-bottom: 8px; }
-.ei-dp-font-select:hover { background: rgba(255,255,255,0.1); }
-.ei-dp-font-text { font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ei-dp-font-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); flex-shrink: 0; margin-left: 8px; }
+.ei-dp-font-select:hover { background: var(--surface-hover-strong); }
+.ei-dp-font-text { font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ei-dp-font-arrow { display: flex; align-items: center; color: var(--text-muted); flex-shrink: 0; margin-left: 8px; }
 .ei-dp-font-arrow svg { display: block; }
-.ei-dp-font-dropdown { position: absolute; z-index: 100; background: rgba(30,30,30,1); border-radius: 13px; padding: 8px; box-shadow: 0px 10px 16px rgba(0,0,0,0.35), 0px 2px 5px rgba(0,0,0,0.35), inset 0px 0.5px 0px rgba(255,255,255,0.08), inset 0px 0px 0.5px rgba(255,255,255,0.35); min-width: 180px; max-height: 200px; overflow-y: auto; }
+.ei-dp-font-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 180px; max-height: 200px; overflow-y: auto; }
 .ei-dp-font-dropdown::-webkit-scrollbar { width: 8px; }
-.ei-dp-font-dropdown::-webkit-scrollbar-track { background: rgba(255,255,255,0.06); border-radius: 4px; }
-.ei-dp-font-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-.ei-dp-font-dropdown::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
-.ei-dp-font-option { display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 11px; color: rgba(255,255,255,0.85); letter-spacing: 0.055px; transition: background 0.1s ease; }
-.ei-dp-font-option:hover { background: rgba(255,255,255,0.08); }
-.ei-dp-font-option[data-active="true"] { background: rgba(255,255,255,0.12); }
+.ei-dp-font-dropdown::-webkit-scrollbar-track { background: var(--surface-field); border-radius: 4px; }
+.ei-dp-font-dropdown::-webkit-scrollbar-thumb { background: var(--surface-active); border-radius: 4px; }
+.ei-dp-font-dropdown::-webkit-scrollbar-thumb:hover { background: var(--surface-hover-strong); }
+.ei-dp-font-option { display: flex; align-items: center; height: var(--dropdown-option-height); padding: 0 8px; border-radius: var(--field-radius); cursor: pointer; font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; transition: background 0.1s ease; }
+.ei-dp-font-option:hover { background: var(--border-subtle); }
+.ei-dp-font-option[data-active="true"] { background: var(--surface-active); }
+.ei-dp-color-format-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 112px; }
+.ei-dp-color-format-option { display: flex; align-items: center; height: var(--dropdown-option-height); padding: 0 8px 0 0; border-radius: var(--field-radius); cursor: pointer; font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; transition: background 0.1s ease; }
+.ei-dp-color-format-option:hover { background: var(--border-subtle); }
+.ei-dp-color-format-option[data-active="true"] { background: var(--surface-active); }
+.ei-dp-color-format-check { flex-shrink: 0; width: 24px; display: flex; align-items: center; justify-content: center; color: var(--text-primary); font-size: 10px; }
 .ei-dp-typography-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.ei-dp-align-btns { display: flex; height: 24px; border-radius: 5px; background: rgba(255,255,255,0.06); overflow: hidden; }
-.ei-dp-align-btn { flex: 1; height: 24px; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s ease; }
+.ei-dp-align-btns { display: flex; height: var(--input-height); border-radius: var(--field-radius); background: var(--surface-field); overflow: hidden; }
+.ei-dp-align-btn { flex: 1; height: var(--input-height); border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s ease; }
 .ei-dp-align-btn svg { display: block; }
-.ei-dp-align-btn:hover { color: rgba(255,255,255,0.7); }
-.ei-dp-align-btn[data-active="true"] { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.05); }
+.ei-dp-align-btn:hover { color: var(--text-secondary); }
+.ei-dp-align-btn[data-active="true"] { color: var(--text-primary); background: var(--surface-hover); box-shadow: inset 0 0 0 0.5px var(--border-subtle); }
 .ei-dp-field-line-height { gap: 4px; }
 .ei-dp-field-letter-spacing { gap: 4px; }
-.ei-dp-text-section { display: flex; flex-direction: column; border-bottom: 0.5px solid rgba(255,255,255,0.08); }
+.ei-dp-text-section { display: flex; flex-direction: column; border-bottom: 0.5px solid var(--border-subtle); }
 .ei-dp-text-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
-.ei-dp-text-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: 0.11px; }
-.ei-dp-text-restore { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; border-radius: 4px; transition: color 0.12s ease; }
-.ei-dp-text-restore:hover { color: rgba(255,255,255,0.7); }
+.ei-dp-text-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.11px; }
+.ei-dp-text-restore { display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--field-radius); transition: color 0.12s ease; }
+.ei-dp-text-restore:hover { color: var(--text-secondary); }
 .ei-dp-text-restore:focus { outline: none; }
 .ei-dp-text-restore svg { display: block; }
-.ei-dp-text-input-wrap { display: flex; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid transparent; border-radius: 5px; padding: 4px 8px; margin-bottom: 16px; transition: border-color 0.15s ease; }
-.ei-dp-text-input-wrap:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-text-input-wrap:focus-within { border-color: ${accentColor}; }
-.ei-dp-text-input { flex: 1; min-width: 0; border: 0; background: transparent; color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; line-height: 16px; padding: 0; resize: none; outline: none; letter-spacing: 0.055px; max-height: 80px; overflow-y: auto; }
-.ei-dp-text-input::placeholder { color: rgba(255,255,255,0.4); }
+.ei-dp-text-input-wrap { display: flex; align-items: center; background: var(--surface-field); border: 1px solid transparent; border-radius: var(--field-radius); padding: 4px 8px; margin-bottom: 16px; transition: border-color 0.15s ease; }
+.ei-dp-text-input-wrap:hover { border-color: var(--border-default); }
+.ei-dp-text-input-wrap:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-text-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; line-height: 16px; padding: 0; resize: none; outline: none; letter-spacing: 0.055px; max-height: 80px; overflow-y: auto; }
+.ei-dp-text-input::placeholder { color: var(--text-muted); }
 .ei-dp-text-input::-webkit-scrollbar { width: 4px; }
 .ei-dp-text-input::-webkit-scrollbar-track { background: transparent; }
-.ei-dp-text-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-.ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+.ei-dp-text-input::-webkit-scrollbar-thumb { background: var(--surface-active); border-radius: 2px; }
+.ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: var(--surface-hover-strong); }
 .ei-dp-effects-panel { }
 .ei-dp-effects-row1 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 8px; }
 .ei-dp-effects-row1 > * { min-width: 0; width: 100%; }
-.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: 24px; padding: 0 8px; border: 1px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: 5px; min-width: 0; transition: border-color 0.15s ease, background 0.12s ease; }
-.ei-dp-effects-type-btn:hover { border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.08); }
-.ei-dp-effects-type-btn:focus { outline: none; border-color: ${accentColor}; }
-.ei-dp-effects-type-arrow { display: flex; align-items: center; color: rgba(255,255,255,0.4); }
+.ei-dp-effects-type-btn { display: flex; align-items: center; justify-content: space-between; height: var(--input-height); padding: 0 8px; border: 1px solid transparent; background: var(--surface-field); color: var(--text-primary); font-size: 11px; font-family: inherit; cursor: pointer; border-radius: var(--field-radius); min-width: 0; transition: border-color 0.15s ease, background 0.12s ease; }
+.ei-dp-effects-type-btn:hover { border-color: var(--border-default); background: var(--border-subtle); }
+.ei-dp-effects-type-btn:focus { outline: none; border-color: var(--interactive-accent); }
+.ei-dp-effects-type-arrow { display: flex; align-items: center; color: var(--text-muted); }
 .ei-dp-effects-type-arrow svg { display: block; }
-.ei-dp-effects-color-row { display: flex; align-items: center; height: 24px; border-radius: 5px; border: 1px solid transparent; background: rgba(255,255,255,0.06); overflow: hidden; min-width: 0; transition: border-color 0.15s ease; }
-.ei-dp-effects-color-row:hover { border-color: rgba(255,255,255,0.10); }
-.ei-dp-effects-color-row:focus-within { border-color: ${accentColor}; }
+.ei-dp-effects-color-row { display: flex; align-items: center; height: var(--input-height); border-radius: var(--field-radius); border: 1px solid transparent; background: var(--surface-field); overflow: hidden; min-width: 0; transition: border-color 0.15s ease; }
+.ei-dp-effects-color-row:hover { border-color: var(--border-default); }
+.ei-dp-effects-color-row:focus-within { border-color: var(--interactive-accent); }
 .ei-dp-effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 `
 }

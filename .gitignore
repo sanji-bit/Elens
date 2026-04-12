@@ -1,1 +1,4 @@
 .tmp/
+.DS_Store
+node_modules/.vite/
+/demo/demo-dist/

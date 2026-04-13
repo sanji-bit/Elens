@@ -1,3 +1,18 @@
+import CHECK_ICON_SVG from './assets/check-inline.svg?raw'
+import ICON_CAPTURE_SCREEN from './assets/capture-screen.svg?raw'
+import ICON_CAPTURE_WINDOW from './assets/capture-window.svg?raw'
+import ICON_CHEVRON_DOWN from './assets/chevron-down-inline.svg?raw'
+import COPY_ICON_SVG from './assets/copy-inline.svg?raw'
+import ICON_SELECT_ELEMENT from './assets/select-element.svg?raw'
+import ICON_STATE_CAPTURE from './assets/state-capture.svg?raw'
+import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
+import ICON_DESIGN from './assets/toolbar-design.svg?raw'
+import ICON_EXIT from './assets/toolbar-exit.svg?raw'
+import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
+import ICON_INSPECTOR from './assets/toolbar-inspector.svg?raw'
+import ICON_MOVE from './assets/toolbar-move.svg?raw'
+import ICON_OUTLINES from './assets/toolbar-outlines.svg?raw'
+import ICON_SCREENSHOT from './assets/toolbar-screenshot.svg?raw'
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, ThemeConfig } from './types'
 import { buildDesignPanel, createStyleTracker, type StyleTracker } from './design'
 import { buildTheme } from './design-tokens'
@@ -74,10 +89,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   return node
 }
 
-const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`
-const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
 const CHANGES_AVATAR_URL = new URL('./assets/changes-avatar.jpg', import.meta.url).href
-const CHANGES_HOVER_DELETE_ICON = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.7559 3.66797C11.0312 3.68646 11.24 3.92478 11.2217 4.2002L10.915 8.7998C10.857 9.671 10.8106 10.3735 10.7012 10.9229C10.5889 11.4862 10.3982 11.9573 10.0039 12.3262C9.60964 12.695 9.12713 12.8542 8.55762 12.9287C8.00216 13.0014 7.29801 13 6.4248 13H5.90918C5.03589 13 4.33186 13.0014 3.77637 12.9287C3.20681 12.8542 2.72439 12.6949 2.33008 12.3262C1.93579 11.9573 1.74509 11.4862 1.63281 10.9229C1.52337 10.3735 1.47702 9.67099 1.41895 8.7998L1.1123 4.2002C1.09397 3.9247 1.30262 3.68634 1.57812 3.66797C1.85363 3.64964 2.09198 3.85828 2.11035 4.13379L2.41699 8.7334C2.47688 9.63169 2.51959 10.2572 2.61328 10.7275C2.70417 11.1835 2.83146 11.4252 3.01367 11.5957C3.19591 11.766 3.44525 11.8772 3.90625 11.9375C4.38184 11.9997 5.00868 12 5.90918 12H6.4248C7.32525 12 7.95217 11.9997 8.42773 11.9375C8.88873 11.8772 9.13809 11.7661 9.32031 11.5957C9.50253 11.4252 9.62981 11.1836 9.7207 10.7275C9.8144 10.2572 9.85711 9.6317 9.91699 8.7334L10.2236 4.13379C10.242 3.85826 10.4803 3.6496 10.7559 3.66797ZM4.4502 5.33594C4.72479 5.3085 4.96935 5.5087 4.99707 5.7832L5.33105 9.11621C5.35853 9.39097 5.15756 9.63657 4.88281 9.66406C4.60816 9.69137 4.36341 9.4905 4.33594 9.21582L4.00293 5.88281C3.97569 5.60824 4.17561 5.36345 4.4502 5.33594ZM7.88281 5.33594C8.15745 5.3634 8.3583 5.6082 8.33105 5.88281L7.99707 9.21582C7.96959 9.49059 7.72497 9.69154 7.4502 9.66406C7.17546 9.63655 6.97545 9.39096 7.00293 9.11621L7.33594 5.7832C7.36363 5.50876 7.6083 5.30863 7.88281 5.33594ZM7.2627 0C7.41993 0 7.55561 -0.00172584 7.68262 0.0185547C8.15139 0.0934693 8.5571 0.386561 8.77637 0.807617C8.83566 0.921596 8.87709 1.05022 8.92676 1.19922L8.99121 1.39355C9.00377 1.43124 9.00769 1.44175 9.01074 1.4502C9.12751 1.77289 9.43037 1.99131 9.77344 2H11.833C12.1091 2 12.3329 2.22393 12.333 2.5C12.333 2.77614 12.1091 3 11.833 3H0.5C0.223858 3 0 2.77614 0 2.5C8.57951e-05 2.22393 0.223911 2 0.5 2H2.56055C2.9034 1.99113 3.20552 1.7727 3.32227 1.4502C3.32532 1.44174 3.32925 1.4312 3.3418 1.39355L3.40625 1.19922C3.4559 1.05027 3.49737 0.921568 3.55664 0.807617C3.77587 0.386639 4.18173 0.0935364 4.65039 0.0185547C4.7774 -0.00172584 4.91308 0 5.07031 0H7.2627ZM4.80859 1.00586C4.65232 1.03081 4.51744 1.12917 4.44434 1.26953C4.43049 1.29618 4.41608 1.33378 4.35547 1.51562L4.29102 1.70898C4.28014 1.74162 4.2711 1.7668 4.2627 1.79004C4.2364 1.86274 4.20446 1.93237 4.16992 2H8.16309C8.12855 1.93237 8.09661 1.86274 8.07031 1.79004C8.06192 1.76683 8.05381 1.7415 8.04297 1.70898L7.97754 1.51562C7.91714 1.33444 7.90345 1.29616 7.88965 1.26953C7.81655 1.12917 7.68069 1.03081 7.52441 1.00586C7.49477 1.00116 7.45413 1 7.2627 1H5.07031C4.87831 1 4.83827 1.00113 4.80859 1.00586Z" fill="#D9D9D9"/></svg>`
+const CHANGES_HOVER_DELETE_URL = new URL('./assets/changes-delete.svg', import.meta.url).href
 const CHANGES_HOVER_COPY_URL = new URL('./assets/changes-copy.svg', import.meta.url).href
 const CHANGES_HOVER_COPY_SUCCESS_URL = new URL('./assets/changes-copy-success.svg', import.meta.url).href
 const CHANGES_HOVER_PREVIEW_AFTER_URL = new URL('./assets/changes-preview-after.svg', import.meta.url).href
@@ -85,6 +98,7 @@ const CHANGES_HOVER_PREVIEW_BEFORE_URL = new URL('./assets/changes-preview-befor
 const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', import.meta.url).href
 const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
 const CAPTURE_SCRIPT_URL = new URL('./assets/capture.js', import.meta.url).href
+const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
 const CHANGES_HOVER_COPY_SUCCESS_ICON = `<img src="${CHANGES_HOVER_COPY_SUCCESS_URL}" alt="" />`
 const CHANGES_HOVER_PREVIEW_AFTER_ICON = `<img src="${CHANGES_HOVER_PREVIEW_AFTER_URL}" alt="" />`
@@ -93,6 +107,7 @@ const CHANGES_PANEL_CLOSE_ICON = `<img src="${CHANGES_PANEL_CLOSE_URL}" alt="" /
 const CHANGES_PANEL_CHEVRON_ICON = `<img src="${CHANGES_PANEL_CHEVRON_URL}" alt="" />`
 
 preloadImage(CHANGES_AVATAR_URL)
+preloadImage(CHANGES_HOVER_DELETE_URL)
 preloadImage(CHANGES_HOVER_COPY_URL)
 preloadImage(CHANGES_HOVER_COPY_SUCCESS_URL)
 preloadImage(CHANGES_HOVER_PREVIEW_AFTER_URL)
@@ -101,19 +116,6 @@ preloadImage(CHANGES_PANEL_CLOSE_URL)
 preloadImage(CHANGES_PANEL_CHEVRON_URL)
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
-const ICON_INSPECTOR = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10.028 10.568a.417.417 0 0 1 .54-.54l7.5 2.917a.417.417 0 0 1-.028.79l-2.87.89a1.25 1.25 0 0 0-.793.793l-.89 2.87a.417.417 0 0 1-.789-.027l-2.917-7.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 9.167V4.167a1.667 1.667 0 0 0-1.667-1.667H4.167A1.667 1.667 0 0 0 2.5 4.167v11.666a1.667 1.667 0 0 0 1.667 1.667h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_DESIGN = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.0892 17.7442C12.9329 17.9004 12.721 17.9882 12.5 17.9882C12.2791 17.9882 12.0671 17.9004 11.9109 17.7442L10.5892 16.4225C10.433 16.2663 10.3452 16.0543 10.3452 15.8334C10.3452 15.6124 10.433 15.4005 10.5892 15.2442L15.2442 10.5892C15.4005 10.433 15.6124 10.3452 15.8334 10.3452C16.0543 10.3452 16.2663 10.433 16.4225 10.5892L17.7442 11.9109C17.9004 12.0671 17.9882 12.2791 17.9882 12.5C17.9882 12.721 17.9004 12.9329 17.7442 13.0892L13.0892 17.7442Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 10.8333L13.8541 5.10496C13.823 4.94911 13.7479 4.80543 13.6377 4.69085C13.5276 4.57627 13.387 4.49558 13.2325 4.4583L2.6958 1.68996C2.55699 1.6564 2.41188 1.65908 2.2744 1.69773C2.13692 1.73639 2.01169 1.80972 1.9107 1.9107C1.80972 2.01169 1.73639 2.13692 1.69773 2.2744C1.65908 2.41188 1.6564 2.55699 1.68996 2.6958L4.4583 13.2325C4.49558 13.387 4.57627 13.5276 4.69085 13.6377C4.80543 13.7479 4.94911 13.823 5.10496 13.8541L10.8333 15" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.91675 1.91675L7.98841 7.98841" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.16667 10.8333C10.0871 10.8333 10.8333 10.0871 10.8333 9.16667C10.8333 8.24619 10.0871 7.5 9.16667 7.5C8.24619 7.5 7.5 8.24619 7.5 9.16667C7.5 10.0871 8.24619 10.8333 9.16667 10.8333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_CHANGES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.3334 3.33337H15C15.4421 3.33337 15.866 3.50897 16.1786 3.82153C16.4911 4.13409 16.6667 4.55801 16.6667 5.00004V6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.7834 13.0533C17.9478 12.8889 18.0782 12.6938 18.1671 12.479C18.2561 12.2643 18.3019 12.0341 18.3019 11.8016C18.3019 11.5692 18.2561 11.339 18.1671 11.1242C18.0782 10.9095 17.9478 10.7143 17.7834 10.55C17.619 10.3856 17.4239 10.2552 17.2091 10.1662C16.9944 10.0773 16.7642 10.0315 16.5317 10.0315C16.2993 10.0315 16.0691 10.0773 15.8543 10.1662C15.6396 10.2552 15.4444 10.3856 15.2801 10.55L11.1051 14.7266C10.9069 14.9246 10.7619 15.1694 10.6834 15.4383L9.9859 17.83C9.96499 17.9017 9.96374 17.9777 9.98227 18.05C10.0008 18.1224 10.0385 18.1884 10.0913 18.2412C10.1441 18.2941 10.2101 18.3317 10.2825 18.3502C10.3549 18.3688 10.4309 18.3675 10.5026 18.3466L12.8942 17.6491C13.1631 17.5706 13.4079 17.4256 13.6059 17.2275L17.7834 13.0533Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.66671 18.3334H5.00004C4.55801 18.3334 4.13409 18.1578 3.82153 17.8452C3.50897 17.5327 3.33337 17.1087 3.33337 16.6667V5.00004C3.33337 4.55801 3.50897 4.13409 3.82153 3.82153C4.13409 3.50897 4.55801 3.33337 5.00004 3.33337H6.66671" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 1.66663H7.49996C7.03972 1.66663 6.66663 2.03972 6.66663 2.49996V4.16663C6.66663 4.62686 7.03972 4.99996 7.49996 4.99996H12.5C12.9602 4.99996 13.3333 4.62686 13.3333 4.16663V2.49996C13.3333 2.03972 12.9602 1.66663 12.5 1.66663Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_MOVE = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 1.66663V18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 15.8334L10 18.3334L7.5 15.8334" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.8334 7.5L18.3334 10L15.8334 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.66663 10H18.3333" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.16663 7.5L1.66663 10L4.16663 12.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 4.16663L10 1.66663L12.5 4.16663" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_SCREENSHOT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.99996 1.25H7.08329C5.47246 1.25 4.16663 2.55584 4.16663 4.16667C4.16663 5.7775 5.47246 7.08333 7.08329 7.08333M9.99996 1.25V7.08333M9.99996 1.25H12.9166C14.5275 1.25 15.8333 2.55584 15.8333 4.16667C15.8333 5.7775 14.5275 7.08333 12.9166 7.08333M9.99996 7.08333H7.08329M9.99996 7.08333V12.9167M9.99996 7.08333H12.9166M7.08329 7.08333C5.47246 7.08333 4.16663 8.38917 4.16663 10C4.16663 11.6108 5.47246 12.9167 7.08329 12.9167M9.99996 12.9167H7.08329M9.99996 12.9167V15.8333C9.99996 17.4442 8.69412 18.75 7.08329 18.75C5.47246 18.75 4.16663 17.4442 4.16663 15.8333C4.16663 14.2225 5.47246 12.9167 7.08329 12.9167M12.9166 7.08333C14.5275 7.08333 15.8333 8.38917 15.8333 10C15.8333 11.6108 14.5275 12.9167 12.9166 12.9167C11.3058 12.9167 9.99996 11.6108 9.99996 10C9.99996 8.38917 11.3058 7.08333 12.9166 7.08333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_CHEVRON_DOWN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`
-const ICON_CAPTURE_SCREEN = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.16675 4.88667C1.16675 4.68232 1.16675 4.58014 1.17527 4.49408C1.25752 3.66403 1.91415 3.00739 2.7442 2.92515C2.83027 2.91663 2.93796 2.91663 3.15334 2.91663C3.23633 2.91663 3.27782 2.91663 3.31306 2.91449C3.76294 2.88725 4.15689 2.6033 4.325 2.18513C4.33816 2.15238 4.35047 2.11546 4.37508 2.04163C4.39969 1.96779 4.412 1.93088 4.42516 1.89813C4.59328 1.47995 4.98722 1.19601 5.43711 1.16876C5.47234 1.16663 5.51125 1.16663 5.58908 1.16663H8.41108C8.48891 1.16663 8.52782 1.16663 8.56306 1.16876C9.01294 1.19601 9.40689 1.47995 9.575 1.89813C9.58816 1.93088 9.60047 1.96779 9.62508 2.04163C9.64969 2.11546 9.662 2.15238 9.67516 2.18513C9.84328 2.6033 10.2372 2.88725 10.6871 2.91449C10.7223 2.91663 10.7638 2.91663 10.8468 2.91663C11.0622 2.91663 11.1699 2.91663 11.256 2.92515C12.086 3.00739 12.7426 3.66403 12.8249 4.49408C12.8334 4.58014 12.8334 4.68232 12.8334 4.88667V9.44996C12.8334 10.4301 12.8334 10.9201 12.6427 11.2944C12.4749 11.6237 12.2072 11.8914 11.8779 12.0592C11.5036 12.25 11.0135 12.25 10.0334 12.25H3.96675C2.98666 12.25 2.49661 12.25 2.12226 12.0592C1.79298 11.8914 1.52527 11.6237 1.35749 11.2944C1.16675 10.9201 1.16675 10.4301 1.16675 9.44996V4.88667Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.00008 9.62496C8.28875 9.62496 9.33341 8.58029 9.33341 7.29163C9.33341 6.00296 8.28875 4.95829 7.00008 4.95829C5.71142 4.95829 4.66675 6.00296 4.66675 7.29163C4.66675 8.58029 5.71142 9.62496 7.00008 9.62496Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_CAPTURE_WINDOW = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.6666 2.33337H2.33329C1.68896 2.33337 1.16663 2.85571 1.16663 3.50004V10.5C1.16663 11.1444 1.68896 11.6667 2.33329 11.6667H11.6666C12.311 11.6667 12.8333 11.1444 12.8333 10.5V3.50004C12.8333 2.85571 12.311 2.33337 11.6666 2.33337Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 4.66663H3.50583" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.83337 4.66663H5.83921" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.16663 4.66663H8.17246" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_SELECT_ELEMENT = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.25 5.54167V4.55C12.25 3.56991 12.25 3.07986 12.0593 2.70552C11.8915 2.37623 11.6238 2.10852 11.2945 1.94074C10.9201 1.75 10.4301 1.75 9.45 1.75H4.55C3.56991 1.75 3.07986 1.75 2.70552 1.94074C2.37623 2.10852 2.10852 2.37623 1.94074 2.70552C1.75 3.07986 1.75 3.56991 1.75 4.55V9.45C1.75 10.4301 1.75 10.9201 1.94074 11.2945C2.10852 11.6238 2.37623 11.8915 2.70552 12.0593C3.07986 12.25 3.56991 12.25 4.55 12.25H5.54167M10.142 10.3316L9.15128 12.1714C8.98934 12.4721 8.90838 12.6225 8.80969 12.6618C8.72402 12.6958 8.62728 12.6874 8.5488 12.639C8.45842 12.5832 8.40474 12.4211 8.29738 12.0968L6.70856 7.29826C6.61455 7.01432 6.56754 6.87235 6.60134 6.7778C6.63076 6.69552 6.69552 6.63076 6.7778 6.60134C6.87235 6.56754 7.01432 6.61455 7.29826 6.70857L12.0968 8.29739C12.4211 8.40475 12.5832 8.45843 12.639 8.54882C12.6874 8.6273 12.6958 8.72404 12.6617 8.80971C12.6225 8.90839 12.4721 8.98936 12.1714 9.15129L10.3316 10.142C10.2858 10.1666 10.2629 10.179 10.2428 10.1948C10.225 10.2089 10.2089 10.225 10.1948 10.2428C10.179 10.2629 10.1666 10.2858 10.142 10.3316Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_STATE_CAPTURE = `<svg width="16" height="16" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_icon)"><path d="M5.24996 2.04163V1.16663M2.95201 2.95201L2.33329 2.33329M2.95201 7.58329L2.33329 8.20201M7.58329 2.95201L8.20201 2.33329M2.04163 5.24996H1.16663M9.25424 9.44388L7.80072 12.1432C7.63467 12.4516 7.55164 12.6058 7.45175 12.6448C7.36506 12.6786 7.26743 12.6691 7.18894 12.6191C7.09851 12.5614 7.04696 12.3941 6.94385 12.0594L4.92632 5.50969C4.84209 5.23625 4.79998 5.09954 4.83386 5.0072C4.86338 4.92677 4.92677 4.86338 5.0072 4.83387C5.09954 4.79998 5.23625 4.84209 5.50969 4.92632L12.0593 6.94387C12.3941 7.04698 12.5614 7.09853 12.619 7.18897C12.6691 7.26745 12.6786 7.36509 12.6448 7.45177C12.6058 7.55167 12.4516 7.63469 12.1432 7.80074L9.44388 9.25424C9.39805 9.27891 9.37514 9.29125 9.35508 9.3071C9.33728 9.32117 9.32117 9.33728 9.3071 9.35508C9.29125 9.37514 9.27891 9.39805 9.25424 9.44388Z" stroke="currentColor" stroke-width="0.875" stroke-linecap="round" stroke-linejoin="round"/></g><defs><clipPath id="clip0_icon"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>`
-const ICON_EXIT = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_OUTLINES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.12" d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 9.99996C13.3333 8.15901 11.8409 6.66663 9.99996 6.66663C8.15901 6.66663 6.66663 8.15901 6.66663 9.99996C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" fill="currentColor"/><path d="M1.66663 6.5C1.66663 5.09987 1.66663 4.3998 1.93911 3.86502C2.17879 3.39462 2.56124 3.01217 3.03165 2.77248C3.56643 2.5 4.26649 2.5 5.66663 2.5H14.3333C15.7334 2.5 16.4335 2.5 16.9683 2.77248C17.4387 3.01217 17.8211 3.39462 18.0608 3.86502C18.3333 4.3998 18.3333 5.09987 18.3333 6.5V13.5C18.3333 14.9001 18.3333 15.6002 18.0608 16.135C17.8211 16.6054 17.4387 16.9878 16.9683 17.2275C16.4335 17.5 15.7334 17.5 14.3333 17.5H5.66663C4.26649 17.5 3.56643 17.5 3.03165 17.2275C2.56124 16.9878 2.17879 16.6054 1.93911 16.135C1.66663 15.6002 1.66663 14.9001 1.66663 13.5V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.99996 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 10C13.3333 8.15905 11.8409 6.66667 9.99996 6.66667C8.15901 6.66667 6.66663 8.15905 6.66663 10C6.66663 11.8409 8.15901 13.3333 9.99996 13.3333Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const ICON_GUIDES = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.7501 12.7501C17.9365 12.9359 18.0845 13.1567 18.1854 13.3998C18.2864 13.6429 18.3383 14.1667 18.3383 14.1667C18.3383 14.43 18.2864 14.6906 18.1854 14.9337C18.0845 15.1768 17.9365 15.3976 17.7501 15.5834L15.5834 17.7501C15.3976 17.9365 15.1768 18.0845 14.9337 18.1854C14.6906 18.2864 14.43 18.3383 14.1667 18.3383C13.9035 18.3383 13.6429 18.2864 13.3998 18.1854C13.1567 18.0845 12.9359 17.9365 12.7501 17.7501L2.25008 7.25008C1.87554 6.87373 1.66528 6.36437 1.66528 5.83341C1.66528 5.30245 1.87554 4.7931 2.25008 4.41675L4.41675 2.25008C4.7931 1.87554 5.30245 1.66528 5.83341 1.66528C6.36437 1.66528 6.87373 1.87554 7.25008 2.25008L17.7501 12.7501Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.0834 10.4167L13.75 8.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.58337 7.91667L11.25 6.25" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.08337 5.41667L8.75004 3.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5834 12.9167L16.25 11.25" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 function styleRow(label: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-row')
@@ -746,7 +748,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
     panel.classList.remove('is-changes')
     changesCloseBtn.style.display = 'none'
-    subtitle.style.display = ''
+    subtitle.style.display = 'none'
   }
 
   function getReorderableSiblings(element: HTMLElement): HTMLElement[] {
@@ -1562,11 +1564,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       change.beforeSnapshot = buildChangeSnapshot(change.info)
     }
     const mergedDiffs = mergeDiffs(change.diffs ?? [], diffs ?? [])
-    const mergedComment = change.type === 'design'
+    const styleComment = change.type === 'design'
       ? mergedDiffs
         .filter(d => !isInternalResetDiff(d))
         .map(d => `${d.property}: ${d.original} → ${d.modified}`)
         .join(', ')
+      : comment
+    const mergedComment = change.type === 'design'
+      ? [styleComment, change.meta.note?.trim()].filter(Boolean).join('\n')
       : comment
     change.comment = mergedComment
     change.diffs = mergedDiffs
@@ -1909,10 +1914,98 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const noteText = (change: Change): string => {
-      if (!change.comment) return ''
       if (change.type === 'annotation') return change.comment
-      const summaryLines = buildSummaryLines(change)
-      return summaryLines.includes(change.comment) ? '' : change.comment
+      return change.meta.note?.trim() ?? ''
+    }
+
+    type ChangeInfoRow = {
+      property: string
+      value: string
+      checked: boolean
+      muted: boolean
+      colorValue?: string
+    }
+
+    const isMutedChangeValue = (value: string): boolean => ['auto', 'none', 'normal', 'initial', 'unset'].includes(value.trim().toLowerCase())
+    const isColorChangeProperty = (property: string): boolean => /color|background|fill|stroke/i.test(property)
+    const getColorPreviewValue = (property: string, value: string): string | undefined => {
+      if (!isColorChangeProperty(property)) return undefined
+      const trimmed = value.trim()
+      if (/^#(?:[\da-f]{3,8})$/i.test(trimmed) || /^rgba?\(/i.test(trimmed) || /^hsla?\(/i.test(trimmed)) return trimmed
+      return undefined
+    }
+
+    const collectChangeInfoRows = (change: Change): ChangeInfoRow[] => {
+      const rows: ChangeInfoRow[] = []
+
+      if (change.patch.textDiff) {
+        rows.push({
+          property: 'text',
+          value: truncate(change.patch.textDiff.to, 32),
+          checked: true,
+          muted: false,
+        })
+      }
+
+      if (change.patch.moveDiff) {
+        rows.push({
+          property: 'position',
+          value: `${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`,
+          checked: true,
+          muted: false,
+        })
+      }
+
+      getUserVisibleStyleDiffs(change).forEach((diff) => {
+        const value = truncate(diff.modified || diff.original || '—', 36)
+        const muted = !diff.modified || isMutedChangeValue(diff.modified)
+        rows.push({
+          property: diff.property,
+          value,
+          checked: !muted,
+          muted,
+          colorValue: getColorPreviewValue(diff.property, diff.modified),
+        })
+      })
+
+      if (!rows.length && change.comment) {
+        rows.push({ property: i18n.changes.note, value: truncate(change.comment, 36), checked: false, muted: true })
+      }
+
+      return rows.slice(0, 6)
+    }
+
+    const createChangeCheckbox = (checked: boolean, label: string, onChange: (checked: boolean) => void): HTMLLabelElement => {
+      const wrap = el('label', 'ei-checkbox')
+      const input = document.createElement('input')
+      const mark = el('span', 'ei-checkbox-mark')
+      input.type = 'checkbox'
+      input.checked = checked
+      input.setAttribute(IGNORE_ATTR, 'true')
+      input.setAttribute('aria-label', label)
+      input.addEventListener('click', (event) => event.stopPropagation())
+      input.addEventListener('change', () => onChange(input.checked))
+      wrap.addEventListener('click', (event) => event.stopPropagation())
+      wrap.append(input, mark)
+      return wrap
+    }
+
+    const createChangeInfoRow = (row: ChangeInfoRow): HTMLDivElement => {
+      const node = el('div', `ei-ann-info-row${row.checked ? '' : ' is-muted'}`)
+      const content = el('div', 'ei-ann-info-content')
+      const property = el('span', 'ei-ann-info-property', `${row.property}:`)
+      const valueWrap = el('span', 'ei-ann-info-value-wrap')
+      if (row.colorValue) {
+        const swatch = el('span', 'ei-ann-info-swatch')
+        swatch.style.backgroundColor = row.colorValue
+        valueWrap.appendChild(swatch)
+      }
+      valueWrap.appendChild(el('span', 'ei-ann-info-value', row.value))
+      content.append(property, valueWrap)
+      node.append(createChangeCheckbox(row.checked, `${row.property}: ${row.value}`, (checked) => {
+        node.classList.toggle('is-muted', !checked)
+      }), content)
+      return node
     }
 
     const buildSingleAIPayload = (change: Change): string => buildAIPayload([change])
@@ -2008,13 +2101,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         for (const [_groupRoute, groupItems] of Object.entries(groupedChanges)) {
           const group = el('section', 'ei-ann-group')
           const list = el('div', 'ei-ann-list')
-          groupItems.forEach((c) => {
+          groupItems.forEach((c, index) => {
             visibleIndex += 1
             const selected = activeChangeId === c.id
             const isPreviewingBefore = beforePreviewChangeIds.has(c.id)
             const summaryLines = buildSummaryLines(c)
             const snapshotRows = collectSnapshotRows(c)
+            const infoRows = collectChangeInfoRows(c)
             const note = noteText(c)
+            if (index > 0) {
+              list.appendChild(el('div', 'ei-ann-divider'))
+            }
             const item = el('div', `ei-ann-item${selected ? ' is-active' : ''}${isPreviewingBefore ? ' is-previewing-before' : ''}`)
             item.setAttribute(IGNORE_ATTR, 'true')
             item.dataset.changeId = c.id
@@ -2071,40 +2168,31 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             })
 
             actions.append(previewBtn, singleCopyBtn, closeBtn)
-            author.append(avatar)
+            const headerTitle = el('div', 'ei-ann-header-title')
+            headerTitle.append(
+              el('span', 'ei-ann-header-accent'),
+              el('span', 'ei-ann-header-target', `#${visibleIndex} · ${selectorText(c)}`),
+            )
+            author.append(avatar, headerTitle)
             top.append(author, time, actions)
 
-            const meta = el('div', 'ei-ann-meta')
-            meta.append(
-              el('span', 'ei-ann-title', `#${visibleIndex}`),
-              el('span', 'ei-ann-dot', '·'),
-              el('span', 'ei-ann-type', typeLabel(c)),
-              el('span', 'ei-ann-dot', '·'),
-              el('span', 'ei-ann-source-badge', sourceLabel(c)),
-              el('span', 'ei-ann-dot', '·'),
-              el('span', 'ei-ann-selector-inline', selectorText(c)),
-            )
-
-            const summary = el('div', 'ei-ann-summary')
-            for (const line of summaryLines) {
-              summary.appendChild(el('div', 'ei-ann-diff', line))
+            const infoList = el('div', 'ei-ann-info-list')
+            if (infoRows.length) {
+              infoRows.forEach((row) => infoList.appendChild(createChangeInfoRow(row)))
+            } else {
+              for (const line of summaryLines) {
+                infoList.appendChild(el('div', 'ei-ann-diff', line))
+              }
             }
 
-            main.append(top, meta, summary)
+            main.append(top, infoList)
 
             if (note) {
-              main.appendChild(el('div', 'ei-ann-note', note))
+              const noteSection = el('div', 'ei-ann-note-block')
+              noteSection.append(el('div', 'ei-ann-note-label', 'Note'), el('div', 'ei-ann-note', note))
+              main.appendChild(noteSection)
             }
 
-            if (selected) {
-              const extra = el('div', 'ei-ann-extra')
-
-              if (c.type === 'design') {
-                extra.appendChild(el('div', 'ei-ann-previewing', isPreviewingBefore ? i18n.actions.previewingBefore : i18n.actions.previewingAfter))
-              }
-
-              main.appendChild(extra)
-            }
 
             item.append(num, main)
             list.appendChild(item)
@@ -2172,7 +2260,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         ? `<div class="ei-empty">${i18n.changes.moveEmpty}</div>`
         : `<div class="ei-empty">\u5F00\u542F\u540E\u5148\u70B9\u51FB\u4E00\u4E2A\u5143\u7D20\uFF0C\u518D\u663E\u793A\u4FE1\u606F\u9762\u677F\u3002\u79FB\u52A8\u9F20\u6807\u53EA\u9AD8\u4EAE\u5143\u7D20\uFF0C\u4E0D\u4F1A\u7ACB\u523B\u6253\u5F00\u4FE1\u606F\u6846\u3002\u9501\u5B9A\u540E\u53EF\u7528\u65B9\u5411\u952E\u5207\u7236/\u5B50/\u5144\u5F1F\u5143\u7D20\uFF0C\u4E5F\u53EF\u4EE5\u76F4\u63A5\u70B9 breadcrumbs \u8DF3\u5C42\u3002</div>`
     copyBtn.style.display = 'none'
-    unlockBtn.style.display = lockedElement ? 'inline-block' : 'none'
+    unlockBtn.style.display = 'none'
+    changesCloseBtn.style.display = 'inline-flex'
+    changesCloseBtn.onclick = () => setMode('off')
     setPanelVisible(false)
     setHighlightVisible(false)
   }
@@ -2365,7 +2455,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     cleanupPanelExtras()
 
     titleEl.textContent = i18n.panel.inspectorTitle
-    subtitle.textContent = i18n.panel.inspectSubtitle
+    subtitle.textContent = ''
+    subtitle.style.display = 'none'
+    changesCloseBtn.style.display = 'inline-flex'
+    changesCloseBtn.onclick = () => setMode('off')
 
     if (currentMode === 'off' && !info) {
       setPanelVisible(false)
@@ -2373,8 +2466,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    copyBtn.style.display = info ? 'inline-block' : 'none'
-    unlockBtn.style.display = lockedElement ? 'inline-block' : 'none'
+    copyBtn.style.display = 'none'
+    unlockBtn.style.display = 'none'
 
     if (!info) {
       renderEmpty()
@@ -2385,28 +2478,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     positionPanel(panelAnchor, info)
 
     body.innerHTML = ''
-
-    const badges = el('div', 'ei-badges')
-    const tagBadge = el('span', 'ei-badge', info.tagName)
-    badges.appendChild(tagBadge)
-    if (lockedElement) {
-      badges.appendChild(el('span', 'ei-badge ei-badge-lock', i18n.actions.locked))
-    }
-
-    const breadcrumbs = el('div', 'ei-breadcrumbs')
-    const chain = getElementChain(info.element).slice(-5)
-    chain.forEach(node => {
-      const crumb = el('button', 'ei-crumb', formatCrumbLabel(node))
-      crumb.type = 'button'
-      crumb.dataset.active = node === info.element ? 'true' : 'false'
-      crumb.setAttribute(IGNORE_ATTR, 'true')
-      crumb.title = formatCrumbLabel(node)
-      crumb.addEventListener('click', () => {
-        lockedElement = node
-        renderInfo(extractInspectorInfo(node))
-      })
-      breadcrumbs.appendChild(crumb)
-    })
 
     const textHead = el('div', 'ei-text-head', info.text || '\u2014')
     const path = el('div', 'ei-path', info.domPath)
@@ -2452,7 +2523,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       styleRow(i18n.inspector.id, info.id),
     )
 
-    body.append(badges, breadcrumbs, textHead, path, tabs, typography, box, layout)
+    body.append(textHead, path, tabs, typography, box, layout)
 
     if (lockedElement) {
       panel.appendChild(renderAnnotateInput(lockedElement))
@@ -2475,16 +2546,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     cleanupPanelExtras()
 
     titleEl.textContent = i18n.panel.designTitle
-    subtitle.textContent = i18n.panel.designSubtitle
+    subtitle.textContent = ''
+    subtitle.style.display = 'none'
     copyBtn.style.display = 'none'
+    unlockBtn.style.display = 'none'
+    changesCloseBtn.style.display = 'inline-flex'
+    changesCloseBtn.onclick = () => setMode('off')
 
     if (!info || !lockedElement) {
-      unlockBtn.style.display = 'none'
       renderEmpty()
       return
     }
-
-    unlockBtn.style.display = 'inline-block'
     setPanelVisible(true)
     positionPanel(panelAnchor, info)
 
@@ -2495,6 +2567,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const existingChange = changes.find(c => c.type === 'design' && c.element === info.element)
     let activeChangeId: string | null = existingChange?.id ?? null
     let currentTextDiff: { property: string; original: string; modified: string } | null = null
+
+    const getExistingDesignNote = (): string => {
+      if (!activeChangeId) return ''
+      return changes.find(c => c.id === activeChangeId)?.meta.note ?? ''
+    }
 
     const saveToChanges = () => {
       if (!styleTracker) return
@@ -2509,15 +2586,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           diffs.push(currentTextDiff)
         }
       }
-      if (diffs.length === 0) return
       const autoComment = diffs
         .filter(d => d.property === 'textContent' || !isInternalResetDiff(d as NonNullable<Change['diffs']>[number]))
         .map(d => `${d.property}: ${d.original} → ${d.modified}`)
         .join(', ')
+      const note = getExistingDesignNote().trim()
+      if (!diffs.length && !note) return
       if (activeChangeId) {
         updateChange(activeChangeId, autoComment, diffs)
       } else {
-        activeChangeId = addChange(info.element, autoComment, 'design', diffs)
+        activeChangeId = addChange(info.element, [autoComment, note].filter(Boolean).join('\n'), 'design', diffs)
+        const createdChange = changes.find(c => c.id === activeChangeId)
+        if (createdChange && note) {
+          createdChange.meta.note = note
+          createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
+          createdChange.patch = buildChangePatch(createdChange.type, createdChange.diffs, createdChange.comment)
+        }
       }
       // Update highlight to reflect new element dimensions
       requestAnimationFrame(() => {
@@ -2525,6 +2609,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         currentInfo = freshInfo
         updateHighlight(freshInfo)
       })
+    }
+
+    const syncDesignNote = (note: string) => {
+      const trimmedNote = note.trim()
+      if (!activeChangeId) {
+        if (!trimmedNote) return
+        activeChangeId = addChange(info.element, trimmedNote, 'design', [])
+      }
+      const change = changes.find(c => c.id === activeChangeId)
+      if (!change) return
+      change.meta.note = trimmedNote
+      const styleComment = (change.diffs ?? [])
+        .filter(d => !isInternalResetDiff(d))
+        .map(d => `${d.property}: ${d.original} → ${d.modified}`)
+        .join(', ')
+      change.comment = [styleComment, trimmedNote].filter(Boolean).join('\n')
+      change.patch = buildChangePatch(change.type, change.diffs, change.comment)
+      change.timestamp = Date.now()
+      change.meta.updatedAt = new Date().toISOString()
+      change.meta.route = getRoute()
+      persistChangesState()
+      options.onChangeAdd?.(change)
+      renderMarkers()
     }
 
     styleTracker = createStyleTracker(info.element, saveToChanges)
@@ -2542,6 +2649,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
         saveToChanges()
       },
+      onNoteChange: (note) => {
+        syncDesignNote(note)
+      },
+      getInitialNote: () => getExistingDesignNote(),
     })
     body.appendChild(designPanel)
 

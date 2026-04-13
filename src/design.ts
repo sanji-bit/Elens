@@ -3158,6 +3158,8 @@ function detectStrokeValues(element: HTMLElement): StrokeValues | null {
 export type DesignPanelCallbacks = {
   onStyleChange: () => void
   onTextChange: (original: string, modified: string) => void
+  onNoteChange: (note: string) => void
+  getInitialNote: () => string
 }
 
 export function buildDesignPanel(
@@ -3848,6 +3850,46 @@ export function buildDesignPanel(
     effectsSection.setHasContent(false)
   }
   container.appendChild(effectsSection.container)
+
+  const initialNote = callbacks.getInitialNote()
+  const noteSection = createSection(i18n.design.note, {
+    addRemove: {
+      onAdd: () => {
+        populateNoteContent(noteSection.content)
+        noteSection.setHasContent(true)
+      },
+      onRemove: () => {
+        callbacks.onNoteChange('')
+        noteSection.content.innerHTML = ''
+        noteSection.setHasContent(false)
+      },
+    },
+  })
+
+  function populateNoteContent(contentEl: HTMLDivElement): void {
+    contentEl.innerHTML = ''
+    const textarea = document.createElement('textarea')
+    textarea.className = 'ei-annotate-input'
+    textarea.setAttribute(IGNORE_ATTR, 'true')
+    textarea.placeholder = i18n.design.notePlaceholder
+    textarea.value = callbacks.getInitialNote()
+    textarea.rows = 3
+    textarea.addEventListener('input', () => {
+      callbacks.onNoteChange(textarea.value)
+    })
+    textarea.addEventListener('keydown', (event) => {
+      event.stopPropagation()
+    })
+    contentEl.appendChild(textarea)
+  }
+
+  if (initialNote.trim()) {
+    populateNoteContent(noteSection.content)
+    noteSection.setHasContent(true)
+  } else {
+    noteSection.setHasContent(false)
+  }
+  container.appendChild(noteSection.container)
 
   return container
 }

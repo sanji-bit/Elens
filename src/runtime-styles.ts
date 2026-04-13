@@ -247,7 +247,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-tt-no { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface-field); color: var(--text-tertiary); font-size: var(--text-sm); line-height: 1; }
 .ei-tt-yes { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--success-bg); color: var(--success); font-size: var(--text-sm); line-height: 1; }
 .ei-annotate { border-top: 1px solid var(--border-subtle); padding: 12px 16px; }
-.ei-annotate-input { width: 100%; min-height: 56px; max-height: 120px; resize: vertical; background: var(--surface-field); border: 1px solid transparent; border-radius: var(--radius-xl); color: var(--text-primary); font-size: var(--text-lg); font-family: inherit; padding: 8px 10px; outline: none; }
+.ei-annotate-input { width: 100%; min-height: 56px; max-height: 120px; resize: vertical; background: var(--surface-field); border: 1px solid transparent; border-radius: var(--radius-xl); color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 8px 10px; outline: none; }
 .ei-annotate-input:hover { border-color: var(--border-hover); }
 .ei-annotate-input:focus { border-color: var(--interactive-accent); }
 .ei-annotate-input::placeholder { color: var(--text-faint); }
@@ -263,16 +263,21 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-ann-group-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 0 2px; }
 .ei-ann-group-title { font-size: 11px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ei-ann-group-meta { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
-.ei-ann-list { padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ei-ann-list { padding: 0; display: flex; flex-direction: column; gap: 0; }
+.ei-ann-divider { position: relative; height: 8px; margin: 0 8px; }
+.ei-ann-divider::before { content: ''; position: absolute; left: 0; right: 0; top: 4px; border-top: 0.5px solid var(--border-subtle); }
 .ei-ann-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px; border-radius: 8px; background: transparent; border: 1px solid transparent; opacity: 0.8; cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease; }
 .ei-ann-item:hover { background: var(--surface-hover); border-color: transparent; }
 .ei-ann-item.is-active { background: var(--interactive-accent-soft); border-color: transparent; box-shadow: none; }
 .ei-ann-num { display: none; }
 .ei-ann-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.ei-ann-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; padding-bottom: 8px; }
-.ei-ann-author { display: inline-flex; align-items: center; gap: 0; min-width: 0; flex: 1; }
-.ei-ann-avatar { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background: var(--surface-hover); flex-shrink: 0; }
+.ei-ann-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; padding-bottom: 0; }
+.ei-ann-author { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.ei-ann-avatar { display: none; }
 .ei-ann-avatar img { width: 24px; height: 24px; object-fit: cover; display: block; }
+.ei-ann-header-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 24px; }
+.ei-ann-header-accent { width: 2px; height: 12px; border-radius: 999px; background: var(--interactive-accent); flex-shrink: 0; }
+.ei-ann-header-target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-primary); letter-spacing: 0.055px; }
 .ei-ann-time { font-size: 11px; color: var(--text-secondary); white-space: nowrap; line-height: 16px; letter-spacing: 0.005px; }
 .ei-ann-actions { display: none; align-items: center; gap: 4px; }
 .ei-ann-item:hover .ei-ann-actions { display: inline-flex; }
@@ -285,7 +290,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-ann-action.is-switching .ei-ann-action-icon.is-current { opacity: 0; }
 .ei-ann-action.is-switching .ei-ann-action-icon.is-next { opacity: 1; }
 .ei-ann-action img, .ei-ann-action svg { width: 24px; height: 24px; display: block; }
-.ei-ann-action.is-danger svg { width: 13px; height: 13px; }
+.ei-ann-action.is-danger img, .ei-ann-action.is-danger svg { width: 13px; height: 13px; }
 .ei-ann-action.is-success .ei-ann-action-icon img, .ei-ann-action.is-success .ei-ann-action-icon svg { filter: saturate(1.05); }
 .ei-ann-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0; min-width: 0; font-size: 11px; line-height: 16px; letter-spacing: 0.055px; color: var(--text-secondary); }
 .ei-ann-dot { color: var(--text-faint); margin: 0 4px; }
@@ -322,6 +327,23 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-ann-empty { font-size: var(--text-lg); color: var(--text-faint); text-align: center; padding: 24px 16px; }
 .ei-ann-type { color: var(--text-secondary); }
 .ei-ann-source-badge { color: var(--text-secondary); }
+.ei-ann-info-list { display: flex; flex-direction: column; gap: 4px; padding-top: 0; }
+.ei-ann-info-row { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow: hidden; }
+.ei-ann-info-row.is-muted .ei-ann-info-property, .ei-ann-info-row.is-muted .ei-ann-info-value { text-decoration: line-through; color: var(--text-secondary); }
+.ei-ann-info-content { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; flex: 1; overflow: hidden; white-space: nowrap; font-size: 11px; line-height: 16px; letter-spacing: 0.005px; }
+.ei-ann-info-property { color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; }
+.ei-ann-info-value-wrap { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; }
+.ei-ann-info-value { color: var(--interactive-accent); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ei-ann-info-swatch { width: 14px; height: 14px; border-radius: 2px; border: 1px solid var(--surface-panel); box-shadow: inset 0 0 0 1px var(--border-input); flex-shrink: 0; }
+.ei-checkbox { position: relative; width: 14px; height: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ei-checkbox input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.ei-checkbox-mark { width: 14px; height: 14px; border-radius: 2px; background: color-mix(in srgb, var(--text-primary) 5%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent); pointer-events: none; }
+.ei-checkbox input:hover + .ei-checkbox-mark { box-shadow: inset 0 0 0 1px var(--border-default); }
+.ei-checkbox input:focus-visible + .ei-checkbox-mark { box-shadow: inset 0 0 0 1px var(--interactive-accent), 0 0 0 2px color-mix(in srgb, var(--interactive-focus-ring) 30%, transparent); }
+.ei-checkbox input:checked + .ei-checkbox-mark { background: var(--interactive-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 85%, white); }
+.ei-checkbox input:checked + .ei-checkbox-mark::after { content: ''; position: absolute; width: 7px; height: 4px; border-left: 1.5px solid var(--overlay-label-text); border-bottom: 1.5px solid var(--overlay-label-text); transform: translate(3px, 3px) rotate(-45deg); }
+.ei-ann-note-block { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+.ei-ann-note-label { font-size: 11px; line-height: 16px; letter-spacing: 0.005px; color: var(--text-primary); }
 .ei-ann-more { font-size: 11px; color: var(--text-faint); }
 .ei-ann-previewing { font-size: 11px; color: var(--text-muted); }
 .ei-ann-action.is-active { background: var(--surface-hover); color: var(--text-primary); }

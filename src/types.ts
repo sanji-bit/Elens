@@ -181,6 +181,7 @@ export type ChangeMeta = {
   createdAt: string
   updatedAt: string
   route?: string
+  note?: string
 }
 
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'guides' | 'changes'

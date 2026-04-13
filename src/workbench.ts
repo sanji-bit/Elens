@@ -17,11 +17,14 @@ type WorkbenchState = {
   libraryTab: WorkbenchLibraryTab
 }
 
+type WorkbenchComponentKind = 'standard' | 'project'
+
 type WorkbenchComponentSample = {
   id: string
   title: string
   tab: Exclude<WorkbenchLibraryTab, 'all'>
   status: 'stable' | 'pending'
+  componentKind: WorkbenchComponentKind
   description: string
   classNames: string[]
   render: (context: SampleRenderContext) => HTMLElement
@@ -177,6 +180,7 @@ const DEFAULT_PENDING_NOTES = [
     title: '新增按钮变体待确认',
     description: '如果以后项目里多出新的按钮样式，先在这里观察它是否真的是新品类，还是已有按钮的重复变体。',
     classNames: ['待扫描'],
+    componentKind: 'standard',
     source: '新增功能 UI',
     closestStableComponent: '工具栏按钮 / 筛选按钮',
     reasonCannotReuse: '还没有出现真实新增样本，先保留为审查入口。',
@@ -189,6 +193,7 @@ const DEFAULT_PENDING_NOTES = [
     title: '上下文耦合较强的复合控件',
     description: '有些控件需要依赖更多上下文才能稳定展示，第一版先放在待确认区，避免为了展示而造假组件。',
     classNames: ['组合组件'],
+    componentKind: 'project',
     source: '复杂上下文组件',
     closestStableComponent: '面板容器 / 设计字段 / 菜单项',
     reasonCannotReuse: '需要更多真实场景才能判断它是复合组件还是已有组件组合。',
@@ -201,6 +206,7 @@ const DEFAULT_PENDING_NOTES = [
     title: '新组件默认先登记到待确认区',
     description: '以后 AI 如果发现没有现成组件可复用，允许先按现有 token、field、panel、dropdown 等规则生成一个新组件，但它默认只能先进入待确认组件区，不能直接视为正式组件。',
     classNames: ['pending registry', '.ei-* / .ei-dp-*'],
+    componentKind: 'project',
     source: 'AI 新增组件',
     closestStableComponent: '最接近的现有 stable 组件',
     reasonCannotReuse: '必须先写清楚为什么现有组件不能直接复用或扩展。',
@@ -217,11 +223,17 @@ const REVIEW_STATUS_LABELS = {
   removed: '已移除',
 } as const
 
+const COMPONENT_KIND_LABELS: Record<WorkbenchComponentKind, string> = {
+  standard: '标准组件',
+  project: '项目组件',
+}
+
 type PendingRegistryItem = (typeof DEFAULT_PENDING_NOTES)[number]
 
 function createPendingMetaRows(item: PendingRegistryItem): HTMLElement {
   const wrap = el('div', 'wb-pending-audit')
   wrap.append(
+    createKv('组件类型', COMPONENT_KIND_LABELS[item.componentKind]),
     createKv('登记来源', item.source),
     createKv('最接近 stable', item.closestStableComponent),
     createKv('不可复用原因', item.reasonCannotReuse),
@@ -248,10 +260,11 @@ export function getRegisteredComponentClassNames(): string[] {
   return [...new Set([...getStableRegistryClassNames(), ...getPendingRegistryClassNames()])]
 }
 
-export function getPendingComponentRegistry(): Array<{ id: string; title: string; classNames: string[]; source: string; closestStableComponent: string; reasonCannotReuse: string; reviewStatus: string; lastReviewedAt: string; decision: string }> {
+export function getPendingComponentRegistry(): Array<{ id: string; title: string; componentKind: WorkbenchComponentKind; classNames: string[]; source: string; closestStableComponent: string; reasonCannotReuse: string; reviewStatus: string; lastReviewedAt: string; decision: string }> {
   return getPendingRegistry().map((item) => ({
     id: item.id,
     title: item.title,
+    componentKind: item.componentKind,
     classNames: [...item.classNames],
     source: item.source,
     closestStableComponent: item.closestStableComponent,
@@ -516,10 +529,11 @@ function createClassTag(value: string): HTMLElement {
   return code
 }
 
-function createSampleMeta(sample: Pick<WorkbenchComponentSample, 'description' | 'classNames' | 'status'>): HTMLElement {
+function createSampleMeta(sample: Pick<WorkbenchComponentSample, 'description' | 'classNames' | 'status' | 'componentKind'>): HTMLElement {
   const meta = el('div', 'wb-sample-meta')
   const tagRow = el('div', 'wb-class-tags')
   sample.classNames.forEach((className) => tagRow.appendChild(createClassTag(className)))
+  tagRow.appendChild(createBadge(COMPONENT_KIND_LABELS[sample.componentKind]))
   if (sample.status === 'pending') {
     tagRow.appendChild(createBadge('待整理'))
   }
@@ -1106,12 +1120,56 @@ function createTokenReferenceSample(context: SampleRenderContext): HTMLElement {
   return createColorPaletteSample(context)
 }
 
+function createCheckboxSample(): HTMLElement {
+  const host = createSampleHost('wb-gallery-stack')
+  host.innerHTML = `
+    <div class="wb-section-head"><div><h3>交互演示</h3><p>这里展示 checkbox 标准组件本体的真实使用方式；后面的文本或内容区都可以按场景自由组合。</p></div></div>
+    <div class="wb-state-list">
+      <div class="wb-state-row"><span class="wb-kv-label">unchecked</span><div class="ei-ann-info-row"><label class="ei-checkbox"><input type="checkbox" aria-label="unchecked"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">display:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-value">block</span></span></div></div></div>
+      <div class="wb-state-row"><span class="wb-kv-label">checked</span><div class="ei-ann-info-row"><label class="ei-checkbox"><input type="checkbox" checked aria-label="checked"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">color:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-swatch" style="background:#6fff2c"></span><span class="ei-ann-info-value">#6fff2c</span></span></div></div></div>
+      <div class="wb-state-row"><span class="wb-kv-label">muted</span><div class="ei-ann-info-row is-muted"><label class="ei-checkbox"><input type="checkbox" aria-label="muted"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">background-image:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-value">none</span></span></div></div></div>
+    </div>
+  `
+  return host
+}
+
+function createPendingStylePreview(item: PendingRegistryItem): HTMLElement {
+  const host = createSampleHost('wb-gallery-stack')
+  const styleBlock = el('div', 'wb-section-head')
+  const textWrap = el('div')
+  textWrap.append(
+    el('h3', undefined, '对应样式'),
+    el('p', undefined, '这里展示当前登记的类名，以及它们在运行时样式表里的真实规则，方便直接核对。'),
+  )
+  styleBlock.appendChild(textWrap)
+
+  const runtimeCss = createRuntimeStyles(buildTheme(loadState().theme))
+  const selectors = item.classNames.filter((name) => name.startsWith('.ei-') || name.startsWith('.ei-dp-'))
+  const cssRules = selectors.flatMap((selector) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const singleLine = runtimeCss.match(new RegExp(`${escaped}\\s*\\{[^}]*\\}`, 'g')) ?? []
+    return singleLine
+  })
+
+  const code = document.createElement('pre')
+  code.className = 'wb-code-block'
+  code.textContent = [
+    '/* classNames */',
+    ...item.classNames,
+    '',
+    '/* runtime styles */',
+    ...(cssRules.length ? cssRules : ['(未匹配到对应运行时规则)']),
+  ].join('\n')
+  host.append(styleBlock, code)
+  return host
+}
+
 function createPendingCard(item: PendingRegistryItem): HTMLElement {
   const card = createCard(item.title)
   const tags = el('div', 'wb-class-tags')
   item.classNames.forEach((name) => tags.appendChild(createClassTag(name)))
   tags.appendChild(createBadge(REVIEW_STATUS_LABELS[item.reviewStatus]))
-  card.append(el('p', 'wb-sample-desc', item.description), tags, createPendingMetaRows(item))
+  card.append(el('p', 'wb-sample-desc', item.description), tags, createPendingMetaRows(item), createPendingStylePreview(item))
   return card
 }
 
@@ -1121,6 +1179,7 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '颜色总表',
     tab: 'colors',
     status: 'stable',
+    componentKind: 'project',
     description: '把当前主题真正使用到的核心颜色整理出来，便于你检查品牌色、表面色和交互色是否还统一。',
     classNames: ['brand.accent', 'surface.base', '--surface-panel', '--surface-hover'],
     render: createColorPaletteSample,
@@ -1130,6 +1189,7 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '文字与边框规范',
     tab: 'colors',
     status: 'stable',
+    componentKind: 'project',
     description: '集中查看文字层级和边框颜色，确认可读性和控件轮廓是否一致。',
     classNames: ['--text-primary', '--text-secondary', '--border-default', '--border-input'],
     render: createTextBorderColorSample,
@@ -1139,16 +1199,18 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '反馈与覆盖层颜色',
     tab: 'colors',
     status: 'stable',
+    componentKind: 'project',
     description: '整理成功、危险、焦点和测量覆盖层用色，避免后续功能新增时出现野生反馈色。',
     classNames: ['--success', '--danger', '--interactive-focus-ring', '--overlay-guide'],
     render: createFeedbackColorSample,
   },
   {
     id: 'toolbar-buttons',
-    title: '工具栏按钮',
+    title: '图标按钮',
     tab: 'buttons',
     status: 'stable',
-    description: '用于检查、设计、移动、改动等高频操作，适合观察按钮体系是否越来越分裂。',
+    componentKind: 'standard',
+    description: '基础图标按钮模式，用于检查、设计、移动、变更等高频操作入口。',
     classNames: ['.ei-toolbar-btn'],
     render: createToolbarButtonsSample,
   },
@@ -1157,52 +1219,68 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '筛选按钮',
     tab: 'buttons',
     status: 'stable',
-    description: '用于列表筛选的按钮组，适合和普通按钮对比是否已经形成第二套视觉。',
+    componentKind: 'standard',
+    description: '基础筛选按钮模式，用于列表过滤和分段选择场景。',
     classNames: ['.ei-ann-filter'],
     render: () => createFilterButtonsSample(),
   },
   {
     id: 'dp-field',
-    title: '设计字段',
+    title: '字段输入框',
     tab: 'inputs',
     status: 'stable',
-    description: '真实的 design field 输入控件，受字段高度与圆角直接影响。',
+    componentKind: 'standard',
+    description: '基础字段输入模式，用于数值、尺寸等可编辑属性。',
     classNames: ['.ei-dp-field', '.ei-dp-field-input', '.ei-dp-field-suffix'],
     render: createInputFieldsSample,
   },
   {
     id: 'annotate-input',
-    title: '注释输入框',
+    title: '多行输入框',
     tab: 'inputs',
     status: 'stable',
-    description: '用于多行输入的真实 textarea，可结合焦点状态检查输入体验。',
+    componentKind: 'standard',
+    description: '基础多行输入模式，用于注释、备注等文本输入场景。',
     classNames: ['.ei-annotate-input'],
     render: createTextareaSample,
+  },
+  {
+    id: 'checkbox',
+    title: '复选框',
+    tab: 'inputs',
+    status: 'stable',
+    componentKind: 'standard',
+    description: '标准 checkbox 本体，只负责勾选状态、焦点、hover、disabled 等交互表现。可单独使用，也可和任意文本、字段、卡片内容组合。',
+    classNames: ['.ei-checkbox', '.ei-checkbox-mark'],
+    render: createCheckboxSample,
   },
   {
     id: 'fill-trigger',
     title: '颜色选择器',
     tab: 'inputs',
     status: 'stable',
-    description: '所有颜色选择场景共用的真实颜色选择器，包含小色块、色值和不透明度。',
+    componentKind: 'standard',
+    description: '基础颜色选择模式，包含小色块、色值和不透明度入口。',
     classNames: ['.ei-dp-fill-row', '.ei-dp-swatch', '.ei-dp-hex', '.ei-dp-fill-opacity'],
     render: createDropdownTriggerSample,
   },
   {
     id: 'font-select',
-    title: '字体选择器',
+    title: '下拉选择器',
     tab: 'inputs',
     status: 'stable',
-    description: '设计模式里的真实 dropdown select，用于从字体列表中选择一个值。',
+    componentKind: 'standard',
+    description: '基础 dropdown select 模式，用于从一组选项中选择一个值。',
     classNames: ['.ei-dp-font-select', '.ei-dp-font-dropdown', '.ei-dp-font-option'],
     render: createFontSelectSample,
   },
   {
     id: 'tabs-breadcrumbs',
-    title: '标签页与面包屑',
+    title: '导航选择控件',
     tab: 'navigation',
     status: 'stable',
-    description: '集中观察导航型按钮是否统一，便于发现同类组件重复生长。',
+    componentKind: 'standard',
+    description: '基础导航选择模式，覆盖 tab 与 breadcrumb 这类同源选择控件。',
     classNames: ['.ei-tab', '.ei-crumb'],
     render: createNavigationSample,
   },
@@ -1211,7 +1289,8 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '菜单项',
     tab: 'navigation',
     status: 'stable',
-    description: '真实的 capture menu item，可用来检查菜单样式是否与按钮体系一致。',
+    componentKind: 'standard',
+    description: '基础菜单项模式，用于下拉菜单和操作列表。',
     classNames: ['.ei-capture-menu-item'],
     render: createMenuSample,
   },
@@ -1220,16 +1299,18 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '面板容器',
     tab: 'panels',
     status: 'stable',
-    description: '真实的 panel 容器，用来观察 panel 宽度、圆角和信息排布。',
+    componentKind: 'standard',
+    description: '基础面板容器模式，用于承载属性、信息和操作内容。',
     classNames: ['.ei-panel', '.ei-panel-header', '.ei-panel-title'],
     render: createPanelSample,
   },
   {
     id: 'annotation-item',
-    title: '注释项',
+    title: '注释卡片',
     tab: 'panels',
     status: 'stable',
-    description: '真实的 annotation / diff card，用于检查复杂信息卡片是否保持统一。',
+    componentKind: 'project',
+    description: '项目里的信息卡片组合，用于承载注释、差异和操作入口。',
     classNames: ['.ei-ann-item', '.ei-ann-title', '.ei-ann-diff'],
     render: createAnnotationSample,
   },
@@ -1238,16 +1319,18 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '提示浮层',
     tab: 'panels',
     status: 'stable',
+    componentKind: 'standard',
     description: '真实 tooltip 结构，可用来查看提示信息与输入焦点的配合。',
     classNames: ['.ei-tooltip', '.ei-tt-head', '.ei-tt-row'],
     render: createTooltipSample,
   },
   {
     id: 'state-reference',
-    title: '交互状态',
+    title: '状态参考',
     tab: 'states',
     status: 'stable',
-    description: '集中查看 default / hover / active / selected / focus / disabled 的视觉差异。',
+    componentKind: 'project',
+    description: '项目级状态参考，用于集中查看 default / hover / active / selected / focus / disabled 的视觉差异。',
     classNames: ['.wb-state-chip', '--surface-hover', '--interactive-focus-ring'],
     render: createStateReferenceSample,
   },
@@ -1256,6 +1339,7 @@ const componentSamples: WorkbenchComponentSample[] = [
     title: '组件颜色 token',
     tab: 'states',
     status: 'stable',
+    componentKind: 'project',
     description: '集中查看真实组件消费的 surface / interactive token，确认左侧主题输入能全局联动。',
     classNames: ['--surface-panel', '--surface-field', '--interactive-accent'],
     render: createTokenReferenceSample,
@@ -1301,8 +1385,18 @@ function getLibrarySectionLayout(tab: Exclude<WorkbenchLibraryTab, 'all' | 'pend
 }
 
 function renderPendingSection(): HTMLElement {
-  const cards = getPendingRegistry().map((item) => createPendingCard(item))
-  return renderLibrarySection('待确认组件', libraryTabDescriptions.pending, cards)
+  const pending = getPendingRegistry()
+  const standardCards = pending.filter((item) => item.componentKind === 'standard').map((item) => createPendingCard(item))
+  const projectCards = pending.filter((item) => item.componentKind === 'project').map((item) => createPendingCard(item))
+
+  const wrap = el('div', 'wb-gallery-stack')
+  if (standardCards.length) {
+    wrap.appendChild(renderLibrarySection('待确认标准组件', '这里放还未正式收录、但目标是沉淀为跨模块复用基础能力的组件。', standardCards))
+  }
+  if (projectCards.length) {
+    wrap.appendChild(renderLibrarySection('待确认项目组件', '这里放依赖具体业务语义或组合关系的项目组件，通常由标准组件组合而成。', projectCards))
+  }
+  return wrap
 }
 
 function createContext(state: WorkbenchState): SampleRenderContext {
@@ -1340,7 +1434,14 @@ function renderComponentLibrary(main: HTMLElement, state: WorkbenchState, onTabC
     for (const tab of ['colors', 'buttons', 'inputs', 'navigation', 'panels', 'states'] as const) {
       const samples = grouped[tab]
       if (!samples.length) continue
-      main.appendChild(renderLibrarySection(stableTabLabel[tab], libraryTabDescriptions[tab], samples.map((sample) => createSampleCard(sample, context)), getLibrarySectionLayout(tab)))
+      const standardCards = samples.filter((sample) => sample.componentKind === 'standard').map((sample) => createSampleCard(sample, context))
+      const projectCards = samples.filter((sample) => sample.componentKind === 'project').map((sample) => createSampleCard(sample, context))
+      if (standardCards.length) {
+        main.appendChild(renderLibrarySection(`${stableTabLabel[tab]} / 标准组件`, libraryTabDescriptions[tab], standardCards, getLibrarySectionLayout(tab)))
+      }
+      if (projectCards.length) {
+        main.appendChild(renderLibrarySection(`${stableTabLabel[tab]} / 项目组件`, libraryTabDescriptions[tab], projectCards, getLibrarySectionLayout(tab)))
+      }
     }
     main.appendChild(renderPendingSection())
     return
@@ -1352,7 +1453,14 @@ function renderComponentLibrary(main: HTMLElement, state: WorkbenchState, onTabC
   }
 
   const visible = getVisibleSamples(state.libraryTab)
-  main.appendChild(renderLibrarySection(stableTabLabel[state.libraryTab], libraryTabDescriptions[state.libraryTab], visible.map((sample) => createSampleCard(sample, context)), getLibrarySectionLayout(state.libraryTab)))
+  const standardCards = visible.filter((sample) => sample.componentKind === 'standard').map((sample) => createSampleCard(sample, context))
+  const projectCards = visible.filter((sample) => sample.componentKind === 'project').map((sample) => createSampleCard(sample, context))
+  if (standardCards.length) {
+    main.appendChild(renderLibrarySection(`${stableTabLabel[state.libraryTab]} / 标准组件`, libraryTabDescriptions[state.libraryTab], standardCards, getLibrarySectionLayout(state.libraryTab)))
+  }
+  if (projectCards.length) {
+    main.appendChild(renderLibrarySection(`${stableTabLabel[state.libraryTab]} / 项目组件`, libraryTabDescriptions[state.libraryTab], projectCards, getLibrarySectionLayout(state.libraryTab)))
+  }
 }
 
 function createDesignSystemRuleCard(): HTMLElement {

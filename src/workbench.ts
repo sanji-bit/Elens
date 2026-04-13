@@ -725,6 +725,25 @@ function createFilterButtonsSample(): HTMLElement {
   return host
 }
 
+function createTextButtonsSample(): HTMLElement {
+  const host = createSampleHost('wb-gallery-stack')
+  host.innerHTML = `
+    <div class="wb-section-head"><div><h3>交互演示</h3><p>标准文本按钮用于面板内确认、提交和次级操作；圆角固定 8px，左右内边距 12px。</p></div></div>
+    <div class="wb-preview-row">
+      <button class="ei-button">取消</button>
+      <button class="ei-button ei-button-primary">添加</button>
+      <button class="ei-button" disabled>不可用</button>
+    </div>
+    <div class="wb-state-list">
+      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-button">按钮</button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-button wb-preview-hover">按钮</button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">primary</span><button class="ei-button ei-button-primary">添加</button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-button" disabled>按钮</button></div>
+    </div>
+  `
+  return host
+}
+
 function createInputFieldsSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   host.innerHTML = `
@@ -1223,6 +1242,16 @@ const componentSamples: WorkbenchComponentSample[] = [
     description: '基础筛选按钮模式，用于列表过滤和分段选择场景。',
     classNames: ['.ei-ann-filter'],
     render: () => createFilterButtonsSample(),
+  },
+  {
+    id: 'text-buttons',
+    title: '文本按钮',
+    tab: 'buttons',
+    status: 'stable',
+    componentKind: 'standard',
+    description: '基础文本按钮模式，用于面板内的添加、更新、取消等文字操作。',
+    classNames: ['.ei-button', '.ei-button-primary'],
+    render: () => createTextButtonsSample(),
   },
   {
     id: 'dp-field',

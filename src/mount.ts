@@ -27,6 +27,18 @@ const CHANGES_STORAGE_KEY = 'elens-changes'
 
 type PersistedChange = Omit<Change, 'element'>
 
+type ChangesArchive = {
+  version: 1
+  source: 'elens'
+  exportedAt: string
+  page: {
+    url: string
+    route: string
+    title: string
+  }
+  changes: PersistedChange[]
+}
+
 function loadPersistedMode(): 'inspector' | 'design' | null {
   try {
     const value = window.localStorage.getItem(MODE_STORAGE_KEY)
@@ -56,10 +68,13 @@ function loadPersistedChanges(): PersistedChange[] {
   }
 }
 
+function toPersistedChanges(changes: Change[]): PersistedChange[] {
+  return changes.map(({ element: _element, ...change }) => change)
+}
+
 function persistChanges(changes: Change[]): void {
   try {
-    const serializableChanges = changes.map(({ element: _element, ...change }) => change)
-    window.localStorage.setItem(CHANGES_STORAGE_KEY, JSON.stringify(serializableChanges))
+    window.localStorage.setItem(CHANGES_STORAGE_KEY, JSON.stringify(toPersistedChanges(changes)))
   } catch {
     // Ignore storage failures.
   }
@@ -97,6 +112,8 @@ const CHANGES_HOVER_PREVIEW_AFTER_URL = new URL('./assets/changes-preview-after.
 const CHANGES_HOVER_PREVIEW_BEFORE_URL = new URL('./assets/changes-preview-before.svg', import.meta.url).href
 const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', import.meta.url).href
 const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
+const CHANGES_UPLOAD_URL = new URL('./assets/changes-upload.svg', import.meta.url).href
+const CHANGES_DOWNLOAD_URL = new URL('./assets/changes-download.svg', import.meta.url).href
 const CAPTURE_SCRIPT_URL = new URL('./assets/capture.js', import.meta.url).href
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
@@ -105,6 +122,8 @@ const CHANGES_HOVER_PREVIEW_AFTER_ICON = `<img src="${CHANGES_HOVER_PREVIEW_AFTE
 const CHANGES_HOVER_PREVIEW_BEFORE_ICON = `<img src="${CHANGES_HOVER_PREVIEW_BEFORE_URL}" alt="" />`
 const CHANGES_PANEL_CLOSE_ICON = `<img src="${CHANGES_PANEL_CLOSE_URL}" alt="" />`
 const CHANGES_PANEL_CHEVRON_ICON = `<img src="${CHANGES_PANEL_CHEVRON_URL}" alt="" />`
+const CHANGES_UPLOAD_ICON = `<img src="${CHANGES_UPLOAD_URL}" alt="" />`
+const CHANGES_DOWNLOAD_ICON = `<img src="${CHANGES_DOWNLOAD_URL}" alt="" />`
 
 preloadImage(CHANGES_AVATAR_URL)
 preloadImage(CHANGES_HOVER_DELETE_URL)
@@ -114,6 +133,8 @@ preloadImage(CHANGES_HOVER_PREVIEW_AFTER_URL)
 preloadImage(CHANGES_HOVER_PREVIEW_BEFORE_URL)
 preloadImage(CHANGES_PANEL_CLOSE_URL)
 preloadImage(CHANGES_PANEL_CHEVRON_URL)
+preloadImage(CHANGES_UPLOAD_URL)
+preloadImage(CHANGES_DOWNLOAD_URL)
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
 
@@ -306,6 +327,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let outputDetail: OutputDetail = 'standard'
   let activeChangeId: string | null = null
   let beforePreviewChangeIds = new Set<string>()
+  let disabledStyleDiffsByChangeId = new Map<string, Set<string>>()
+  let disabledTextDiffByChangeId = new Set<string>()
+  let disabledMoveDiffByChangeId = new Set<string>()
+  let disabledNoteByChangeId = new Set<string>()
   let changeFlashTimeout: number | null = null
   let changeFlashElement: HTMLElement | null = null
   let toolbarExpanded = false
@@ -640,8 +665,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   actions.append(copyBtn, unlockBtn, changesCloseBtn)
   header.append(titleWrap, actions)
 
+  const changesSummaryBar = el('div', 'ei-ann-summary-bar')
+  changesSummaryBar.style.display = 'none'
+
   const body = el('div', 'ei-body')
-  panel.append(dragHandle, header, body)
+  panel.append(dragHandle, header, changesSummaryBar, body)
 
   root.append(styleEl, highlight, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
   document.body.appendChild(root)
@@ -747,6 +775,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function cleanupPanelExtras(): void {
     panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
     panel.classList.remove('is-changes')
+    changesSummaryBar.innerHTML = ''
+    changesSummaryBar.style.display = 'none'
     changesCloseBtn.style.display = 'none'
     subtitle.style.display = 'none'
   }
@@ -1324,6 +1354,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return changes.find(c => c.element === element)
   }
 
+  function findNoteChangeForElement(element: HTMLElement): Change | undefined {
+    return changes.find(c => c.element === element && (c.type === 'annotation' || Boolean(c.meta.note?.trim())))
+  }
+
   function moveElementToIndex(element: HTMLElement, index: number): void {
     const container = element.parentElement
     if (!container) return
@@ -1373,12 +1407,91 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return Array.from(merged.values())
   }
 
-  function applyChangeToAfter(change: Change): void {
-    if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.to
-    for (const diff of change.patch.styleDiffs) {
-      change.element.style.setProperty(diff.property, diff.modified)
+  function isStyleDiffEnabled(changeId: string, property: string): boolean {
+    return !disabledStyleDiffsByChangeId.get(changeId)?.has(property)
+  }
+
+  function setStyleDiffEnabled(change: Change, property: string, enabled: boolean): void {
+    const disabled = disabledStyleDiffsByChangeId.get(change.id) ?? new Set<string>()
+    if (enabled) disabled.delete(property)
+    else disabled.add(property)
+    if (disabled.size > 0) disabledStyleDiffsByChangeId.set(change.id, disabled)
+    else disabledStyleDiffsByChangeId.delete(change.id)
+
+    const diff = change.patch.styleDiffs.find(item => item.property === property)
+    if (!diff) return
+    if (enabled) change.element.style.setProperty(diff.property, diff.modified)
+    else if (diff.original) change.element.style.setProperty(diff.property, diff.original)
+    else change.element.style.removeProperty(diff.property)
+    renderMarkers()
+  }
+
+  function isTextDiffEnabled(changeId: string): boolean {
+    return !disabledTextDiffByChangeId.has(changeId)
+  }
+
+  function setTextDiffEnabled(change: Change, enabled: boolean): void {
+    if (!change.patch.textDiff) return
+    if (enabled) disabledTextDiffByChangeId.delete(change.id)
+    else disabledTextDiffByChangeId.add(change.id)
+    change.element.textContent = enabled ? change.patch.textDiff.to : change.patch.textDiff.from
+    renderMarkers()
+  }
+
+  function isMoveDiffEnabled(changeId: string): boolean {
+    return !disabledMoveDiffByChangeId.has(changeId)
+  }
+
+  function setMoveDiffEnabled(change: Change, enabled: boolean): void {
+    if (!change.patch.moveDiff) return
+    if (enabled) disabledMoveDiffByChangeId.delete(change.id)
+    else disabledMoveDiffByChangeId.add(change.id)
+    moveElementToIndex(change.element, Math.max(0, enabled ? change.patch.moveDiff.toIndex : change.patch.moveDiff.fromIndex))
+    renderMarkers()
+  }
+
+  function getChangeNoteText(change: Change): string {
+    if (change.type === 'annotation') return change.comment
+    return change.meta.note?.trim() ?? ''
+  }
+
+  function hasAnyEnabledDiff(change: Change): boolean {
+    if (change.patch.textDiff && isTextDiffEnabled(change.id)) return true
+    if (change.patch.moveDiff && isMoveDiffEnabled(change.id)) return true
+    if (change.patch.styleDiffs.some((diff) => isStyleDiffEnabled(change.id, diff.property))) return true
+    return false
+  }
+
+  function setAllDiffsEnabled(change: Change, enabled: boolean): void {
+    if (change.patch.textDiff) {
+      if (enabled) disabledTextDiffByChangeId.delete(change.id)
+      else disabledTextDiffByChangeId.add(change.id)
     }
     if (change.patch.moveDiff) {
+      if (enabled) disabledMoveDiffByChangeId.delete(change.id)
+      else disabledMoveDiffByChangeId.add(change.id)
+    }
+    if (change.patch.styleDiffs.length > 0) {
+      if (enabled) disabledStyleDiffsByChangeId.delete(change.id)
+      else disabledStyleDiffsByChangeId.set(change.id, new Set(change.patch.styleDiffs.map((diff) => diff.property)))
+    }
+    if (enabled) applyChangeToAfter(change)
+    else resetChangeToBefore(change)
+    renderMarkers()
+    if (currentMode === 'changes') renderChangesList()
+  }
+
+  function syncChangePreviewFromEnabledState(change: Change): void {
+    if (hasAnyEnabledDiff(change)) beforePreviewChangeIds.delete(change.id)
+    else beforePreviewChangeIds.add(change.id)
+  }
+
+  function applyChangeToAfter(change: Change): void {
+    if (change.patch.textDiff && isTextDiffEnabled(change.id)) change.element.textContent = change.patch.textDiff.to
+    for (const diff of change.patch.styleDiffs) {
+      if (isStyleDiffEnabled(change.id, diff.property)) change.element.style.setProperty(diff.property, diff.modified)
+    }
+    if (change.patch.moveDiff && isMoveDiffEnabled(change.id)) {
       moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.toIndex))
     }
   }
@@ -1401,6 +1514,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     clearPersistedChanges()
     activeChangeId = null
     beforePreviewChangeIds.clear()
+    disabledStyleDiffsByChangeId.clear()
+    disabledTextDiffByChangeId.clear()
+    disabledMoveDiffByChangeId.clear()
+    disabledNoteByChangeId.clear()
     moveChangeIdByElement = new WeakMap<HTMLElement, string>()
     renderMarkers()
     if (currentMode === 'changes') renderChangesList()
@@ -1409,6 +1526,92 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function persistChangesState(): void {
     persistChanges(changes)
+  }
+
+  function buildChangesArchive(): ChangesArchive {
+    return {
+      version: 1,
+      source: 'elens',
+      exportedAt: new Date().toISOString(),
+      page: {
+        url: window.location.href,
+        route: getRoute(),
+        title: document.title,
+      },
+      changes: toPersistedChanges(changes),
+    }
+  }
+
+  function exportArchiveJSON(): string {
+    return JSON.stringify(buildChangesArchive(), null, 2)
+  }
+
+  function downloadChangesArchive(): void {
+    const archive = buildChangesArchive()
+    const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const timestamp = archive.exportedAt.replace(/[:]/g, '-').replace(/\.\d+Z$/, 'Z')
+    link.href = url
+    link.download = `elens-changes-${timestamp}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  function parseChangesArchive(value: string): PersistedChange[] {
+    const parsed = JSON.parse(value) as Partial<ChangesArchive> | PersistedChange[]
+    if (Array.isArray(parsed)) return parsed
+    if (
+      parsed &&
+      parsed.version === 1 &&
+      parsed.source === 'elens' &&
+      Array.isArray(parsed.changes)
+    ) {
+      return parsed.changes
+    }
+    throw new Error('invalid archive')
+  }
+
+  function restoreChangesFromPersistedData(persistedChanges: PersistedChange[]): { restored: number; skipped: number } {
+    if (persistedChanges.length === 0) {
+      changes = []
+      changeIdCounter = 0
+      renderMarkers()
+      return { restored: 0, skipped: 0 }
+    }
+
+    let maxId = 0
+    const restoredChanges: Change[] = []
+
+    persistedChanges.forEach((change) => {
+      const element = findElementForPersistedChange(change)
+      if (!element) return
+      restoredChanges.push({ ...change, element })
+      const numericId = Number.parseInt(change.id, 10)
+      if (Number.isFinite(numericId)) {
+        maxId = Math.max(maxId, numericId)
+      }
+    })
+
+    changes = restoredChanges
+    changeIdCounter = maxId
+    restoredChanges.forEach(applyChangeToAfter)
+    renderMarkers()
+    return {
+      restored: restoredChanges.length,
+      skipped: Math.max(0, persistedChanges.length - restoredChanges.length),
+    }
+  }
+
+  function importChangesArchive(value: string): { restored: number; skipped: number } {
+    const persistedChanges = parseChangesArchive(value)
+    clearAllChanges()
+    const result = restoreChangesFromPersistedData(persistedChanges)
+    persistChangesState()
+    if (currentMode === 'changes') renderChangesList()
+    return result
   }
 
   function findElementForPersistedChange(change: PersistedChange): HTMLElement | null {
@@ -1501,27 +1704,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const persistedChanges = loadPersistedChanges()
     if (persistedChanges.length === 0) return
 
-    let maxId = 0
-    const restoredChanges: Change[] = []
-
-    persistedChanges.forEach((change) => {
-      const element = findElementForPersistedChange(change)
-      if (!element) return
-      restoredChanges.push({ ...change, element })
-      const numericId = Number.parseInt(change.id, 10)
-      if (Number.isFinite(numericId)) {
-        maxId = Math.max(maxId, numericId)
-      }
-    })
-
-    changes = restoredChanges
-    changeIdCounter = maxId
-    restoredChanges.forEach(applyChangeToAfter)
-    if (restoredChanges.length > 0) {
-      renderMarkers()
-      return
-    }
-    clearPersistedChanges()
+    const result = restoreChangesFromPersistedData(persistedChanges)
+    if (result.restored === 0) clearPersistedChanges()
   }
 
   function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' | 'move' = 'annotation', diffs?: Change['diffs']): string {
@@ -1587,6 +1771,36 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderMarkers()
   }
 
+  function updateChangeNote(change: Change, note: string): void {
+    const trimmedNote = note.trim()
+    change.meta.note = trimmedNote
+    if (change.type === 'annotation') {
+      change.comment = trimmedNote
+    } else if (change.type === 'design') {
+      const styleComment = (change.diffs ?? [])
+        .filter(d => !isInternalResetDiff(d))
+        .map(d => `${d.property}: ${d.original} → ${d.modified}`)
+        .join(', ')
+      change.comment = [styleComment, trimmedNote].filter(Boolean).join('\n')
+    } else {
+      change.comment = trimmedNote
+    }
+    change.patch = buildChangePatch(change.type, change.diffs, change.comment)
+    change.timestamp = Date.now()
+    change.meta.updatedAt = new Date().toISOString()
+    change.meta.route = getRoute()
+    persistChangesState()
+    options.onChangeAdd?.(change)
+    renderMarkers()
+  }
+
+  function createNoteChange(element: HTMLElement, note: string): string {
+    const id = addChange(element, note, 'annotation', [])
+    const change = changes.find((item) => item.id === id)
+    if (change) updateChangeNote(change, note)
+    return id
+  }
+
   function removeChange(id: string): void {
     const change = changes.find(c => c.id === id)
     // Revert design styles when removing a design change
@@ -1596,6 +1810,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
     }
     changes = changes.filter(c => c.id !== id)
+    disabledStyleDiffsByChangeId.delete(id)
+    disabledTextDiffByChangeId.delete(id)
+    disabledMoveDiffByChangeId.delete(id)
+    disabledNoteByChangeId.delete(id)
     persistChangesState()
     options.onChangeRemove?.(id)
     renderMarkers()
@@ -1628,10 +1846,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const wrap = el('div', 'ei-annotate')
     const textarea = document.createElement('textarea')
     textarea.className = 'ei-annotate-input'
-    textarea.placeholder = '\u6DFB\u52A0\u6CE8\u91CA\u2026'
+    textarea.placeholder = i18n.design.notePlaceholder
     textarea.setAttribute(IGNORE_ATTR, 'true')
-    const existing = findChangeForElement(element)
-    if (existing) textarea.value = existing.comment
+    const existing = findNoteChangeForElement(element)
+    if (existing) textarea.value = getChangeNoteText(existing)
     annotateInput = textarea
 
     textarea.addEventListener('keydown', (e) => {
@@ -1643,7 +1861,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
 
     const actionsRow = el('div', 'ei-annotate-actions')
-    const submitBtn = el('button', 'ei-annotate-btn ei-annotate-btn-primary', existing ? i18n.actions.update : i18n.actions.add)
+    const submitBtn = el('button', 'ei-button ei-button-primary', existing ? i18n.actions.update : i18n.actions.add)
     submitBtn.type = 'button'
     submitBtn.setAttribute(IGNORE_ATTR, 'true')
     submitBtn.addEventListener('click', () => submitAnnotation(element, textarea.value))
@@ -1656,7 +1874,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function submitAnnotation(element: HTMLElement, comment: string): void {
     const trimmed = comment.trim()
     if (!trimmed) return
-    addChange(element, trimmed)
+    const existing = findNoteChangeForElement(element)
+    if (existing) updateChangeNote(existing, trimmed)
+    else createNoteChange(element, trimmed)
     lockedElement = null
     panelAnchor = null
     panelPosition = null
@@ -1774,15 +1994,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const formatRelativeTime = (value: string): string => {
       const timestamp = Date.parse(value)
-      if (!Number.isFinite(timestamp)) return 'just now'
+      if (!Number.isFinite(timestamp)) return '刚刚'
       const delta = Math.max(0, Date.now() - timestamp)
       const minute = 60_000
       const hour = 60 * minute
       const day = 24 * hour
-      if (delta < minute) return 'just now'
-      if (delta < hour) return `${Math.max(1, Math.floor(delta / minute))} min ago`
-      if (delta < day) return `${Math.max(1, Math.floor(delta / hour))} hour${delta >= 2 * hour ? 's' : ''} ago`
-      return `${Math.max(1, Math.floor(delta / day))} day${delta >= 2 * day ? 's' : ''} ago`
+      if (delta < minute) return '刚刚'
+      if (delta < hour) return `${Math.max(1, Math.floor(delta / minute))} 分钟前`
+      if (delta < day) return `${Math.max(1, Math.floor(delta / hour))} 小时前`
+      return `${Math.max(1, Math.floor(delta / day))} 天前`
     }
 
     const ensureButtonIconStack = (button: HTMLButtonElement): { current: HTMLSpanElement; next: HTMLSpanElement } => {
@@ -1910,13 +2130,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
 
       if (lines.length > 0) return lines
-      return change.comment ? [change.comment] : [i18n.changes.noExtraNotes]
+      return [i18n.changes.noExtraNotes]
     }
 
-    const noteText = (change: Change): string => {
-      if (change.type === 'annotation') return change.comment
-      return change.meta.note?.trim() ?? ''
-    }
+    const noteText = (change: Change): string => getChangeNoteText(change)
 
     type ChangeInfoRow = {
       property: string
@@ -1924,6 +2141,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       checked: boolean
       muted: boolean
       colorValue?: string
+      onToggle: (checked: boolean) => void
     }
 
     const isMutedChangeValue = (value: string): boolean => ['auto', 'none', 'normal', 'initial', 'unset'].includes(value.trim().toLowerCase())
@@ -1939,38 +2157,39 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const rows: ChangeInfoRow[] = []
 
       if (change.patch.textDiff) {
+        const checked = isTextDiffEnabled(change.id)
         rows.push({
           property: 'text',
           value: truncate(change.patch.textDiff.to, 32),
-          checked: true,
-          muted: false,
+          checked,
+          muted: !checked,
+          onToggle: (enabled) => setTextDiffEnabled(change, enabled),
         })
       }
 
       if (change.patch.moveDiff) {
+        const checked = isMoveDiffEnabled(change.id)
         rows.push({
           property: 'position',
           value: `${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`,
-          checked: true,
-          muted: false,
+          checked,
+          muted: !checked,
+          onToggle: (enabled) => setMoveDiffEnabled(change, enabled),
         })
       }
 
       getUserVisibleStyleDiffs(change).forEach((diff) => {
         const value = truncate(diff.modified || diff.original || '—', 36)
-        const muted = !diff.modified || isMutedChangeValue(diff.modified)
+        const checked = isStyleDiffEnabled(change.id, diff.property)
         rows.push({
           property: diff.property,
           value,
-          checked: !muted,
-          muted,
+          checked,
+          muted: !checked,
           colorValue: getColorPreviewValue(diff.property, diff.modified),
+          onToggle: (enabled) => setStyleDiffEnabled(change, diff.property, enabled),
         })
       })
-
-      if (!rows.length && change.comment) {
-        rows.push({ property: i18n.changes.note, value: truncate(change.comment, 36), checked: false, muted: true })
-      }
 
       return rows.slice(0, 6)
     }
@@ -1990,7 +2209,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return wrap
     }
 
-    const createChangeInfoRow = (row: ChangeInfoRow): HTMLDivElement => {
+    const createChangeInfoRow = (change: Change, row: ChangeInfoRow): HTMLDivElement => {
       const node = el('div', `ei-ann-info-row${row.checked ? '' : ' is-muted'}`)
       const content = el('div', 'ei-ann-info-content')
       const property = el('span', 'ei-ann-info-property', `${row.property}:`)
@@ -2004,48 +2223,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       content.append(property, valueWrap)
       node.append(createChangeCheckbox(row.checked, `${row.property}: ${row.value}`, (checked) => {
         node.classList.toggle('is-muted', !checked)
+        row.onToggle(checked)
+        syncChangePreviewFromEnabledState(change)
+        if (currentMode === 'changes') renderChangesList()
       }), content)
       return node
     }
 
     const buildSingleAIPayload = (change: Change): string => buildAIPayload([change])
 
-    const resetElementToBefore = (change: Change): void => {
-      if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.from
-      for (const diff of change.patch.styleDiffs) {
-        change.element.style.setProperty(diff.property, diff.original)
-      }
-    }
-
-    const applyElementToAfter = (change: Change): void => {
-      if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.to
-      for (const diff of change.patch.styleDiffs) {
-        change.element.style.setProperty(diff.property, diff.modified)
-      }
-    }
-
-    const resetMoveToBefore = (change: Change): void => {
-      if (!change.patch.moveDiff) return
-      moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex))
-    }
-
-    const applyMoveToAfter = (change: Change): void => {
-      if (!change.patch.moveDiff) return
-      applyChangeToAfter(change)
-    }
-
     const syncPreviewState = (): void => {
       changes.forEach((change) => {
         if (!document.contains(change.element)) return
-        if (change.type === 'design') {
-          if (beforePreviewChangeIds.has(change.id)) resetElementToBefore(change)
-          else applyChangeToAfter(change)
-          return
-        }
-        if (change.type === 'move') {
-          if (beforePreviewChangeIds.has(change.id)) resetMoveToBefore(change)
-          else applyMoveToAfter(change)
-        }
+        if (beforePreviewChangeIds.has(change.id)) resetChangeToBefore(change)
+        else applyChangeToAfter(change)
       })
       renderMarkers()
       if (lockedElement && document.contains(lockedElement)) {
@@ -2056,36 +2247,80 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const toggleBeforePreview = (change: Change): void => {
-      if (change.type !== 'design' && change.type !== 'move') return
-      if (beforePreviewChangeIds.has(change.id)) beforePreviewChangeIds.delete(change.id)
+      const nextEnabled = beforePreviewChangeIds.has(change.id)
+      setAllDiffsEnabled(change, nextEnabled)
+      if (nextEnabled) beforePreviewChangeIds.delete(change.id)
       else beforePreviewChangeIds.add(change.id)
-      syncPreviewState()
     }
 
-    const filterOptions: Array<{ key: typeof changesFilter; label: string }> = [
-      { key: 'all', label: i18n.changes.all },
-      { key: 'style', label: i18n.changes.style },
-      { key: 'text', label: i18n.changes.text },
-      { key: 'move', label: i18n.changes.move },
-      { key: 'note', label: i18n.changes.note },
-    ]
+    const importInput = document.createElement('input')
+    importInput.type = 'file'
+    importInput.accept = 'application/json,.json'
+    importInput.style.display = 'none'
+    importInput.setAttribute(IGNORE_ATTR, 'true')
+
+    const exportBtn = iconButton(CHANGES_UPLOAD_ICON, i18n.actions.export, 'ei-ann-action ei-ann-action-archive')
+    exportBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      downloadChangesArchive()
+    })
+
+    const importBtn = iconButton(CHANGES_DOWNLOAD_ICON, i18n.actions.import, 'ei-ann-action ei-ann-action-archive')
+    importBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      importInput.value = ''
+      importInput.click()
+    })
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files?.[0]
+      if (!file) return
+      try {
+        const result = importChangesArchive(await file.text())
+        setActionButtonLabel(importBtn, result.skipped > 0 ? `${i18n.actions.imported} ${result.restored}/${result.restored + result.skipped}` : i18n.actions.imported)
+        window.setTimeout(() => { setActionButtonLabel(importBtn, i18n.actions.import) }, 1500)
+      } catch {
+        setActionButtonLabel(importBtn, i18n.actions.invalidImportFile)
+        window.setTimeout(() => { setActionButtonLabel(importBtn, i18n.actions.import) }, 1500)
+      }
+    })
+
+    const count = el('div', 'ei-ann-summary-count', `${changes.length} ${i18n.changes.count}`)
+    const summaryActions = el('div', 'ei-ann-summary-actions')
+    summaryActions.append(exportBtn, importBtn)
 
     if (changes.length === 0) {
+      changesSummaryBar.replaceChildren(count, summaryActions)
+      changesSummaryBar.style.display = 'flex'
       body.innerHTML = '<div class="ei-ann-empty">还没有变更记录。在 Inspector 或 Design 模式中添加。</div>'
     } else {
-      const filters = el('div', 'ei-ann-filters')
-      for (const option of filterOptions) {
-        const btn = el('button', `ei-ann-filter${changesFilter === option.key ? ' is-active' : ''}`, option.label)
-        btn.type = 'button'
-        btn.setAttribute(IGNORE_ATTR, 'true')
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation()
-          changesFilter = option.key
-          refreshChangesList()
-        })
-        filters.appendChild(btn)
+      const isPreviewingAllBefore = changes.length > 0 && changes.every((change) => beforePreviewChangeIds.has(change.id))
+      const previewAllBtn = iconButton(isPreviewingAllBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON, isPreviewingAllBefore ? i18n.changes.previewAllAfter : i18n.changes.previewAllBefore)
+      const syncPreviewAllButton = (): void => {
+        const previewing = changes.length > 0 && changes.every((change) => beforePreviewChangeIds.has(change.id))
+        swapButtonIcon(previewAllBtn, previewing ? EYE_CLOSED_ICON : EYE_OPEN_ICON)
+        setActionButtonLabel(previewAllBtn, previewing ? i18n.changes.previewAllAfter : i18n.changes.previewAllBefore)
+        previewAllBtn.classList.toggle('is-active', previewing)
       }
-      body.appendChild(filters)
+      syncPreviewAllButton()
+      previewAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const previewing = changes.length > 0 && changes.every((change) => beforePreviewChangeIds.has(change.id))
+        changes.forEach((change) => {
+          setAllDiffsEnabled(change, previewing)
+          if (previewing) beforePreviewChangeIds.delete(change.id)
+          else beforePreviewChangeIds.add(change.id)
+        })
+        refreshChangesList()
+      })
+
+      const clearAllBtn = iconButton(CHANGES_HOVER_DELETE_ICON, i18n.changes.clearAll, 'ei-ann-action is-danger')
+      clearAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        clearAllChanges()
+      })
+      summaryActions.append(previewAllBtn, clearAllBtn)
+      changesSummaryBar.replaceChildren(count, summaryActions)
+      changesSummaryBar.style.display = 'flex'
 
       if (visibleChanges.length === 0) {
         body.appendChild(el('div', 'ei-ann-empty', i18n.changes.emptyFiltered))
@@ -2170,7 +2405,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             actions.append(previewBtn, singleCopyBtn, closeBtn)
             const headerTitle = el('div', 'ei-ann-header-title')
             headerTitle.append(
-              el('span', 'ei-ann-header-accent'),
               el('span', 'ei-ann-header-target', `#${visibleIndex} · ${selectorText(c)}`),
             )
             author.append(avatar, headerTitle)
@@ -2178,18 +2412,33 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
             const infoList = el('div', 'ei-ann-info-list')
             if (infoRows.length) {
-              infoRows.forEach((row) => infoList.appendChild(createChangeInfoRow(row)))
-            } else {
+              infoRows.forEach((row) => infoList.appendChild(createChangeInfoRow(c, row)))
+            } else if (!(summaryLines.length === 1 && summaryLines[0] === i18n.changes.noExtraNotes)) {
               for (const line of summaryLines) {
                 infoList.appendChild(el('div', 'ei-ann-diff', line))
               }
             }
 
-            main.append(top, infoList)
+            main.append(top)
+            if (infoList.childNodes.length) {
+              main.appendChild(infoList)
+            }
 
             if (note) {
               const noteSection = el('div', 'ei-ann-note-block')
-              noteSection.append(el('div', 'ei-ann-note-label', 'Note'), el('div', 'ei-ann-note', note))
+              const noteContent = el('div', 'ei-ann-note-content')
+              const noteTextEl = el('span', 'ei-ann-note', note)
+              noteTextEl.title = note
+              noteContent.append(el('span', 'ei-ann-note-label', 'Note:'), noteTextEl)
+              const noteChecked = !disabledNoteByChangeId.has(c.id)
+              noteSection.classList.toggle('is-muted', !noteChecked)
+              noteSection.append(createChangeCheckbox(noteChecked, `Note: ${note}`, (checked) => {
+                if (checked) disabledNoteByChangeId.delete(c.id)
+                else disabledNoteByChangeId.add(c.id)
+                noteSection.classList.toggle('is-muted', !checked)
+                syncChangePreviewFromEnabledState(c)
+                if (currentMode === 'changes') renderChangesList()
+              }), noteContent)
               main.appendChild(noteSection)
             }
 
@@ -2228,16 +2477,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
     })
 
-    const clearBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-ghost', i18n.actions.clearAll)
-    clearBtn.type = 'button'
-    clearBtn.setAttribute(IGNORE_ATTR, 'true')
-    clearBtn.addEventListener('click', () => {
-      clearAllChanges()
-      clearActiveChangeCard()
-    })
-
     exportPrimary.append(copyAIBtn, copyJSONBtn)
-    exportRow.append(exportPrimary, clearBtn)
+    exportRow.append(exportPrimary, importInput)
     panel.appendChild(exportRow)
 
     setPanelVisible(true)
@@ -4133,5 +4374,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     },
     exportMarkdown: (detail?: OutputDetail) => buildMarkdownExport(changes, detail),
     exportJSON: (detail?: OutputDetail) => buildJSONExport(changes, detail),
+    exportArchiveJSON,
+    importChanges: importChangesArchive,
   }
 }

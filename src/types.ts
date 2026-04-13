@@ -409,6 +409,8 @@ export type ElementInspectorInstance = {
   clearChanges: () => void
   exportMarkdown: (detail?: OutputDetail) => string
   exportJSON: (detail?: OutputDetail) => string
+  exportArchiveJSON: () => string
+  importChanges: (json: string) => { restored: number; skipped: number }
 }
 
 // Figma capture global

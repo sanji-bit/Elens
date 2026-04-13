@@ -19,7 +19,7 @@ export const tokens = {
     bg: {
       panel: '#111113',
       dropdown: 'rgba(30,30,30,1)',
-      field: 'rgba(255,255,255,0.06)',
+      field: 'rgba(255,255,255,0.08)',
       hover: 'rgba(255,255,255,0.08)',
       hoverStrong: 'rgba(255,255,255,0.12)',
       active: 'rgba(255,255,255,0.14)',
@@ -235,7 +235,7 @@ const contrastScales = {
     textTertiary: 0.45,
     textMuted: 0.35,
     textFaint: 0.25,
-    field: 0.06,
+    field: 0.08,
     hover: 0.08,
     hoverStrong: 0.12,
     active: 0.14,

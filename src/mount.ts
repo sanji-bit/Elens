@@ -643,7 +643,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   designBtn.classList.add('ei-toolbar-extra')
   const moveBtn = makeToolbarBtn(ICON_MOVE, i18n.toolbar.moveTooltip)
   moveBtn.classList.add('ei-toolbar-extra')
-  const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changes)
+  const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changesTooltip)
   changesBtn.classList.add('ei-toolbar-extra')
   // Screenshot button with dropdown
   const viewportGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
@@ -4004,6 +4004,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
+    if (event.key === 'j' || event.key === 'J') {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleToolbarMode('changes')
+      return
+    }
+
     if (event.key === 'c' || event.key === 'C') {
       event.preventDefault()
       event.stopPropagation()
@@ -5097,30 +5104,40 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Wire up events ---
 
+  function clearOutlines(): void {
+    outlinesEnabled = false
+    outlinesBtn.dataset.active = ''
+    document.body.dataset.eiOutlines = ''
+    if (outlinesHoverElement) {
+      outlinesHoverElement.classList.remove('ei-hover-highlight')
+      outlinesHoverElement = null
+    }
+  }
+
+  function toggleToolbarMode(mode: InspectorMode): void {
+    if (currentMode === mode) {
+      setMode('off')
+      return
+    }
+    if (outlinesEnabled) clearOutlines()
+    setMode(mode)
+  }
+
   inspectorBtn.addEventListener('click', () => {
     if (!toolbarExpanded) {
       expandToolbar()
       // Reposition after expanding since size changes
       requestAnimationFrame(initToolbarPosition)
-      setMode('inspector')
-    } else {
-      setMode('inspector')
     }
+    toggleToolbarMode('inspector')
   })
-  designBtn.addEventListener('click', () => setMode('design'))
-  moveBtn.addEventListener('click', () => setMode('move'))
-  changesBtn.addEventListener('click', () => setMode('changes'))
-  guidesBtn.addEventListener('click', () => setMode('guides'))
+  designBtn.addEventListener('click', () => toggleToolbarMode('design'))
+  moveBtn.addEventListener('click', () => toggleToolbarMode('move'))
+  changesBtn.addEventListener('click', () => toggleToolbarMode('changes'))
+  guidesBtn.addEventListener('click', () => toggleToolbarMode('guides'))
   exitBtn.addEventListener('click', () => {
     setMode('off')
-    outlinesEnabled = false
-    outlinesBtn.dataset.active = ''
-    document.body.dataset.eiOutlines = ''
-    // Clear hover highlight class
-    if (outlinesHoverElement) {
-      outlinesHoverElement.classList.remove('ei-hover-highlight')
-      outlinesHoverElement = null
-    }
+    clearOutlines()
     // Unbind events when closing toolbar with outlines mode
     unbindEvents()
     collapseToolbar()

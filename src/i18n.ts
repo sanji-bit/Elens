@@ -9,6 +9,7 @@ export const zhCN = {
     move: '移动',
     moveTooltip: '移动 · V',
     changes: '变更',
+    changesTooltip: '变更 · J',
     guides: '标尺',
     guidesTooltip: '标尺 · R',
     outlines: '轮廓',

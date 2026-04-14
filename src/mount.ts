@@ -9,6 +9,7 @@ import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
 import ICON_DESIGN from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_ICON from './assets/design-mode-figma.svg?raw'
 import DESIGN_DEV_MODE_ICON from './assets/design-dev-mode-figma.svg?raw'
+import PANEL_MINIMIZE_UI_ICON from './assets/panel-minimize-ui.svg?raw'
 import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
 import ICON_INSPECTOR from './assets/toolbar-inspector.svg?raw'
@@ -337,7 +338,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
   let designApplyOnceMatches = false
+  let designScopeUserToggled = false
   let designPanelView: 'visual' | 'dev' = 'visual'
+  let panelCollapsed = false
+  let panelExpandedHeight = 0
   let designDevDraft = ''
   let designDevError = ''
   let designDevSessionBaseline: Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }> = []
@@ -577,17 +581,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return btn
   }
 
-  const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, i18n.toolbar.inspector)
-  const designBtn = makeToolbarBtn(ICON_DESIGN, i18n.toolbar.design)
+  const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, i18n.toolbar.inspectorTooltip)
+  const designBtn = makeToolbarBtn(ICON_DESIGN, i18n.toolbar.designTooltip)
   designBtn.classList.add('ei-toolbar-extra')
-  const moveBtn = makeToolbarBtn(ICON_MOVE, i18n.toolbar.move)
+  const moveBtn = makeToolbarBtn(ICON_MOVE, i18n.toolbar.moveTooltip)
   moveBtn.classList.add('ei-toolbar-extra')
   const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changes)
   changesBtn.classList.add('ei-toolbar-extra')
   // Screenshot button with dropdown
   const screenshotGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
   screenshotGroup.setAttribute(IGNORE_ATTR, 'true')
-  const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, i18n.toolbar.screenshot)
+  const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, i18n.toolbar.screenshotTooltip)
   const screenshotDropdownBtn = el('button', 'ei-toolbar-btn ei-toolbar-dropdown-btn')
   screenshotDropdownBtn.type = 'button'
   screenshotDropdownBtn.innerHTML = ICON_CHEVRON_DOWN
@@ -626,13 +630,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
   toolbarDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
 
-  const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exit)
+  const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exitTooltip)
   exitBtn.classList.add('ei-toolbar-extra')
 
-  const guidesBtn = makeToolbarBtn(ICON_GUIDES, i18n.toolbar.guides)
+  const guidesBtn = makeToolbarBtn(ICON_GUIDES, i18n.toolbar.guidesTooltip)
   guidesBtn.classList.add('ei-toolbar-extra')
 
-  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, i18n.toolbar.outlines)
+  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, i18n.toolbar.outlinesTooltip)
   outlinesBtn.classList.add('ei-toolbar-extra')
 
   toolbar.append(inspectorBtn, designBtn, moveBtn, guidesBtn, outlinesBtn, screenshotGroup, changesBtn, toolbarDivider, exitBtn)
@@ -660,17 +664,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const actions = el('div', 'ei-actions')
   const copyBtn = el('button', 'ei-icon-btn', i18n.actions.copy)
   const unlockBtn = el('button', 'ei-icon-btn', i18n.actions.unlock)
+  const panelWindowActions = el('div', 'ei-panel-window-actions')
+  const panelMinimizeBtn = el('button', 'ei-panel-minimize') as HTMLButtonElement
+  const panelActionDivider = el('div', 'ei-panel-action-divider')
   const changesCloseBtn = el('button', 'ei-changes-close') as HTMLButtonElement
   copyBtn.type = 'button'
   unlockBtn.type = 'button'
+  panelMinimizeBtn.type = 'button'
   changesCloseBtn.type = 'button'
   copyBtn.setAttribute(IGNORE_ATTR, 'true')
   unlockBtn.setAttribute(IGNORE_ATTR, 'true')
+  panelWindowActions.setAttribute(IGNORE_ATTR, 'true')
+  panelMinimizeBtn.setAttribute(IGNORE_ATTR, 'true')
+  panelActionDivider.setAttribute(IGNORE_ATTR, 'true')
   changesCloseBtn.setAttribute(IGNORE_ATTR, 'true')
+  panelMinimizeBtn.title = 'Minimize UI'
+  panelMinimizeBtn.ariaLabel = 'Minimize UI'
+  panelMinimizeBtn.setAttribute('aria-pressed', 'false')
+  panelMinimizeBtn.innerHTML = PANEL_MINIMIZE_UI_ICON
   changesCloseBtn.title = i18n.panel.closeChanges
   changesCloseBtn.ariaLabel = i18n.panel.closeChanges
   changesCloseBtn.innerHTML = CHANGES_PANEL_CLOSE_ICON
-  actions.append(copyBtn, unlockBtn, changesCloseBtn)
+  panelWindowActions.append(panelMinimizeBtn, panelActionDivider, changesCloseBtn)
+  actions.append(copyBtn, unlockBtn, panelWindowActions)
   header.append(titleWrap, actions)
 
   const changesSummaryBar = el('div', 'ei-ann-summary-bar')
@@ -709,11 +725,59 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     )
   }
 
+  function getPanelCollapsedHeight(): number {
+    return header.offsetHeight || 49
+  }
+
+  function getPanelExpandHeight(): number {
+    const currentHeight = panel.offsetHeight
+    if (currentHeight > 0) return currentHeight
+    const scrollHeight = panel.scrollHeight
+    if (scrollHeight > 0) return scrollHeight
+    return panelExpandedHeight || 0
+  }
+
+  function syncPanelCollapsed(): void {
+    panel.dataset.collapsed = panelCollapsed ? 'true' : 'false'
+    panelMinimizeBtn.setAttribute('aria-pressed', panelCollapsed ? 'true' : 'false')
+    panel.style.height = panelCollapsed ? `${getPanelCollapsedHeight()}px` : ''
+  }
+
+  panelMinimizeBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    const isCollapsing = !panelCollapsed
+    if (isCollapsing) {
+      panel.dataset.collapseHidden = 'false'
+      panelExpandedHeight = getPanelExpandHeight()
+      panel.style.height = `${panelExpandedHeight}px`
+      panel.getBoundingClientRect()
+      panelCollapsed = true
+      syncPanelCollapsed()
+      window.setTimeout(() => {
+        if (panelCollapsed) panel.dataset.collapseHidden = 'true'
+      }, 160)
+    } else {
+      panelCollapsed = false
+      panel.dataset.collapsed = 'false'
+      panel.dataset.collapseHidden = 'false'
+      panelMinimizeBtn.setAttribute('aria-pressed', 'false')
+      const expandedHeight = panelExpandedHeight || getPanelExpandHeight()
+      panel.style.height = `${getPanelCollapsedHeight()}px`
+      panel.getBoundingClientRect()
+      panel.style.height = `${expandedHeight}px`
+      window.setTimeout(() => {
+        if (!panelCollapsed) panel.style.height = ''
+      }, 160)
+    }
+    positionPanel(panelAnchor, currentInfo)
+  })
+
   function setPanelVisible(visible: boolean): void {
     if (!visible) {
       panel.style.display = 'none'
       return
     }
+    syncPanelCollapsed()
     panel.style.display = panel.classList.contains('is-changes') ? 'flex' : 'block'
   }
 
@@ -783,6 +847,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function cleanupPanelExtras(): void {
     panel.querySelectorAll('.ei-annotate, .ei-ann-export, .ei-design-actions').forEach(n => n.remove())
     panel.classList.remove('is-changes')
+    panelCollapsed = false
+    panel.dataset.collapseHidden = 'false'
+    syncPanelCollapsed()
     changesSummaryBar.innerHTML = ''
     changesSummaryBar.style.display = 'none'
     changesCloseBtn.style.display = 'none'
@@ -2935,6 +3002,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
     designApplyOnceMatches = false
+    designScopeUserToggled = false
     designPanelView = 'visual'
     designDevDraft = ''
     designDevError = ''
@@ -3306,7 +3374,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       renderEmpty()
       return
     }
-    if (!designApplyOnceMatches && hasExistingMatchingLayerGroup(info.element)) {
+    if (!designScopeUserToggled && !designApplyOnceMatches && hasExistingMatchingLayerGroup(info.element)) {
       designApplyOnceMatches = true
     }
     setPanelVisible(true)
@@ -3430,6 +3498,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const matchBtn = createDesignActionIconButton(i18n.design.selectMatchingLayers, DESIGN_SELECT_MATCHING_LAYERS_URL)
     if (designApplyOnceMatches) matchBtn.dataset.active = 'true'
     matchBtn.addEventListener('click', () => {
+      designScopeUserToggled = true
       designApplyOnceMatches = matchBtn.dataset.active !== 'true'
       renderDesign(extractInspectorInfo(info.element))
     })
@@ -3741,7 +3810,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (!isInteractiveMode() || isIgnoredEvent(event)) return
+    if (isIgnoredEvent(event)) return
     if (isEditableTarget(event.target)) return
 
     if (event.key === 'Escape') {
@@ -3766,6 +3835,50 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
       return
     }
+
+    if (event.key === 'i' || event.key === 'I') {
+      event.preventDefault()
+      event.stopPropagation()
+      setMode('inspector')
+      return
+    }
+
+    if (event.key === 'd' || event.key === 'D') {
+      event.preventDefault()
+      event.stopPropagation()
+      setMode('design')
+      return
+    }
+
+    if (event.key === 'v' || event.key === 'V') {
+      event.preventDefault()
+      event.stopPropagation()
+      setMode('move')
+      return
+    }
+
+    if (event.key === 'r' || event.key === 'R') {
+      event.preventDefault()
+      event.stopPropagation()
+      setMode('guides')
+      return
+    }
+
+    if (event.key === 'o' || event.key === 'O') {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleOutlines()
+      return
+    }
+
+    if (event.key === 'c' || event.key === 'C') {
+      event.preventDefault()
+      event.stopPropagation()
+      triggerPrimaryCapture()
+      return
+    }
+
+    if (!isInteractiveMode()) return
 
     // H key to lock hover state in Design mode
     if (event.key === 'h' || event.key === 'H') {
@@ -4696,8 +4809,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     requestAnimationFrame(initToolbarPosition)
   })
 
-  // --- Outlines toggle ---
-  outlinesBtn.addEventListener('click', () => {
+  function toggleOutlines(): void {
     outlinesEnabled = !outlinesEnabled
     outlinesBtn.dataset.active = outlinesEnabled ? 'true' : ''
     document.body.dataset.eiOutlines = outlinesEnabled ? 'true' : ''
@@ -4715,6 +4827,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       // Unbind events when disabling outlines (if mode is off)
       if (currentMode === 'off') unbindEvents()
     }
+  }
+
+  // --- Outlines toggle ---
+  outlinesBtn.addEventListener('click', () => {
+    toggleOutlines()
   })
 
   // --- Capture Dropdown Menu ---
@@ -4747,6 +4864,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function toggleCaptureMenu(): void {
     if (isCaptureMenuOpen) closeCaptureMenu()
     else openCaptureMenu()
+  }
+
+  function triggerPrimaryCapture(): void {
+    if (captureMenuMode === 'element' || captureMenuMode === 'state') return
+    void captureEntireScreen()
   }
 
   // Capture functions for each mode
@@ -4944,7 +5066,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (isOutputDetailMenuOpen) closeOutputDetailMenu()
   })
 
-  screenshotBtn.addEventListener('click', () => captureEntireScreen())
+  screenshotBtn.addEventListener('click', () => triggerPrimaryCapture())
   screenshotDropdownBtn.addEventListener('click', (e) => {
     e.stopPropagation()
     toggleCaptureMenu()

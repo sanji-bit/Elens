@@ -162,7 +162,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-capture-menu-item:hover { background: var(--surface-hover-strong); }
 .ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: var(--text-secondary); }
 .ei-capture-menu-label { font-size: var(--text-base); font-weight: 400; color: var(--text-primary); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-.ei-panel { position: fixed; top: 16px; left: 16px; width: var(--panel-width); border-radius: var(--panel-radius); overflow: hidden; background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--panel-shadow); pointer-events: auto; color: var(--text-primary); user-select: text; z-index: 4; }
+.ei-panel { position: fixed; top: 16px; left: 16px; width: var(--panel-width); border-radius: var(--panel-radius); overflow: hidden; background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--panel-shadow); pointer-events: auto; color: var(--text-primary); user-select: text; z-index: 4; transition: height 140ms ease, min-height 140ms ease; }
 .ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
 .ei-panel.is-changes .ei-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
@@ -186,11 +186,31 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-panel-subtitle { font-size: var(--text-base); color: var(--text-muted); margin-top: 2px; }
 .ei-actions { display: flex; gap: var(--space-4); }
 .ei-panel.is-changes .ei-actions { gap: 0; }
+.ei-panel-window-actions { display: inline-flex; align-items: center; gap: 0; }
 .ei-icon-btn { min-width: 32px; height: 32px; border-radius: var(--radius-xl); border: 1px solid var(--border-hover); background: var(--surface-hover); color: var(--text-primary); cursor: pointer; font-size: var(--text-lg); }
-.ei-changes-close { width: 24px; height: 24px; border: none; border-radius: 5px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.ei-panel-minimize,
+.ei-changes-close { width: 24px; height: 24px; border: none; border-radius: 5px; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; color: rgba(255,255,255,0.72); }
+.ei-panel-minimize svg,
 .ei-changes-close img { width: 24px; height: 24px; display: block; }
+.ei-panel-minimize [fill*="var(--fill-0, white)"],
+.ei-changes-close [fill*="var(--fill-0, white)"] { fill: currentColor; }
+.ei-panel-minimize:hover,
 .ei-changes-close:hover { background: var(--surface-hover); }
+.ei-panel-minimize[aria-pressed="true"] { color: var(--text-primary); }
+.ei-panel-action-divider { width: 1px; height: 12px; margin: 0 4px; background: rgba(255,255,255,0.05); flex-shrink: 0; }
 .ei-body { padding: 4px 16px 16px; max-height: 70vh; overflow-y: auto; overflow-y: overlay; scrollbar-width: none; -ms-overflow-style: none; }
+.ei-panel[data-collapsed="true"] { min-height: 0; }
+.ei-panel[data-collapsed="true"] .ei-panel-header { transition: padding 140ms ease; }
+.ei-panel[data-collapsed="true"] .ei-design-actions,
+.ei-panel[data-collapsed="true"] .ei-ann-summary-bar,
+.ei-panel[data-collapsed="true"] .ei-body,
+.ei-panel[data-collapsed="true"] .ei-annotate,
+.ei-panel[data-collapsed="true"] .ei-ann-export { opacity: 0; pointer-events: none; }
+.ei-panel[data-collapse-hidden="true"] .ei-design-actions,
+.ei-panel[data-collapse-hidden="true"] .ei-ann-summary-bar,
+.ei-panel[data-collapse-hidden="true"] .ei-body,
+.ei-panel[data-collapse-hidden="true"] .ei-annotate,
+.ei-panel[data-collapse-hidden="true"] .ei-ann-export { display: none !important; }
 .ei-panel.is-inspector-compact .ei-panel-header { display: none; }
 .ei-panel.is-inspector-compact .ei-body { padding: 8px 16px; max-height: 70vh; }
 .ei-panel.is-inspector-compact .ei-annotate { padding: 0 16px 16px; }

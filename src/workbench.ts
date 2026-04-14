@@ -227,6 +227,19 @@ const DEFAULT_PENDING_NOTES = [
     lastReviewedAt: '2026-04-14',
     decision: '先作为 Dev Mode 专用 pending 组件，验证后再决定是否沉淀为 stable。',
   },
+  {
+    id: 'pending-panel-minimize-action',
+    title: 'Panel Minimize UI 按钮组',
+    description: 'Panel header 右侧的最小化按钮、分割线和关闭按钮组合，用于折叠当前面板内容。',
+    classNames: ['.ei-panel-window-actions', '.ei-panel-minimize', '.ei-panel-action-divider', '.ei-changes-close'],
+    componentKind: 'project',
+    source: 'Panel header collapse control',
+    closestStableComponent: '图标按钮 .ei-changes-close / 面板容器 .ei-panel-header',
+    reasonCannotReuse: '需要在关闭按钮前新增 Figma 专用最小化图标和 12px 分割线；按钮交互仍复用现有 header icon button 规则。',
+    reviewStatus: 'pending',
+    lastReviewedAt: '2026-04-14',
+    decision: '先作为 panel header 专用 pending 组合，验证折叠交互后再决定是否沉淀为 stable。',
+  },
 ] as const
 
 const REVIEW_STATUS_LABELS = {

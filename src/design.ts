@@ -1,3 +1,4 @@
+import CHANGES_PANEL_CLOSE_ICON from './assets/changes-panel-close.svg?raw'
 import type { InspectorInfo, StyleDiff } from './types'
 import { i18n } from './i18n'
 import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
@@ -9,6 +10,23 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   if (className) node.className = className
   if (text != null) node.textContent = text
   return node
+}
+
+function mountBodyDropdown(dropdown: HTMLElement, anchor: HTMLElement, offset = 4): void {
+  document.body.appendChild(dropdown)
+  dropdown.style.position = 'fixed'
+  dropdown.style.zIndex = '2147483646'
+
+  const anchorRect = anchor.getBoundingClientRect()
+  const dropdownRect = dropdown.getBoundingClientRect()
+  const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - dropdownRect.width - 8))
+  const bottomTop = anchorRect.bottom + offset
+  const top = bottomTop + dropdownRect.height > window.innerHeight - 8
+    ? Math.max(8, anchorRect.top - dropdownRect.height - offset)
+    : bottomTop
+
+  dropdown.style.left = `${left}px`
+  dropdown.style.top = `${top}px`
 }
 
 // --- Style Tracker ---
@@ -398,14 +416,7 @@ function openGapDropdown(
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeGapDropdown = dropdown
   requestAnimationFrame(() => {
@@ -759,20 +770,7 @@ function openSizingDropdown(
     dropdown.appendChild(item)
   }
 
-  // Position dropdown below the anchor
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  } else {
-    document.body.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeDropdown = dropdown
   requestAnimationFrame(() => {
@@ -1294,19 +1292,22 @@ function createColorNumberSegment(value: number, min: number, max: number, onCha
 }
 
 function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void): HTMLDivElement {
-  const tabs = el('div', 'ei-dp-fill-modebar')
+  const tabs = el('div', 'ei-inspector-radio-group ei-dp-fill-modebar')
+  tabs.setAttribute('role', 'radiogroup')
   const items: Array<{ kind: FillKind; icon: string; label: string }> = [
     { kind: 'solid', label: 'Solid', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/></svg>' },
     { kind: 'gradient', label: 'Gradient', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>' },
     { kind: 'image', label: 'Image', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><path d="M6 14l3-3 2 2 2-3 2 4"/></svg>' },
   ]
   for (const item of items) {
-    const btn = el('button', 'ei-dp-fill-mode-btn')
+    const activeClass = item.kind === active ? ' is-active' : ''
+    const btn = el('button', `ei-ann-filter ei-dp-fill-mode-btn${activeClass}`)
     btn.type = 'button'
     btn.title = item.label
+    btn.setAttribute('role', 'radio')
+    btn.setAttribute('aria-checked', item.kind === active ? 'true' : 'false')
     btn.innerHTML = item.icon
     btn.setAttribute(IGNORE_ATTR, 'true')
-    if (item.kind === active) btn.dataset.active = 'true'
     btn.addEventListener('click', (e) => {
       e.stopPropagation()
       onSelect(item.kind)
@@ -1319,17 +1320,24 @@ function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void
 function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
   const chrome = el('div', 'ei-dp-fill-chrome')
   const header = el('div', 'ei-dp-fill-chrome-header')
-  const tabs = el('div', 'ei-dp-fill-chrome-tabs')
-  const custom = el('button', 'ei-dp-fill-chrome-tab', 'Custom')
-  const libraries = el('button', 'ei-dp-fill-chrome-tab', 'Libraries')
+  const tabs = el('div', 'ei-inspector-radio-group ei-dp-fill-chrome-tabs')
+  tabs.setAttribute('role', 'radiogroup')
+  const custom = el('button', 'ei-ann-filter is-active', 'Custom')
+  const libraries = el('button', 'ei-ann-filter', 'Libraries')
   custom.type = 'button'
   libraries.type = 'button'
-  custom.dataset.active = 'true'
+  custom.setAttribute('role', 'radio')
+  libraries.setAttribute('role', 'radio')
+  custom.setAttribute('aria-checked', 'true')
+  libraries.setAttribute('aria-checked', 'false')
   custom.setAttribute(IGNORE_ATTR, 'true')
   libraries.setAttribute(IGNORE_ATTR, 'true')
   const setChromeTab = (active: HTMLButtonElement): void => {
-    custom.dataset.active = active === custom ? 'true' : 'false'
-    libraries.dataset.active = active === libraries ? 'true' : 'false'
+    const customActive = active === custom
+    custom.classList.toggle('is-active', customActive)
+    libraries.classList.toggle('is-active', !customActive)
+    custom.setAttribute('aria-checked', customActive ? 'true' : 'false')
+    libraries.setAttribute('aria-checked', customActive ? 'false' : 'true')
   }
   custom.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -1341,21 +1349,17 @@ function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
   })
   tabs.append(custom, libraries)
   const actions = el('div', 'ei-dp-fill-chrome-actions')
-  const add = el('button', 'ei-dp-fill-chrome-action', '+')
-  const close = el('button', 'ei-dp-fill-chrome-action', '×')
-  add.type = 'button'
+  const close = el('button', 'ei-dp-fill-chrome-action ei-changes-close')
   close.type = 'button'
-  add.setAttribute(IGNORE_ATTR, 'true')
+  close.title = i18n.panel.closeChanges
+  close.ariaLabel = i18n.panel.closeChanges
+  close.innerHTML = CHANGES_PANEL_CLOSE_ICON
   close.setAttribute(IGNORE_ATTR, 'true')
-  add.addEventListener('click', (e) => {
-    e.stopPropagation()
-    custom.click()
-  })
   close.addEventListener('click', (e) => {
     e.stopPropagation()
     closeFillPopover()
   })
-  actions.append(add, close)
+  actions.append(close)
   header.append(tabs, actions)
   chrome.append(header, content)
   return chrome
@@ -2208,14 +2212,7 @@ function openWeightDropdown(
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeWeightDropdown = dropdown
   requestAnimationFrame(() => {
@@ -2296,14 +2293,7 @@ function openColorFormatDropdown(anchor: HTMLElement, currentFormat: ColorFormat
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-dp-fill-popover')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeColorFormatDropdown = dropdown
   requestAnimationFrame(() => {
@@ -2349,14 +2339,7 @@ function openFontDropdown(
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeFontDropdown = dropdown
   requestAnimationFrame(() => {
@@ -2599,14 +2582,7 @@ function openPosDropdown(
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activePosDropdown = dropdown
   requestAnimationFrame(() => {
@@ -2659,14 +2635,7 @@ function openShadowDropdown(
     dropdown.appendChild(item)
   }
 
-  const panel = anchor.closest('.ei-panel')
-  if (panel) {
-    panel.appendChild(dropdown)
-    const anchorRect = anchor.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    dropdown.style.left = `${anchorRect.left - panelRect.left}px`
-    dropdown.style.top = `${anchorRect.bottom - panelRect.top + 4}px`
-  }
+  mountBodyDropdown(dropdown, anchor)
 
   activeShadowDropdown = dropdown
   requestAnimationFrame(() => {
@@ -4126,23 +4095,20 @@ export function getDesignStyles(): string {
 .ei-dp-fill-popover textarea,
 .ei-dp-fill-popover select { cursor: auto; }
 .ei-dp-fill-chrome { display: flex; flex-direction: column; max-height: inherit; overflow: hidden; }
-.ei-dp-fill-chrome-header { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); }
-.ei-dp-fill-chrome-tabs { display: flex; gap: 4px; align-items: center; }
-.ei-dp-fill-chrome-tab { height: var(--input-height); min-width: 58px; border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-secondary); padding: 0 10px; font: inherit; font-size: 11px; font-weight: 500; line-height: var(--input-height); cursor: pointer; }
-.ei-dp-fill-chrome-tab:hover { background: var(--surface-hover); color: var(--text-primary); }
-.ei-dp-fill-chrome-tab[data-active="true"] { background: var(--border-subtle); color: var(--text-primary); }
-.ei-dp-fill-chrome-tab[data-active="false"] { background: transparent; }
+.ei-dp-fill-chrome-header { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid var(--border-subtle); }
+.ei-dp-fill-chrome-tabs { gap: 4px; margin-bottom: 0; }
+.ei-dp-fill-chrome-tabs .ei-ann-filter { min-width: 58px; height: 24px; }
 .ei-dp-fill-chrome-actions { display: flex; gap: 6px; align-items: center; }
+.ei-dp-fill-chrome-actions .ei-changes-close { width: 24px; height: 24px; }
+.ei-dp-fill-chrome-actions .ei-changes-close svg { width: 24px; height: 24px; }
 .ei-dp-fill-chrome-action { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .ei-dp-fill-chrome-action:hover { background: var(--border-subtle); }
 .ei-dp-fill-popover::-webkit-scrollbar { width: 8px; }
 .ei-dp-fill-popover::-webkit-scrollbar-track { background: transparent; }
 .ei-dp-fill-popover::-webkit-scrollbar-thumb { background: var(--surface-hover-strong); border-radius: 999px; }
 .ei-dp-fill-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 0 12px 14px; }
-.ei-dp-fill-modebar { display: flex; align-items: center; justify-content: flex-start; gap: 32px; height: 41px; padding: 0 0 0 4px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
-.ei-dp-fill-mode-btn { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-secondary); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.ei-dp-fill-mode-btn:hover { background: var(--surface-field); color: var(--text-primary); }
-.ei-dp-fill-mode-btn[data-active="true"] { background: var(--border-default); color: var(--text-primary); }
+.ei-dp-fill-modebar { gap: 32px; padding: 8px 4px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
+.ei-dp-fill-modebar .ei-dp-fill-mode-btn { width: 24px; min-width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .ei-dp-fill-mode-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .ei-dp-fill-body { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
 .ei-dp-fill-row { display: flex; align-items: center; width: 100%; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); padding: 0; gap: 0; overflow: hidden; }

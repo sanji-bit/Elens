@@ -16,7 +16,7 @@ import ICON_INSPECTOR from './assets/toolbar-inspector.svg?raw'
 import ICON_MOVE from './assets/toolbar-move.svg?raw'
 import ICON_OUTLINES from './assets/toolbar-outlines.svg?raw'
 import ICON_SCREENSHOT from './assets/toolbar-screenshot.svg?raw'
-import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, StyleDiff, ThemeConfig, ViewportPreset, ViewportState } from './types'
+import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, StyleDiff, ThemeConfig, ViewportControllerCapabilities, ViewportPreset, ViewportState, ViewportTarget, WindowBounds } from './types'
 import { buildDesignDevEditor, buildDesignPanel, createStyleTracker, type StyleTracker } from './design'
 import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
@@ -352,8 +352,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     ?? viewportPresets.find((preset) => preset.id === persistedViewportPresetId)
     ?? null
   let currentViewportState: ViewportState | null = currentViewportPreset
-    ? { presetId: currentViewportPreset.id, width: currentViewportPreset.width, height: currentViewportPreset.height }
+    ? {
+        presetId: currentViewportPreset.id,
+        width: currentViewportPreset.width,
+        height: currentViewportPreset.height,
+        left: currentViewportPreset.left,
+        top: currentViewportPreset.top,
+        target: currentViewportPreset.target ?? 'window',
+      }
     : null
+  let viewportCapabilities: ViewportControllerCapabilities = options.viewportController?.capabilities ?? {}
+  let currentViewportTarget: ViewportTarget = currentViewportState?.target ?? 'window'
   let viewportMenuOpen = false
 
   let currentMode: InspectorMode = 'off'
@@ -689,6 +698,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, i18n.capture.selectElement)
   const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, i18n.capture.stateCapture)
 
+  const viewportMode = el('div', 'ei-tabs ei-viewport-mode')
+  const viewportModeViewportBtn = el('button', 'ei-tab', i18n.viewport.modeViewport)
+  viewportModeViewportBtn.type = 'button'
+  viewportModeViewportBtn.setAttribute(IGNORE_ATTR, 'true')
+  const viewportModeWindowBtn = el('button', 'ei-tab', i18n.viewport.modeWindow)
+  viewportModeWindowBtn.type = 'button'
+  viewportModeWindowBtn.setAttribute(IGNORE_ATTR, 'true')
+  viewportMode.append(viewportModeViewportBtn, viewportModeWindowBtn)
+  const viewportModeHint = el('div', 'ei-panel-subtitle ei-viewport-mode-hint')
+
   const viewportPresetItems = viewportPresets.map((preset) => {
     const item = makeCaptureMenuItem(ICON_VIEWPORT, preset.label)
     item.dataset.viewportPresetId = preset.id
@@ -698,28 +717,46 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const viewportCustom = el('div', 'ei-viewport-custom')
   const viewportCustomGrid = el('div', 'ei-viewport-custom-grid')
   const viewportWidthField = el('label', 'ei-dp-field')
+  viewportWidthField.appendChild(el('span', 'ei-dp-field-icon', 'W'))
   const viewportWidthInput = document.createElement('input')
   viewportWidthInput.className = 'ei-dp-field-input'
   viewportWidthInput.type = 'number'
   viewportWidthInput.min = '1'
   viewportWidthInput.placeholder = i18n.viewport.width
   viewportWidthInput.setAttribute(IGNORE_ATTR, 'true')
-  viewportWidthField.appendChild(viewportWidthInput)
+  viewportWidthField.append(viewportWidthInput, el('span', 'ei-dp-field-suffix', 'px'))
   const viewportHeightField = el('label', 'ei-dp-field')
+  viewportHeightField.appendChild(el('span', 'ei-dp-field-icon', 'H'))
   const viewportHeightInput = document.createElement('input')
   viewportHeightInput.className = 'ei-dp-field-input'
   viewportHeightInput.type = 'number'
   viewportHeightInput.min = '1'
   viewportHeightInput.placeholder = i18n.viewport.height
   viewportHeightInput.setAttribute(IGNORE_ATTR, 'true')
-  viewportHeightField.appendChild(viewportHeightInput)
-  viewportCustomGrid.append(viewportWidthField, viewportHeightField)
+  viewportHeightField.append(viewportHeightInput, el('span', 'ei-dp-field-suffix', 'px'))
+  const viewportLeftField = el('label', 'ei-dp-field ei-viewport-position-fields')
+  viewportLeftField.appendChild(el('span', 'ei-dp-field-icon', 'X'))
+  const viewportLeftInput = document.createElement('input')
+  viewportLeftInput.className = 'ei-dp-field-input'
+  viewportLeftInput.type = 'number'
+  viewportLeftInput.placeholder = i18n.viewport.left
+  viewportLeftInput.setAttribute(IGNORE_ATTR, 'true')
+  viewportLeftField.append(viewportLeftInput, el('span', 'ei-dp-field-suffix', 'px'))
+  const viewportTopField = el('label', 'ei-dp-field ei-viewport-position-fields')
+  viewportTopField.appendChild(el('span', 'ei-dp-field-icon', 'Y'))
+  const viewportTopInput = document.createElement('input')
+  viewportTopInput.className = 'ei-dp-field-input'
+  viewportTopInput.type = 'number'
+  viewportTopInput.placeholder = i18n.viewport.top
+  viewportTopInput.setAttribute(IGNORE_ATTR, 'true')
+  viewportTopField.append(viewportTopInput, el('span', 'ei-dp-field-suffix', 'px'))
+  viewportCustomGrid.append(viewportWidthField, viewportHeightField, viewportLeftField, viewportTopField)
   const viewportApplyButton = el('button', 'ei-button', i18n.viewport.apply)
   viewportApplyButton.type = 'button'
   viewportApplyButton.setAttribute(IGNORE_ATTR, 'true')
   viewportCustom.append(viewportCustomGrid, viewportApplyButton)
 
-  viewportMenu.append(...viewportPresetItems, viewportCustom)
+  viewportMenu.append(viewportMode, viewportModeHint, ...viewportPresetItems, viewportCustom)
   captureMenu.append(captureEntireScreenItem, captureWindowItem, selectElementItem, stateCaptureItem)
 
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
@@ -4869,6 +4906,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     viewportBtn.title = currentViewportPreset ? `${i18n.toolbar.viewport}: ${currentViewportPreset.label}` : i18n.toolbar.viewportTooltip
     viewportWidthInput.value = currentViewportState?.width ? String(currentViewportState.width) : ''
     viewportHeightInput.value = currentViewportState?.height ? String(currentViewportState.height) : ''
+    viewportLeftInput.value = currentViewportState?.left != null ? String(currentViewportState.left) : ''
+    viewportTopInput.value = currentViewportState?.top != null ? String(currentViewportState.top) : ''
+    syncViewportModeUi()
   }
 
   function positionViewportMenu(): void {
@@ -4898,8 +4938,63 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     else openViewportMenu()
   }
 
+  function canResizeWindow(): boolean {
+    return Boolean(options.viewportController?.setWindowBounds && viewportCapabilities.resizeWindow !== false)
+  }
+
+  function canResizeViewport(): boolean {
+    return Boolean(options.viewportController?.setViewportSize && viewportCapabilities.resizeViewport !== false)
+  }
+
+  function syncViewportModeUi(): void {
+    viewportModeViewportBtn.dataset.active = currentViewportTarget === 'viewport' ? 'true' : 'false'
+    viewportModeWindowBtn.dataset.active = currentViewportTarget === 'window' ? 'true' : 'false'
+    viewportModeViewportBtn.disabled = !canResizeViewport()
+    viewportModeWindowBtn.disabled = !canResizeWindow()
+    viewportLeftField.dataset.hidden = currentViewportTarget === 'viewport' ? 'true' : 'false'
+    viewportTopField.dataset.hidden = currentViewportTarget === 'viewport' ? 'true' : 'false'
+    viewportModeHint.textContent = currentViewportTarget === 'window' ? i18n.viewport.modeHintWindow : i18n.viewport.modeHintViewport
+  }
+
+  function getPresetTarget(preset?: ViewportPreset | null): ViewportTarget {
+    return preset?.target ?? currentViewportTarget
+  }
+
+  function setViewportTarget(target: ViewportTarget): void {
+    currentViewportTarget = target
+    syncViewportModeUi()
+  }
+
+  if (!canResizeWindow() && canResizeViewport()) {
+    currentViewportTarget = 'viewport'
+  }
+  if (!canResizeViewport() && canResizeWindow()) {
+    currentViewportTarget = 'window'
+  }
+  syncViewportModeUi()
+
+  async function applyWindowBounds(bounds: WindowBounds): Promise<boolean> {
+    if (!options.viewportController?.setWindowBounds || viewportCapabilities.resizeWindow === false) {
+      showToast(i18n.viewport.unsupported, 'info')
+      return false
+    }
+
+    try {
+      const result = await options.viewportController.setWindowBounds(bounds)
+      if (result === false) {
+        showToast(i18n.viewport.unsupported, 'info')
+        return false
+      }
+      return true
+    } catch (error) {
+      console.error('[Elens] Window resize failed:', error)
+      showToast(i18n.viewport.applyFailed, 'error')
+      return false
+    }
+  }
+
   async function applyViewportSize(width: number, height: number): Promise<boolean> {
-    if (!options.viewportController?.setViewportSize) {
+    if (!options.viewportController?.setViewportSize || viewportCapabilities.resizeViewport === false) {
       showToast(i18n.viewport.unsupported, 'info')
       return false
     }
@@ -4918,6 +5013,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
+  async function applyViewportTarget(target: ViewportTarget, bounds: WindowBounds): Promise<boolean> {
+    if (target === 'window') {
+      if (canResizeWindow()) return applyWindowBounds(bounds)
+      if (!canResizeViewport()) {
+        showToast(i18n.viewport.unsupported, 'info')
+        return false
+      }
+    }
+
+    if (canResizeViewport()) return applyViewportSize(bounds.width, bounds.height)
+
+    showToast(i18n.viewport.unsupported, 'info')
+    return false
+  }
+
   async function setViewportSize(width: number, height: number): Promise<boolean> {
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
       showToast(i18n.viewport.invalid, 'error')
@@ -4926,11 +5036,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const nextWidth = Math.round(width)
     const nextHeight = Math.round(height)
-    const applied = await applyViewportSize(nextWidth, nextHeight)
+    const target = currentViewportTarget
+    const applied = await applyViewportTarget(target, { width: nextWidth, height: nextHeight })
     if (!applied) return false
 
     currentViewportPreset = null
-    currentViewportState = { width: nextWidth, height: nextHeight }
+    currentViewportState = { width: nextWidth, height: nextHeight, target }
     if (options.persistViewportPreset !== false) persistViewportPresetId(null)
     syncViewportMenu()
     showToast(`${i18n.viewport.applied}: ${nextWidth} × ${nextHeight}`, 'success')
@@ -4949,11 +5060,24 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const preset = viewportPresets.find((item) => item.id === id)
     if (!preset) return false
 
-    const applied = await applyViewportSize(preset.width, preset.height)
+    const target = getPresetTarget(preset)
+    const applied = await applyViewportTarget(target, {
+      width: preset.width,
+      height: preset.height,
+      left: preset.left,
+      top: preset.top,
+    })
     if (!applied) return false
 
     currentViewportPreset = preset
-    currentViewportState = { presetId: preset.id, width: preset.width, height: preset.height }
+    currentViewportState = {
+      presetId: preset.id,
+      width: preset.width,
+      height: preset.height,
+      left: preset.left,
+      top: preset.top,
+      target,
+    }
     if (options.persistViewportPreset !== false) persistViewportPresetId(preset.id)
     syncViewportMenu()
     showToast(`${i18n.viewport.applied}: ${preset.label}`, 'success')
@@ -5278,21 +5402,58 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       void setViewportPreset(presetId)
     })
   })
+  viewportModeViewportBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    setViewportTarget('viewport')
+  })
+  viewportModeWindowBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    setViewportTarget('window')
+  })
   const applyCustomViewport = () => {
     const width = Number.parseInt(viewportWidthInput.value, 10)
     const height = Number.parseInt(viewportHeightInput.value, 10)
+    const left = viewportLeftInput.value.trim() === '' ? undefined : Number.parseInt(viewportLeftInput.value, 10)
+    const top = viewportTopInput.value.trim() === '' ? undefined : Number.parseInt(viewportTopInput.value, 10)
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
       showToast(i18n.viewport.invalid, 'error')
       return
     }
+    if ((left != null && !Number.isFinite(left)) || (top != null && !Number.isFinite(top))) {
+      showToast(i18n.viewport.invalid, 'error')
+      return
+    }
     closeViewportMenu()
-    void setViewportSize(width, height)
+    const roundedWidth = Math.round(width)
+    const roundedHeight = Math.round(height)
+    const roundedLeft = left != null ? Math.round(left) : undefined
+    const roundedTop = top != null ? Math.round(top) : undefined
+    const target = currentViewportTarget
+    void applyViewportTarget(target, {
+      width: roundedWidth,
+      height: roundedHeight,
+      left: roundedLeft,
+      top: roundedTop,
+    }).then((applied) => {
+      if (!applied) return
+      currentViewportPreset = null
+      currentViewportState = {
+        width: roundedWidth,
+        height: roundedHeight,
+        left: roundedLeft,
+        top: roundedTop,
+        target,
+      }
+      if (options.persistViewportPreset !== false) persistViewportPresetId(null)
+      syncViewportMenu()
+      showToast(`${i18n.viewport.applied}: ${roundedWidth} × ${roundedHeight}`, 'success')
+    })
   }
   viewportApplyButton.addEventListener('click', (event) => {
     event.stopPropagation()
     applyCustomViewport()
   })
-  ;[viewportWidthInput, viewportHeightInput].forEach((input) => {
+  ;[viewportWidthInput, viewportHeightInput, viewportLeftInput, viewportTopInput].forEach((input) => {
     input.addEventListener('click', (event) => event.stopPropagation())
     input.addEventListener('keydown', (event) => {
       event.stopPropagation()
@@ -5333,7 +5494,33 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   restorePersistedChanges()
   syncViewportMenu()
 
-  if (options.viewportController?.getViewportSize) {
+  if (options.viewportController?.getCapabilities) {
+    void Promise.resolve(options.viewportController.getCapabilities())
+      .then((capabilities) => {
+        viewportCapabilities = capabilities
+      })
+      .catch(() => {
+        // Ignore viewport capability read failures.
+      })
+  }
+
+  if (options.viewportController?.getWindowBounds) {
+    void Promise.resolve(options.viewportController.getWindowBounds())
+      .then((bounds) => {
+        if (!bounds) return
+        currentViewportState = {
+          presetId: currentViewportPreset?.id,
+          width: bounds.width,
+          height: bounds.height,
+          left: bounds.left,
+          top: bounds.top,
+          target: 'window',
+        }
+      })
+      .catch(() => {
+        // Ignore window bounds read failures.
+      })
+  } else if (options.viewportController?.getViewportSize) {
     void Promise.resolve(options.viewportController.getViewportSize())
       .then((size) => {
         if (!size) return
@@ -5341,6 +5528,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           presetId: currentViewportPreset?.id,
           width: size.width,
           height: size.height,
+          target: 'viewport',
         }
       })
       .catch(() => {

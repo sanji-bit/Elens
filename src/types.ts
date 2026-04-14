@@ -389,23 +389,48 @@ export type ThemeBuildResult = {
 
 export type ViewportPresetCategory = 'desktop' | 'tablet' | 'mobile' | 'custom'
 
+export type ViewportTarget = 'viewport' | 'window'
+
+export type WindowBounds = {
+  width: number
+  height: number
+  left?: number
+  top?: number
+}
+
+export type ViewportControllerCapabilities = {
+  resizeViewport?: boolean
+  resizeWindow?: boolean
+  moveWindow?: boolean
+}
+
 export type ViewportPreset = {
   id: string
   label: string
   width: number
   height: number
+  left?: number
+  top?: number
   category?: ViewportPresetCategory
+  target?: ViewportTarget
 }
 
 export type ViewportState = {
   presetId?: string
   width: number
   height: number
+  left?: number
+  top?: number
+  target?: ViewportTarget
 }
 
 export type ViewportController = {
+  capabilities?: ViewportControllerCapabilities
+  getCapabilities?: () => ViewportControllerCapabilities | Promise<ViewportControllerCapabilities>
   setViewportSize: (width: number, height: number) => void | boolean | Promise<void | boolean>
   getViewportSize?: () => { width: number; height: number } | null | Promise<{ width: number; height: number } | null>
+  setWindowBounds?: (bounds: WindowBounds) => void | boolean | Promise<void | boolean>
+  getWindowBounds?: () => WindowBounds | null | Promise<WindowBounds | null>
 }
 
 export type InspectorTheme = ThemeConfig

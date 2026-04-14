@@ -165,10 +165,13 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-capture-menu-item[data-active="true"] .ei-capture-menu-label { color: inherit; }
 .ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: var(--text-secondary); }
 .ei-capture-menu-label { font-size: var(--text-base); font-weight: 400; color: var(--text-primary); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.ei-viewport-mode.ei-tabs { grid-template-columns: repeat(2, 1fr); margin-bottom: 8px; }
+.ei-viewport-mode-hint { margin-bottom: 8px; }
 .ei-viewport-custom { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-subtle); }
 .ei-viewport-custom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ei-viewport-custom .ei-dp-field-input { cursor: text; padding-left: 8px; }
+.ei-viewport-custom .ei-dp-field-input { cursor: text; }
 .ei-viewport-custom .ei-button { width: 100%; }
+.ei-viewport-position-fields[data-hidden="true"] { display: none; }
 .ei-panel { position: fixed; top: 16px; left: 16px; width: var(--panel-width); border-radius: var(--panel-radius); overflow: hidden; background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--panel-shadow); pointer-events: auto; color: var(--text-primary); user-select: text; z-index: 4; transition: height 140ms ease, min-height 140ms ease; }
 .ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }

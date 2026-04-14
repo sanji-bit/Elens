@@ -7,6 +7,8 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-root, .ei-root * { box-sizing: border-box; }
 .ei-root { position: fixed; inset: 0; pointer-events: none; z-index: ${zIndex}; font-family: var(--font-family); }
 .ei-highlight { position: fixed; pointer-events: none; }
+.ei-design-scope-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+.ei-design-scope-box { position: fixed; border: 1px solid var(--interactive-accent); background: transparent; pointer-events: none; }
 .ei-hl-margin { position: relative; width: 100%; height: 100%; background: var(--overlay-margin-bg); }
 .ei-hl-padding { position: absolute; background: var(--overlay-padding); }
 .ei-hl-content { position: absolute; background: var(--overlay-content); }
@@ -164,7 +166,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
 .ei-panel.is-changes .ei-panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
-.ei-design-actions { display: none; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px 0; }
+.ei-design-actions { display: none; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px 9px; border-bottom: 0.5px solid var(--border-subtle); }
 .ei-design-actions-left, .ei-design-actions-right { display: inline-flex; align-items: center; }
 .ei-design-actions-left { gap: 4px; }
 .ei-design-actions-right { gap: 0; }
@@ -172,7 +174,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-design-action-btn img { width: 24px; height: 24px; display: block; }
 .ei-design-action-btn:hover { background: var(--surface-hover); }
 .ei-design-action-btn[data-active="true"] { background: color-mix(in srgb, var(--interactive-accent) 22%, transparent); }
-.ei-design-action-btn[data-active="true"] img { filter: none; }
+.ei-design-action-btn[data-active="true"] img { filter: brightness(0) saturate(100%) invert(47%) sepia(94%) saturate(2044%) hue-rotate(184deg) brightness(101%) contrast(101%); }
 .ei-design-action-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--interactive-accent); }
 .ei-design-action-btn:disabled { opacity: 0.4; cursor: default; }
 .ei-design-action-btn:disabled img { filter: none; }

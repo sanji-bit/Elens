@@ -622,11 +622,17 @@ function buildMarkdownSection(lines: string[], a: Change, detail: OutputDetail):
 }
 
 export function buildMarkdownExport(changes: Change[], detail: OutputDetail = 'standard'): string {
-  if (changes.length === 0) return '# UI Changes\n\nNo changes yet.'
-  const lines: string[] = [`# UI Changes (${changes.length} items)\n`]
+  const entries = buildExportChangeEntries(changes)
+  if (entries.length === 0) return '# UI Changes\n\nNo changes yet.'
+  const lines: string[] = [`# UI Changes (${entries.length} items)\n`]
 
-  for (const [i, a] of changes.entries()) {
+  for (const [i, entry] of entries.entries()) {
+    const a = entry.primary
     lines.push(annotationHeading(i, a.info))
+    if (entry.isGrouped) {
+      lines.push('- Scope: matching peer layers')
+      lines.push('- Match rule: same signature, or same child signature inside matching parent cards')
+    }
     buildMarkdownSection(lines, a, detail)
     lines.push('')
   }
@@ -634,11 +640,49 @@ export function buildMarkdownExport(changes: Change[], detail: OutputDetail = 's
   return lines.join('\n')
 }
 
-function toBaseChange(change: Change, index: number) {
+type ExportChangeEntry = {
+  primary: Change
+  members: Change[]
+  isGrouped: boolean
+}
+
+function buildExportChangeEntries(changes: Change[]): ExportChangeEntry[] {
+  const entries: ExportChangeEntry[] = []
+  const grouped = new Map<string, Change[]>()
+
+  changes.forEach((change) => {
+    if (change.type === 'design' && change.meta.groupKey) {
+      const key = `${change.meta.route ?? ''}::${change.meta.groupKey}`
+      const bucket = grouped.get(key) ?? []
+      bucket.push(change)
+      grouped.set(key, bucket)
+      return
+    }
+    entries.push({ primary: change, members: [change], isGrouped: false })
+  })
+
+  grouped.forEach((members) => {
+    const primary = members[0]
+    if (!primary) return
+    entries.push({ primary, members, isGrouped: members.length > 1 })
+  })
+
+  return entries.sort((a, b) => a.primary.timestamp - b.primary.timestamp)
+}
+
+function toBaseChange(entry: ExportChangeEntry, index: number) {
+  const change = entry.primary
   return {
     id: change.id || String(index + 1),
     kind: change.type,
     comment: change.comment,
+    ...(entry.isGrouped ? {
+      scope: {
+        mode: 'matching peer layers',
+        rule: 'same signature, or same child signature inside matching parent cards',
+        note: 'Apply this as a matching rule, not as a fixed instance count.',
+      },
+    } : {}),
     patch: {
       styleDiffs: change.patch.styleDiffs.map(diff => ({
         property: diff.property,
@@ -670,10 +714,13 @@ export function buildJSONExport(changes: Change[], detail: OutputDetail = 'detai
         timestamp: now,
       }
 
+  const entries = buildExportChangeEntries(changes)
+
   const data = {
     ...(session ? { session } : {}),
-    changes: changes.map((change, index) => {
-      const base = toBaseChange(change, index)
+    changes: entries.map((entry, index) => {
+      const change = entry.primary
+      const base = toBaseChange(entry, index)
       const compactTarget = {
         tagName: change.target.tagName,
         text: change.target.text,
@@ -748,6 +795,7 @@ export function buildAIPayload(changes: Change[], detail: OutputDetail = 'detail
     '- target.sourceContext: framework, component names/tree, and source file paths when available.',
     '- target.locatorHints: best terms to search in the codebase, text anchors, attribute anchors, component hints, and locator confidence.',
     '- target.identity/context: element identity, nearby text, parent tag, and sibling context for verification.',
+    '- scope: when present, apply the change as a selector/matching rule instead of a fixed instance count. Matching peer layers can include the same child layer inside repeated parent cards.',
     '- patch: the exact style/text/move change.',
     '- beforeSnapshot/afterSnapshot: high-level visual state before and after the edit.',
     '',

@@ -387,6 +387,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
   highlight.style.display = 'none'
+  const designScopeOverlay = el('div', 'ei-design-scope-overlay')
+  designScopeOverlay.setAttribute(IGNORE_ATTR, 'true')
   const hlMargin = el('div', 'ei-hl-margin')
   const hlPadding = el('div', 'ei-hl-padding')
   const hlContent = el('div', 'ei-hl-content')
@@ -671,7 +673,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const body = el('div', 'ei-body')
   panel.append(dragHandle, header, changesSummaryBar, body)
 
-  root.append(styleEl, highlight, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
+  root.append(styleEl, highlight, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
   document.body.appendChild(root)
 
   // --- Helpers ---
@@ -779,6 +781,25 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     changesSummaryBar.style.display = 'none'
     changesCloseBtn.style.display = 'none'
     subtitle.style.display = 'none'
+  }
+
+  function clearDesignScopeOverlay(): void {
+    designScopeOverlay.innerHTML = ''
+  }
+
+  function renderDesignScopeOverlay(elements: HTMLElement[]): void {
+    clearDesignScopeOverlay()
+    elements.forEach((element) => {
+      if (!document.contains(element)) return
+      const rect = element.getBoundingClientRect()
+      const box = el('div', 'ei-design-scope-box')
+      box.setAttribute(IGNORE_ATTR, 'true')
+      box.style.left = `${rect.left}px`
+      box.style.top = `${rect.top}px`
+      box.style.width = `${rect.width}px`
+      box.style.height = `${rect.height}px`
+      designScopeOverlay.appendChild(box)
+    })
   }
 
   function getReorderableSiblings(element: HTMLElement): HTMLElement[] {
@@ -1813,11 +1834,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderMarkers(): void {
     markersContainer.innerHTML = ''
-    changes.forEach((c, i) => {
+    const seenGroupKeys = new Set<string>()
+    let visibleMarkerIndex = 0
+
+    changes.forEach((c) => {
       if (!document.contains(c.element)) return
+      if (c.type === 'design' && c.meta.groupKey) {
+        if (seenGroupKeys.has(c.meta.groupKey)) return
+        seenGroupKeys.add(c.meta.groupKey)
+      }
+
+      visibleMarkerIndex += 1
       const rect = c.element.getBoundingClientRect()
       const marker = el('div', 'ei-marker')
-      marker.textContent = String(i + 1)
+      marker.textContent = String(visibleMarkerIndex)
       marker.setAttribute(IGNORE_ATTR, 'true')
       marker.style.left = `${rect.left + rect.width - 12}px`
       marker.style.top = `${rect.top - 12}px`
@@ -1983,6 +2013,77 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const selectorText = (change: Change): string => change.target?.selector?.primary || change.target?.domPath || change.info.domPath
     const routeText = (change: Change): string => change.meta.route || currentRoute
     const visibleChanges = changes.filter(change => changesFilter === 'all' || typeKey(change) === changesFilter)
+
+    type ChangeListEntry = {
+      id: string
+      primary: Change
+      members: Change[]
+      isGrouped: boolean
+    }
+
+    const buildChangeListEntries = (items: Change[]): ChangeListEntry[] => {
+      const entries: ChangeListEntry[] = []
+      const grouped = new Map<string, Change[]>()
+
+      items.forEach((change) => {
+        if (change.type === 'design' && change.meta.groupKey) {
+          const key = `${routeText(change)}::${change.meta.groupKey}`
+          const bucket = grouped.get(key) ?? []
+          bucket.push(change)
+          grouped.set(key, bucket)
+          return
+        }
+        entries.push({ id: change.id, primary: change, members: [change], isGrouped: false })
+      })
+
+      grouped.forEach((members) => {
+        const primary = members[0]
+        if (!primary) return
+        entries.push({
+          id: `group:${primary.meta.groupKey}`,
+          primary,
+          members,
+          isGrouped: members.length > 1,
+        })
+      })
+
+      return entries.sort((a, b) => a.primary.timestamp - b.primary.timestamp)
+    }
+
+    const visibleEntries = buildChangeListEntries(visibleChanges)
+    const displayedCount = visibleEntries.length
+    const isEntryPreviewingBefore = (entry: ChangeListEntry): boolean => entry.members.every((change) => beforePreviewChangeIds.has(change.id))
+    const toggleEntryBeforePreview = (entry: ChangeListEntry): void => {
+      const previewing = isEntryPreviewingBefore(entry)
+      entry.members.forEach((change) => {
+        setAllDiffsEnabled(change, previewing)
+        if (previewing) beforePreviewChangeIds.delete(change.id)
+        else beforePreviewChangeIds.add(change.id)
+      })
+    }
+    const deleteEntry = (entry: ChangeListEntry): void => {
+      entry.members.forEach((change) => {
+        beforePreviewChangeIds.delete(change.id)
+        if (activeChangeId === change.id) clearActiveChangeCard()
+        removeChange(change.id)
+      })
+    }
+    const buildEntryAIPayload = (entry: ChangeListEntry): string => buildAIPayload(entry.members)
+    const entryTargetText = (entry: ChangeListEntry): string => selectorText(entry.primary)
+    const entrySummaryLines = (entry: ChangeListEntry): string[] => entry.isGrouped
+      ? ['scope: matching peer layers',
+        `match rule: same signature, or same child signature inside matching parent cards`,
+        ...buildSummaryLines(entry.primary)]
+      : buildSummaryLines(entry.primary)
+    const entryNoteText = (entry: ChangeListEntry): string => noteText(entry.primary)
+    const entryInfoRows = (entry: ChangeListEntry): ChangeInfoRow[] => entry.isGrouped
+      ? []
+      : collectChangeInfoRows(entry.primary)
+    const entryTimestampText = (entry: ChangeListEntry): string => formatRelativeTime(entry.primary.meta.updatedAt || entry.primary.meta.createdAt)
+    const locateEntryTarget = (entry: ChangeListEntry): void => locateChangeTarget(entry.primary)
+    const isEntrySelected = (entry: ChangeListEntry): boolean => entry.members.some((change) => change.id === activeChangeId)
+
+    const count = el('div', 'ei-ann-summary-count', `${displayedCount} ${i18n.changes.count}`)
 
     const flashChangeTarget = (element: HTMLElement): void => {
       if (changeFlashTimeout != null) {
@@ -2239,8 +2340,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return node
     }
 
-    const buildSingleAIPayload = (change: Change): string => buildAIPayload([change])
-
     const syncPreviewState = (): void => {
       changes.forEach((change) => {
         if (!document.contains(change.element)) return
@@ -2253,13 +2352,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         currentInfo = freshInfo
         updateHighlight(freshInfo)
       }
-    }
-
-    const toggleBeforePreview = (change: Change): void => {
-      const nextEnabled = beforePreviewChangeIds.has(change.id)
-      setAllDiffsEnabled(change, nextEnabled)
-      if (nextEnabled) beforePreviewChangeIds.delete(change.id)
-      else beforePreviewChangeIds.add(change.id)
     }
 
     const importInput = document.createElement('input')
@@ -2293,7 +2385,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
     })
 
-    const count = el('div', 'ei-ann-summary-count', `${changes.length} ${i18n.changes.count}`)
     const summaryActions = el('div', 'ei-ann-summary-actions')
     summaryActions.append(exportBtn, importBtn)
 
@@ -2331,37 +2422,37 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       changesSummaryBar.replaceChildren(count, summaryActions)
       changesSummaryBar.style.display = 'flex'
 
-      if (visibleChanges.length === 0) {
+      if (visibleEntries.length === 0) {
         body.appendChild(el('div', 'ei-ann-empty', i18n.changes.emptyFiltered))
       } else {
-        const groupedChanges = visibleChanges.reduce<Record<string, Change[]>>((acc, change) => {
-          const key = routeText(change)
+        const groupedEntries = visibleEntries.reduce<Record<string, ChangeListEntry[]>>((acc, entry) => {
+          const key = routeText(entry.primary)
           if (!acc[key]) acc[key] = []
-          acc[key].push(change)
+          acc[key].push(entry)
           return acc
         }, {})
 
         let visibleIndex = 0
-        for (const [_groupRoute, groupItems] of Object.entries(groupedChanges)) {
+        for (const [_groupRoute, groupItems] of Object.entries(groupedEntries)) {
           const group = el('section', 'ei-ann-group')
           const list = el('div', 'ei-ann-list')
-          groupItems.forEach((c, index) => {
+          groupItems.forEach((entry, index) => {
             visibleIndex += 1
-            const selected = activeChangeId === c.id
-            const isPreviewingBefore = beforePreviewChangeIds.has(c.id)
-            const summaryLines = buildSummaryLines(c)
-            const snapshotRows = collectSnapshotRows(c)
-            const infoRows = collectChangeInfoRows(c)
-            const note = noteText(c)
+            const c = entry.primary
+            const selected = isEntrySelected(entry)
+            const isPreviewingBefore = isEntryPreviewingBefore(entry)
+            const summaryLines = entrySummaryLines(entry)
+            const infoRows = entryInfoRows(entry)
+            const note = entryNoteText(entry)
             if (index > 0) {
               list.appendChild(el('div', 'ei-ann-divider'))
             }
             const item = el('div', `ei-ann-item${selected ? ' is-active' : ''}${isPreviewingBefore ? ' is-previewing-before' : ''}`)
             item.setAttribute(IGNORE_ATTR, 'true')
-            item.dataset.changeId = c.id
+            item.dataset.changeId = entry.id
             item.addEventListener('click', () => {
               activeChangeId = c.id
-              locateChangeTarget(c)
+              locateEntryTarget(entry)
             })
 
             const num = el('div', 'ei-ann-num', String(visibleIndex))
@@ -2371,7 +2462,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             const author = el('div', 'ei-ann-author')
             const avatar = el('div', 'ei-ann-avatar')
             avatar.innerHTML = `<img src="${CHANGES_AVATAR_URL}" alt="" />`
-            const time = el('div', 'ei-ann-time', formatRelativeTime(c.meta.updatedAt || c.meta.createdAt))
+            const time = el('div', 'ei-ann-time', entryTimestampText(entry))
             const actions = el('div', 'ei-ann-actions')
 
             const previewBtn = iconButton(isPreviewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON, isPreviewingBefore ? i18n.actions.showAfter : i18n.actions.showBefore)
@@ -2381,7 +2472,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               previewBtn.style.cursor = 'default'
             } else {
               const syncPreviewButton = (): void => {
-                const previewingBefore = beforePreviewChangeIds.has(c.id)
+                const previewingBefore = isEntryPreviewingBefore(entry)
                 swapButtonIcon(previewBtn, previewingBefore ? EYE_CLOSED_ICON : EYE_OPEN_ICON)
                 setActionButtonLabel(previewBtn, previewingBefore ? i18n.actions.showAfter : i18n.actions.showBefore)
                 previewBtn.classList.toggle('is-active', previewingBefore)
@@ -2389,7 +2480,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               syncPreviewButton()
               previewBtn.addEventListener('click', (e) => {
                 e.stopPropagation()
-                toggleBeforePreview(c)
+                toggleEntryBeforePreview(entry)
                 syncPreviewButton()
               })
             }
@@ -2397,16 +2488,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             const singleCopyBtn = iconButton(CHANGES_HOVER_COPY_ICON, i18n.actions.copyAI)
             singleCopyBtn.addEventListener('click', async (e) => {
               e.stopPropagation()
-              await navigator.clipboard.writeText(buildSingleAIPayload(c))
+              await navigator.clipboard.writeText(buildEntryAIPayload(entry))
               setActionCopied(singleCopyBtn)
             })
 
             const closeBtn = iconButton(CHANGES_HOVER_DELETE_ICON, i18n.actions.delete, 'ei-ann-action is-danger')
             closeBtn.addEventListener('click', (e) => {
               e.stopPropagation()
-              beforePreviewChangeIds.delete(c.id)
-              if (activeChangeId === c.id) clearActiveChangeCard()
-              removeChange(c.id)
+              deleteEntry(entry)
               syncPreviewState()
               refreshChangesList()
             })
@@ -2414,7 +2503,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             actions.append(previewBtn, singleCopyBtn, closeBtn)
             const headerTitle = el('div', 'ei-ann-header-title')
             headerTitle.append(
-              el('span', 'ei-ann-header-target', `#${visibleIndex} · ${selectorText(c)}`),
+              el('span', 'ei-ann-header-target', `#${visibleIndex} · ${entryTargetText(entry)}`),
             )
             author.append(avatar, headerTitle)
             top.append(author, time, actions)
@@ -2450,7 +2539,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
               }), noteContent)
               main.appendChild(noteSection)
             }
-
 
             item.append(num, main)
             list.appendChild(item)
@@ -2838,35 +2926,55 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
     designApplyOnceMatches = false
+    clearDesignScopeOverlay()
+  }
+
+  function getElementSignature(element: HTMLElement): string {
+    const tagName = element.tagName.toLowerCase()
+    const className = Array.from(element.classList).filter(name => !name.startsWith('ei-')).sort().join('.')
+    return `${tagName}.${className}`
+  }
+
+  function hasSameSignature(element: HTMLElement, signature: string): boolean {
+    return getElementSignature(element) === signature
   }
 
   function getDesignSelectionGroupKey(element: HTMLElement): string {
     const parent = element.parentElement
     const children = parent ? Array.from(parent.children) : []
-    const tagName = element.tagName.toLowerCase()
-    const className = Array.from(element.classList).filter(name => !name.startsWith('ei-')).sort().join('.')
     const siblingIndex = children.indexOf(element)
-    return [getRoute(), parent?.tagName.toLowerCase() ?? '', tagName, className, String(siblingIndex)].join('|')
+    const parentSignature = parent ? getElementSignature(parent) : ''
+    return [getRoute(), parentSignature, getElementSignature(element), String(siblingIndex)].join('|')
   }
 
   function getMatchingLayerElements(element: HTMLElement): HTMLElement[] {
     const parent = element.parentElement
     if (!parent) return [element]
-    const tagName = element.tagName
-    const classNames = Array.from(element.classList).filter(name => !name.startsWith('ei-')).sort()
-    if (classNames.length === 0) return [element]
-    const matches = Array.from(parent.children).filter((child): child is HTMLElement => {
-      if (!(child instanceof HTMLElement)) return false
-      if (child.tagName !== tagName) return false
-      return classNames.every(className => child.classList.contains(className))
-    })
-    return [element, ...matches.filter(match => match !== element)]
+
+    const elementSignature = getElementSignature(element)
+    const sameParentMatches = Array.from(parent.children).filter((child): child is HTMLElement => (
+      child instanceof HTMLElement && hasSameSignature(child, elementSignature)
+    ))
+    if (sameParentMatches.length > 1) return [element, ...sameParentMatches.filter(match => match !== element)]
+
+    const grandparent = parent.parentElement
+    if (!grandparent) return sameParentMatches.length ? sameParentMatches : [element]
+
+    const parentSignature = getElementSignature(parent)
+    const matchingParents = Array.from(grandparent.children).filter((child): child is HTMLElement => (
+      child instanceof HTMLElement && hasSameSignature(child, parentSignature)
+    ))
+    const matchingChildren = matchingParents.flatMap(container => (
+      Array.from(container.children).filter((child): child is HTMLElement => (
+        child instanceof HTMLElement && hasSameSignature(child, elementSignature)
+      ))
+    ))
+
+    return matchingChildren.length > 1 ? [element, ...matchingChildren.filter(match => match !== element)] : [element]
   }
 
   function consumeDesignScopeElements(element: HTMLElement): HTMLElement[] {
-    const scopeElements = designApplyOnceMatches ? getMatchingLayerElements(element) : [element]
-    designApplyOnceMatches = false
-    return scopeElements
+    return designApplyOnceMatches ? getMatchingLayerElements(element) : [element]
   }
 
   function getCurrentDesignScopeElements(element: HTMLElement): HTMLElement[] {
@@ -2879,6 +2987,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return changes.some((change) => change.type === 'design' && (
       scopeElements.has(change.element) || change.meta.groupKey === scopeGroupKey
     ))
+  }
+
+  function hasExistingMatchingLayerGroup(element: HTMLElement): boolean {
+    const matchingElements = new Set(getMatchingLayerElements(element))
+    const groupCounts = new Map<string, number>()
+    changes.forEach((change) => {
+      if (change.type !== 'design' || !change.meta.groupKey || !matchingElements.has(change.element)) return
+      groupCounts.set(change.meta.groupKey, (groupCounts.get(change.meta.groupKey) ?? 0) + 1)
+    })
+    return Array.from(groupCounts.values()).some(count => count > 1)
   }
 
   function resetDesignSelectionChanges(element: HTMLElement): void {
@@ -2928,6 +3046,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (!info || !lockedElement) {
       renderEmpty()
       return
+    }
+    if (!designApplyOnceMatches && hasExistingMatchingLayerGroup(info.element)) {
+      designApplyOnceMatches = true
     }
     setPanelVisible(true)
     positionPanel(panelAnchor, info)
@@ -3037,9 +3158,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const matchBtn = createDesignActionIconButton(i18n.design.selectMatchingLayers, DESIGN_SELECT_MATCHING_LAYERS_URL)
     if (designApplyOnceMatches) matchBtn.dataset.active = 'true'
     matchBtn.addEventListener('click', () => {
-      designApplyOnceMatches = true
+      designApplyOnceMatches = matchBtn.dataset.active !== 'true'
       renderDesign(extractInspectorInfo(info.element))
     })
+
+    const currentScopeElements = getCurrentDesignScopeElements(info.element)
+    if (designApplyOnceMatches) renderDesignScopeOverlay(currentScopeElements)
+    else clearDesignScopeOverlay()
 
     const devModeBtn = createDesignActionIconButton(i18n.design.devMode, DESIGN_DEV_MODE_URL)
     devModeBtn.disabled = true

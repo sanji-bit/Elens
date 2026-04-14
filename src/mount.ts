@@ -184,7 +184,7 @@ preloadImage(DESIGN_DEV_MODE_URL)
 preloadImage(DESIGN_RESET_URL)
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
-const ICON_VIEWPORT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M9 20H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 17V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+const ICON_VIEWPORT = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.4998 14.1667V17.5H7.49984V14.1667M4.33317 14.1667H15.6665C16.5999 14.1667 17.0666 14.1667 17.4232 13.985C17.7368 13.8252 17.9917 13.5703 18.1515 13.2567C18.3332 12.9001 18.3332 12.4334 18.3332 11.5V5.16667C18.3332 4.23325 18.3332 3.76654 18.1515 3.41002C17.9917 3.09641 17.7368 2.84144 17.4232 2.68166C17.0666 2.5 16.5999 2.5 15.6665 2.5H4.33317C3.39975 2.5 2.93304 2.5 2.57652 2.68166C2.26292 2.84144 2.00795 3.09641 1.84816 3.41002C1.6665 3.76654 1.6665 4.23325 1.6665 5.16667V11.5C1.6665 12.4334 1.6665 12.9001 1.84816 13.2567C2.00795 13.5703 2.26292 13.8252 2.57652 13.985C2.93304 14.1667 3.39975 14.1667 4.33317 14.1667Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 function codeRow(property: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-typography-code-line')
@@ -683,11 +683,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   outputDetailMenu.setAttribute(IGNORE_ATTR, 'true')
   outputDetailMenu.style.display = 'none'
 
-  function makeCaptureMenuItem(icon: string, label: string): HTMLButtonElement {
+  function makeCaptureMenuItem(icon: string | null, label: string): HTMLButtonElement {
     const item = el('button', 'ei-capture-menu-item')
     item.type = 'button'
-    item.innerHTML = `
+    item.innerHTML = icon
+      ? `
       <span class="ei-capture-menu-icon">${icon}</span>
+      <span class="ei-capture-menu-label">${label}</span>
+    `
+      : `
       <span class="ei-capture-menu-label">${label}</span>
     `
     return item
@@ -709,7 +713,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const viewportModeHint = el('div', 'ei-panel-subtitle ei-viewport-mode-hint')
 
   const viewportPresetItems = viewportPresets.map((preset) => {
-    const item = makeCaptureMenuItem(ICON_VIEWPORT, preset.label)
+    const item = makeCaptureMenuItem(null, preset.label)
     item.dataset.viewportPresetId = preset.id
     return item
   })
@@ -734,24 +738,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportHeightInput.placeholder = i18n.viewport.height
   viewportHeightInput.setAttribute(IGNORE_ATTR, 'true')
   viewportHeightField.append(viewportHeightInput, el('span', 'ei-dp-field-suffix', 'px'))
-  const viewportLeftField = el('label', 'ei-dp-field ei-viewport-position-fields')
-  viewportLeftField.appendChild(el('span', 'ei-dp-field-icon', 'X'))
-  const viewportLeftInput = document.createElement('input')
-  viewportLeftInput.className = 'ei-dp-field-input'
-  viewportLeftInput.type = 'number'
-  viewportLeftInput.placeholder = i18n.viewport.left
-  viewportLeftInput.setAttribute(IGNORE_ATTR, 'true')
-  viewportLeftField.append(viewportLeftInput, el('span', 'ei-dp-field-suffix', 'px'))
-  const viewportTopField = el('label', 'ei-dp-field ei-viewport-position-fields')
-  viewportTopField.appendChild(el('span', 'ei-dp-field-icon', 'Y'))
-  const viewportTopInput = document.createElement('input')
-  viewportTopInput.className = 'ei-dp-field-input'
-  viewportTopInput.type = 'number'
-  viewportTopInput.placeholder = i18n.viewport.top
-  viewportTopInput.setAttribute(IGNORE_ATTR, 'true')
-  viewportTopField.append(viewportTopInput, el('span', 'ei-dp-field-suffix', 'px'))
-  viewportCustomGrid.append(viewportWidthField, viewportHeightField, viewportLeftField, viewportTopField)
-  const viewportApplyButton = el('button', 'ei-button', i18n.viewport.apply)
+  viewportCustomGrid.append(viewportWidthField, viewportHeightField)
+  const viewportApplyButton = el('button', 'ei-button ei-button-primary', i18n.viewport.apply)
   viewportApplyButton.type = 'button'
   viewportApplyButton.setAttribute(IGNORE_ATTR, 'true')
   viewportCustom.append(viewportCustomGrid, viewportApplyButton)
@@ -4913,8 +4901,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     viewportBtn.title = currentViewportPreset ? `${i18n.toolbar.viewport}: ${currentViewportPreset.label}` : i18n.toolbar.viewportTooltip
     viewportWidthInput.value = currentViewportState?.width ? String(currentViewportState.width) : ''
     viewportHeightInput.value = currentViewportState?.height ? String(currentViewportState.height) : ''
-    viewportLeftInput.value = currentViewportState?.left != null ? String(currentViewportState.left) : ''
-    viewportTopInput.value = currentViewportState?.top != null ? String(currentViewportState.top) : ''
     syncViewportModeUi()
   }
 
@@ -4958,8 +4944,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     viewportModeWindowBtn.dataset.active = currentViewportTarget === 'window' ? 'true' : 'false'
     viewportModeViewportBtn.disabled = !canResizeViewport()
     viewportModeWindowBtn.disabled = !canResizeWindow()
-    viewportLeftField.dataset.hidden = currentViewportTarget === 'viewport' ? 'true' : 'false'
-    viewportTopField.dataset.hidden = currentViewportTarget === 'viewport' ? 'true' : 'false'
     viewportModeHint.textContent = currentViewportTarget === 'window' ? i18n.viewport.modeHintWindow : i18n.viewport.modeHintViewport
   }
 
@@ -5430,35 +5414,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const applyCustomViewport = () => {
     const width = Number.parseInt(viewportWidthInput.value, 10)
     const height = Number.parseInt(viewportHeightInput.value, 10)
-    const left = viewportLeftInput.value.trim() === '' ? undefined : Number.parseInt(viewportLeftInput.value, 10)
-    const top = viewportTopInput.value.trim() === '' ? undefined : Number.parseInt(viewportTopInput.value, 10)
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
-      showToast(i18n.viewport.invalid, 'error')
-      return
-    }
-    if ((left != null && !Number.isFinite(left)) || (top != null && !Number.isFinite(top))) {
       showToast(i18n.viewport.invalid, 'error')
       return
     }
     closeViewportMenu()
     const roundedWidth = Math.round(width)
     const roundedHeight = Math.round(height)
-    const roundedLeft = left != null ? Math.round(left) : undefined
-    const roundedTop = top != null ? Math.round(top) : undefined
     const target = currentViewportTarget
     void applyViewportTarget(target, {
       width: roundedWidth,
       height: roundedHeight,
-      left: roundedLeft,
-      top: roundedTop,
     }).then((applied) => {
       if (!applied) return
       currentViewportPreset = null
       currentViewportState = {
         width: roundedWidth,
         height: roundedHeight,
-        left: roundedLeft,
-        top: roundedTop,
         target,
       }
       if (options.persistViewportPreset !== false) persistViewportPresetId(null)
@@ -5470,7 +5442,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     event.stopPropagation()
     applyCustomViewport()
   })
-  ;[viewportWidthInput, viewportHeightInput, viewportLeftInput, viewportTopInput].forEach((input) => {
+  ;[viewportWidthInput, viewportHeightInput].forEach((input) => {
     input.addEventListener('click', (event) => event.stopPropagation())
     input.addEventListener('keydown', (event) => {
       event.stopPropagation()

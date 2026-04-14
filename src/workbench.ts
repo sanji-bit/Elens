@@ -137,7 +137,7 @@ const WORKBENCH_THEME_DEFAULTS: ThemeConfig = {
   component: {
     panel: {
       width: '320px',
-      radius: '18px',
+      radius: '16px',
     },
     field: {
       height: '24px',
@@ -707,7 +707,7 @@ function createToolbarButtonsSample(context: SampleRenderContext): HTMLElement {
 function createFilterButtonsSample(): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   host.innerHTML = `
-    <div class="wb-section-head"><div><h3>交互演示</h3><p>点击筛选项，检查按钮组的选中状态是否清晰。</p></div></div>
+    <div class="wb-section-head"><div><h3>交互演示</h3><p>点击分段项，检查互斥切换状态是否清晰。</p></div></div>
     <div class="ei-ann-filters">
       <button class="ei-ann-filter is-active">全部</button>
       <button class="ei-ann-filter">样式</button>
@@ -731,11 +731,13 @@ function createTextButtonsSample(): HTMLElement {
     <div class="wb-section-head"><div><h3>交互演示</h3><p>标准文本按钮用于面板内确认、提交和次级操作；圆角固定 8px，左右内边距 12px。</p></div></div>
     <div class="wb-preview-row">
       <button class="ei-button">取消</button>
+      <button class="ei-button ei-button-ghost">次级</button>
       <button class="ei-button ei-button-primary">添加</button>
       <button class="ei-button" disabled>不可用</button>
     </div>
     <div class="wb-state-list">
       <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-button">按钮</button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">ghost</span><button class="ei-button ei-button-ghost">按钮</button></div>
       <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-button wb-preview-hover">按钮</button></div>
       <div class="wb-state-row"><span class="wb-kv-label">primary</span><button class="ei-button ei-button-primary">添加</button></div>
       <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-button" disabled>按钮</button></div>
@@ -777,7 +779,7 @@ function createTextareaSample(context: SampleRenderContext): HTMLElement {
 
 function createFillFieldMarkup(stateClass = '', opacity = '100'): string {
   const disabledAttrs = stateClass.includes('wb-preview-disabled') ? ' disabled' : ''
-  return `<div class="ei-dp-fill-row ei-dp-fill-trigger ${stateClass}"><span class="ei-dp-swatch" style="background: var(--interactive-accent)"><input class="ei-dp-picker" type="color" value="#0C8CE9"${disabledAttrs}></span><input class="ei-dp-hex" value="0C8CE9"${disabledAttrs}><input class="ei-dp-fill-opacity" value="${opacity}"${disabledAttrs}><span class="ei-dp-fill-opacity-suffix">%</span></div>`
+  return `<div class="ei-dp-fill-row ei-dp-fill-trigger ${stateClass}"><span class="ei-dp-swatch" style="background: var(--interactive-accent)"><input class="ei-dp-picker" type="color" value="#008AFF"${disabledAttrs}></span><input class="ei-dp-hex" value="008AFF"${disabledAttrs}><input class="ei-dp-fill-opacity" value="${opacity}"${disabledAttrs}><span class="ei-dp-fill-opacity-suffix">%</span></div>`
 }
 
 function createFontSelectMarkup(current = 'Inter'): string {
@@ -836,7 +838,7 @@ function createDropdownTriggerSample(context: SampleRenderContext): HTMLElement 
     <div class="wb-section-head"><div><h3>交互演示</h3><p>这里只保留色值字段本体；只有点击左侧小色块，才会打开颜色选择器。</p></div></div>
     ${createFillFieldMarkup(context.previewClass)}
     <div class="wb-ghost-panel" hidden>
-      <div class="wb-kv"><span class="wb-kv-label">色值</span><span class="wb-kv-value">#0C8CE9</span></div>
+      <div class="wb-kv"><span class="wb-kv-label">色值</span><span class="wb-kv-value">#008AFF</span></div>
       <div class="wb-kv"><span class="wb-kv-label">透明度</span><span class="wb-kv-value">100%</span></div>
       <div class="wb-kv"><span class="wb-kv-label">触发方式</span><span class="wb-kv-value">仅小色块打开选择器</span></div>
     </div>
@@ -1127,7 +1129,7 @@ function createFeedbackColorSample(context: SampleRenderContext): HTMLElement {
     createTokenColorRow('成功背景', '--success-bg', theme.semantic.feedback.successBg, '成功提示、成功状态底色', '固定 success 语义色按 18% 透明度生成。'),
     createTokenColorRow('危险背景', '--danger-bg', theme.semantic.feedback.dangerBg, '危险提示、删除、错误状态底色', '固定 danger 语义色按 18% 透明度生成。'),
     createTokenColorRow('焦点环', '--interactive-focus-ring', theme.semantic.interactive.focusRing, '键盘焦点、当前高亮轮廓', '直接使用品牌强调色 accent 作为 focus ring。'),
-    createTokenColorRow('参考线', '--overlay-guide', theme.semantic.overlay.guide, '对齐参考线、辅助定位', '直接复用品牌强调色 accent。'),
+    createTokenColorRow('参考线', '--overlay-guide', theme.semantic.overlay.guide, '对齐参考线、辅助定位', '独立参考线颜色，不跟随品牌强调色 accent。'),
     createTokenColorRow('外边距覆盖层', '--overlay-margin', theme.semantic.overlay.margin, '盒模型外边距覆盖层', '固定语义 margin 色，用于测量外边距。'),
     createTokenColorRow('内边距覆盖层', '--overlay-padding', theme.semantic.overlay.padding, '盒模型内边距覆盖层', '固定语义 success 色，用于测量内边距。'),
   ]
@@ -1234,12 +1236,12 @@ const componentSamples: WorkbenchComponentSample[] = [
     render: createToolbarButtonsSample,
   },
   {
-    id: 'filter-buttons',
-    title: '筛选按钮',
+    id: 'segmented-switch',
+    title: '分段切换',
     tab: 'buttons',
     status: 'stable',
     componentKind: 'standard',
-    description: '基础筛选按钮模式，用于列表过滤和分段选择场景。',
+    description: '互斥分段切换模式，用于列表过滤、内容分组切换和同级状态选择。',
     classNames: ['.ei-ann-filter'],
     render: () => createFilterButtonsSample(),
   },
@@ -1249,8 +1251,8 @@ const componentSamples: WorkbenchComponentSample[] = [
     tab: 'buttons',
     status: 'stable',
     componentKind: 'standard',
-    description: '基础文本按钮模式，用于面板内的添加、更新、取消等文字操作。',
-    classNames: ['.ei-button', '.ei-button-primary'],
+    description: '基础文本按钮模式，用于面板内的添加、更新、取消等文字操作，支持 primary 与 ghost 变体。',
+    classNames: ['.ei-button', '.ei-button-primary', '.ei-button-ghost'],
     render: () => createTextButtonsSample(),
   },
   {
@@ -1532,11 +1534,11 @@ function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () =
   basic.appendChild(el('h2', undefined, '基础'))
   const foregroundValue = getForegroundValue(createContext(state))
   basic.append(
-    createField('强调色', createTextInput(state.theme.brand?.accent ?? '#0C8CE9', (value) => {
+    createField('强调色', createTextInput(state.theme.brand?.accent ?? '#008AFF', (value) => {
       state.theme.brand = { ...state.theme.brand, accent: value }
       onUpdate()
     }, 'color'), ['accent']),
-    createField('强调色代码', createTextInput(state.theme.brand?.accent ?? '#0C8CE9', (value) => {
+    createField('强调色代码', createTextInput(state.theme.brand?.accent ?? '#008AFF', (value) => {
       state.theme.brand = { ...state.theme.brand, accent: value }
       onUpdate()
     }), ['accent']),

@@ -69,7 +69,7 @@ export const tokens = {
     '2xl': '10px',
     '3xl': '12px',
     '4xl': '13px',
-    panel: '18px',
+    panel: '16px',
     full: '9999px',
   },
 
@@ -161,7 +161,7 @@ export const tokens = {
 export type DesignTokens = typeof tokens
 
 export function resolveThemeConfig(input: ThemeConfig = {}): ResolvedThemeConfig {
-  const accent = input.brand?.accent ?? input.accentColor ?? '#0C8CE9'
+  const accent = input.brand?.accent ?? input.accentColor ?? '#008AFF'
 
   return {
     brand: {
@@ -468,7 +468,7 @@ export function deriveSemanticTokens(config: ResolvedThemeConfig): DerivedSemant
       content: `color-mix(in srgb, ${accent} 42%, cyan)`,
       move: accent,
       moveBg: `color-mix(in srgb, ${accent} 18%, transparent)`,
-      guide: accent,
+      guide: '#FF00FF',
       ruler: palette.ruler,
       labelText: toRgba(palette.contrastColor, 0.98),
       labelBg: accent,

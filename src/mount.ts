@@ -114,6 +114,9 @@ const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', impo
 const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
 const CHANGES_UPLOAD_URL = new URL('./assets/changes-upload.svg', import.meta.url).href
 const CHANGES_DOWNLOAD_URL = new URL('./assets/changes-download.svg', import.meta.url).href
+const DESIGN_SELECT_MATCHING_LAYERS_URL = new URL('./assets/design-select-matching-layers.svg', import.meta.url).href
+const DESIGN_DEV_MODE_URL = new URL('./assets/design-dev-mode.svg', import.meta.url).href
+const DESIGN_RESET_URL = new URL('./assets/design-reset.svg', import.meta.url).href
 const CAPTURE_SCRIPT_URL = new URL('./assets/capture.js', import.meta.url).href
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
@@ -135,39 +138,34 @@ preloadImage(CHANGES_PANEL_CLOSE_URL)
 preloadImage(CHANGES_PANEL_CHEVRON_URL)
 preloadImage(CHANGES_UPLOAD_URL)
 preloadImage(CHANGES_DOWNLOAD_URL)
+preloadImage(DESIGN_SELECT_MATCHING_LAYERS_URL)
+preloadImage(DESIGN_DEV_MODE_URL)
+preloadImage(DESIGN_RESET_URL)
 
 // Toolbar icons — from Figma design, 20x20, stroke=currentColor
 
-function styleRow(label: string, value: string, swatch?: string): HTMLDivElement {
-  const row = el('div', 'ei-row')
-  const labelEl = el('div', 'ei-label', label)
-  const valueWrap = el('div', 'ei-value')
+function codeRow(property: string, value: string, swatch?: string): HTMLDivElement {
+  const row = el('div', 'ei-typography-code-line')
+  row.appendChild(el('span', 'ei-typography-code-prop', property))
+  const valueWrap = el('span', 'ei-typography-code-value')
   if (swatch) {
-    const chip = el('span', 'ei-swatch')
+    const chip = el('span', 'ei-swatch ei-typography-code-swatch')
     chip.style.backgroundColor = swatch
     valueWrap.appendChild(chip)
   }
-  const text = el('span', 'ei-text', value || '\u2014')
+  const text = el('span', 'ei-typography-code-text', value || '\u2014')
   text.title = value || '\u2014'
   valueWrap.appendChild(text)
-  if (swatch) {
-    const copyBtn = el('span', 'ei-copy-color')
-    copyBtn.innerHTML = COPY_ICON_SVG
-    copyBtn.addEventListener('click', (e) => {
-      e.stopPropagation()
-      navigator.clipboard.writeText(value).then(() => {
-        copyBtn.innerHTML = CHECK_ICON_SVG
-        copyBtn.style.color = 'var(--success)'
-        setTimeout(() => {
-          copyBtn.innerHTML = COPY_ICON_SVG
-          copyBtn.style.color = ''
-        }, 1500)
-      })
-    })
-    valueWrap.appendChild(copyBtn)
-  }
-  row.append(labelEl, valueWrap)
+  row.appendChild(valueWrap)
   return row
+}
+
+function codeRows(rows: Array<[string, string, string?]>): HTMLDivElement {
+  const wrap = el('div', 'ei-typography-code')
+  rows.forEach(([property, value, swatch]) => {
+    wrap.appendChild(codeRow(property, value, swatch))
+  })
+  return wrap
 }
 
 function isLikelyBackgroundElement(element: HTMLElement): boolean {
@@ -315,6 +313,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let outlinesEnabled = false
   let outlinesHoverElement: Element | null = null
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
+  let inspectorDetailsExpanded = false
   let rafId: number | null = null
   let latestPoint: { x: number; y: number } | null = null
   let panelAnchor: { x: number; y: number } | null = null
@@ -335,6 +334,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let changeFlashElement: HTMLElement | null = null
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
+  let designApplyOnceMatches = false
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
   // Guides mode state
   let guidesAnchorElement: HTMLElement | null = null
@@ -627,7 +627,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, i18n.toolbar.outlines)
   outlinesBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, moveBtn, changesBtn, guidesBtn, outlinesBtn, screenshotGroup, toolbarDivider, exitBtn)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, guidesBtn, outlinesBtn, screenshotGroup, changesBtn, toolbarDivider, exitBtn)
   root.append(captureMenu, outputDetailMenu)
 
   // Panel
@@ -773,7 +773,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function cleanupPanelExtras(): void {
-    panel.querySelectorAll('.ei-annotate, .ei-ann-export').forEach(n => n.remove())
+    panel.querySelectorAll('.ei-annotate, .ei-ann-export, .ei-design-actions').forEach(n => n.remove())
     panel.classList.remove('is-changes')
     changesSummaryBar.innerHTML = ''
     changesSummaryBar.style.display = 'none'
@@ -1184,66 +1184,58 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const head = el('div', 'ei-tt-head')
     head.append(
-      el('span', 'ei-tt-tag', info.tagName),
+      el('span', 'ei-tt-tag', info.tagName.toLowerCase()),
       el('span', 'ei-tt-size', `${Math.round(info.rect.width)} \u00D7 ${Math.round(info.rect.height)}`),
     )
     tooltip.appendChild(head)
 
-    const colorRow = el('div', 'ei-tt-row')
-    const colorSwatch = el('span', 'ei-tt-swatch')
-    colorSwatch.style.backgroundColor = info.typography.color
-    colorRow.append(
-      el('span', 'ei-tt-label', i18n.inspector.color),
-      colorSwatch,
-      el('span', 'ei-tt-val', rgbToHex(info.typography.color)),
-    )
-    tooltip.appendChild(colorRow)
+    const rows: Array<{ label: string; value: string; swatch?: string }> = [
+      { label: 'color', value: rgbToHex(info.typography.color), swatch: info.typography.color },
+      { label: 'font-size', value: info.typography.fontSize },
+      { label: 'font-weight', value: info.typography.fontWeight },
+      { label: 'font-family', value: truncate(info.typography.fontFamily, 36) },
+      { label: 'line-height', value: info.typography.lineHeight },
+      { label: 'letter-spacing', value: info.typography.letterSpacing },
+    ]
 
-    const fontRow = el('div', 'ei-tt-row')
-    fontRow.append(
-      el('span', 'ei-tt-label', i18n.inspector.font),
-      el('span', 'ei-tt-val', `${info.typography.fontSize} ${truncate(info.typography.fontFamily, 36)}`),
-    )
-    tooltip.appendChild(fontRow)
-
-    if (!isAllZeroMargin(info.boxModel.margin)) {
-      const marginRow = el('div', 'ei-tt-row')
-      const m = info.boxModel.margin
-      marginRow.append(
-        el('span', 'ei-tt-label', i18n.inspector.margin),
-        el('span', 'ei-tt-val', `${m.top} ${m.right} ${m.bottom} ${m.left}`),
-      )
-      tooltip.appendChild(marginRow)
-    }
+    rows.forEach(({ label, value, swatch }) => {
+      const row = el('div', 'ei-tt-row')
+      row.appendChild(el('span', 'ei-tt-label', label))
+      if (swatch) {
+        const colorSwatch = el('span', 'ei-tt-swatch')
+        colorSwatch.style.backgroundColor = swatch
+        row.appendChild(colorSwatch)
+      }
+      row.appendChild(el('span', 'ei-tt-val', value))
+      tooltip.appendChild(row)
+    })
 
     if (!isAllZeroMargin(info.boxModel.padding)) {
       const paddingRow = el('div', 'ei-tt-row')
       const p = info.boxModel.padding
       paddingRow.append(
-        el('span', 'ei-tt-label', i18n.inspector.padding),
+        el('span', 'ei-tt-label', 'padding'),
         el('span', 'ei-tt-val', `${p.top} ${p.right} ${p.bottom} ${p.left}`),
       )
       tooltip.appendChild(paddingRow)
     }
 
     const a11y = info.accessibility
-    const divider = el('div', 'ei-tt-divider', i18n.inspector.accessibility)
+    const divider = el('div', 'ei-tt-divider', 'accessibility')
     tooltip.appendChild(divider)
 
     if (a11y.name) {
       const nameRow = el('div', 'ei-tt-row')
-      nameRow.append(el('span', 'ei-tt-label', i18n.inspector.name), el('span', 'ei-tt-val', truncate(a11y.name, 40)))
+      nameRow.append(el('span', 'ei-tt-label', 'name'), el('span', 'ei-tt-val', truncate(a11y.name, 40)))
       tooltip.appendChild(nameRow)
     }
 
     const roleRow = el('div', 'ei-tt-row')
-    roleRow.append(el('span', 'ei-tt-label', i18n.inspector.role), el('span', 'ei-tt-val', a11y.role))
+    roleRow.append(el('span', 'ei-tt-label', 'role'), el('span', 'ei-tt-val', a11y.role))
     tooltip.appendChild(roleRow)
 
     const kbRow = el('div', 'ei-tt-row')
-    const kbIcon = el('span', a11y.keyboardFocusable ? 'ei-tt-yes' : 'ei-tt-no')
-    kbIcon.textContent = a11y.keyboardFocusable ? '\u2713' : '\u2718'
-    kbRow.append(el('span', 'ei-tt-label', i18n.inspector.keyboardFocusable), kbIcon)
+    kbRow.append(el('span', 'ei-tt-label', 'keyboard-focusable'), el('span', 'ei-tt-val', a11y.keyboardFocusable ? 'yes' : 'no'))
     tooltip.appendChild(kbRow)
   }
 
@@ -1861,13 +1853,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
 
     const actionsRow = el('div', 'ei-annotate-actions')
+    const cancelBtn = el('button', 'ei-button ei-button-ghost', i18n.actions.cancel)
+    cancelBtn.type = 'button'
+    cancelBtn.setAttribute(IGNORE_ATTR, 'true')
+    cancelBtn.addEventListener('click', () => {
+      lockedElement = null
+      panelAnchor = null
+      panelPosition = null
+      annotateInput = null
+      renderInfo(null)
+    })
     const submitBtn = el('button', 'ei-button ei-button-primary', existing ? i18n.actions.update : i18n.actions.add)
     submitBtn.type = 'button'
     submitBtn.setAttribute(IGNORE_ATTR, 'true')
     submitBtn.addEventListener('click', () => submitAnnotation(element, textarea.value))
-    actionsRow.appendChild(submitBtn)
+    actionsRow.append(cancelBtn, submitBtn)
 
     wrap.append(textarea, actionsRow)
+    requestAnimationFrame(() => {
+      if (annotateInput === textarea && document.contains(textarea)) {
+        textarea.focus()
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+      }
+    })
     return wrap
   }
 
@@ -1939,6 +1947,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function renderChangesList(): void {
     body.innerHTML = ''
     cleanupPanelExtras()
+    panel.classList.remove('is-inspector-compact')
     panel.classList.add('is-changes')
     titleEl.textContent = i18n.panel.changesTitle
     subtitle.textContent = ''
@@ -2668,18 +2677,61 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return section
   }
 
+  function buildTypographyCode(info: InspectorInfo): HTMLDivElement {
+    return codeRows([
+      ['font-family', info.typography.fontFamily],
+      ['font-size', info.typography.fontSize],
+      ['font-weight', info.typography.fontWeight],
+      ['font-style', info.typography.fontStyle],
+      ['line-height', info.typography.lineHeight],
+      ['letter-spacing', info.typography.letterSpacing],
+      ['color', info.typography.color, info.typography.color],
+      ['text-align', info.typography.textAlign],
+      ['text-transform', info.typography.textTransform],
+      ['text-decoration', info.typography.textDecoration],
+    ])
+  }
+
+  function buildBoxCode(info: InspectorInfo): HTMLDivElement {
+    return codeRows([
+      ['background', info.visual.backgroundColor, info.visual.backgroundColor],
+      ['border-color', info.visual.borderColor, info.visual.borderColor],
+      ['box-shadow', info.visual.boxShadow],
+    ])
+  }
+
+  function buildLayoutCode(info: InspectorInfo): HTMLDivElement {
+    return codeRows([
+      ['display', info.layout.display],
+      ['position', info.layout.position],
+      ['gap', info.layout.gap],
+      ['flex-direction', info.layout.flexDirection],
+      ['justify-content', info.layout.justifyContent],
+      ['align-items', info.layout.alignItems],
+      ['flex-wrap', info.layout.flexWrap],
+      ['grid-template-columns', info.layout.gridTemplateColumns],
+      ['grid-template-rows', info.layout.gridTemplateRows],
+      ['opacity', info.visual.opacity],
+      ['overflow', info.visual.overflow],
+      ['class', info.className],
+      ['id', info.id],
+    ])
+  }
+
   function buildTabs(): HTMLDivElement {
-    const tabs = el('div', 'ei-tabs')
+    const tabs = el('div', 'ei-inspector-radio-group')
+    tabs.setAttribute('role', 'radiogroup')
     ;(['typography', 'box', 'layout'] as const).forEach(tabName => {
       const buttonLabel = tabName === 'typography'
         ? i18n.inspector.typography
         : tabName === 'box'
           ? i18n.inspector.box
           : i18n.inspector.layout
-      const button = el('button', 'ei-tab', buttonLabel)
+      const button = el('button', `ei-ann-filter${currentTab === tabName ? ' is-active' : ''}`, buttonLabel)
       button.type = 'button'
       button.dataset.tab = tabName
-      button.dataset.active = currentTab === tabName ? 'true' : 'false'
+      button.setAttribute('role', 'radio')
+      button.setAttribute('aria-checked', currentTab === tabName ? 'true' : 'false')
       button.setAttribute(IGNORE_ATTR, 'true')
       button.addEventListener('click', () => {
         currentTab = tabName
@@ -2695,6 +2747,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
+    panel.classList.add('is-inspector-compact')
     titleEl.textContent = i18n.panel.inspectorTitle
     subtitle.textContent = ''
     subtitle.style.display = 'none'
@@ -2720,51 +2773,56 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     body.innerHTML = ''
 
-    const textHead = el('div', 'ei-text-head', info.text || '\u2014')
-    const path = el('div', 'ei-path', info.domPath)
+    const wrap = el('div', 'ei-inspector-wrap')
+    const target = el('button', 'ei-inspector-target') as HTMLButtonElement
+    target.type = 'button'
+    target.setAttribute(IGNORE_ATTR, 'true')
+    const chevron = el('span', 'ei-inspector-target-chevron')
+    chevron.innerHTML = ICON_CHEVRON_DOWN
+    const targetName = el('span', 'ei-inspector-target-name', formatCrumbLabel(info.element) || '\u2014')
+    targetName.title = info.domPath
+    target.append(chevron, targetName)
+
+    const card = el('div', 'ei-inspector-card')
     const tabs = buildTabs()
 
     const typography = buildSection('typography', currentTab === 'typography')
-    typography.append(
-      styleRow(i18n.inspector.font, info.typography.fontFamily),
-      styleRow(i18n.inspector.size, info.typography.fontSize),
-      styleRow(i18n.inspector.weight, info.typography.fontWeight),
-      styleRow(i18n.inspector.style, info.typography.fontStyle),
-      styleRow(i18n.inspector.lineHeight, info.typography.lineHeight),
-      styleRow(i18n.inspector.letterSpacing, info.typography.letterSpacing),
-      styleRow(i18n.inspector.color, info.typography.color, info.typography.color),
-      styleRow(i18n.inspector.align, info.typography.textAlign),
-      styleRow(i18n.inspector.transform, info.typography.textTransform),
-      styleRow(i18n.inspector.decoration, info.typography.textDecoration),
-    )
-    const box = buildSection('box', currentTab === 'box')
-    const boxDiagram = buildBoxDiagram(info.boxModel)
+    typography.append(buildTypographyCode(info))
 
+    const box = buildSection('box', currentTab === 'box')
     box.append(
-      boxDiagram,
-      styleRow(i18n.inspector.background, info.visual.backgroundColor, info.visual.backgroundColor),
-      styleRow(i18n.inspector.borderColor, info.visual.borderColor, info.visual.borderColor),
-      styleRow(i18n.inspector.shadow, info.visual.boxShadow),
+      buildBoxDiagram(info.boxModel),
+      buildBoxCode(info),
     )
 
     const layout = buildSection('layout', currentTab === 'layout')
-    layout.append(
-      styleRow(i18n.inspector.display, info.layout.display),
-      styleRow(i18n.inspector.position, info.layout.position),
-      styleRow(i18n.inspector.gap, info.layout.gap),
-      styleRow(i18n.inspector.direction, info.layout.flexDirection),
-      styleRow(i18n.inspector.justify, info.layout.justifyContent),
-      styleRow(i18n.inspector.align, info.layout.alignItems),
-      styleRow(i18n.inspector.wrap, info.layout.flexWrap),
-      styleRow(i18n.inspector.gridCols, info.layout.gridTemplateColumns),
-      styleRow(i18n.inspector.gridRows, info.layout.gridTemplateRows),
-      styleRow(i18n.inspector.opacity, info.visual.opacity),
-      styleRow(i18n.inspector.overflow, info.visual.overflow),
-      styleRow(i18n.inspector.className, info.className),
-      styleRow(i18n.inspector.id, info.id),
-    )
+    layout.append(buildLayoutCode(info))
 
-    body.append(textHead, path, tabs, typography, box, layout)
+    const syncInspectorExpanded = () => {
+      target.dataset.expanded = inspectorDetailsExpanded ? 'true' : 'false'
+      card.style.display = inspectorDetailsExpanded ? 'flex' : 'none'
+      tabs.style.display = inspectorDetailsExpanded ? '' : 'none'
+      typography.style.display = inspectorDetailsExpanded && currentTab === 'typography' ? 'flex' : 'none'
+      box.style.display = inspectorDetailsExpanded && currentTab === 'box' ? 'flex' : 'none'
+      layout.style.display = inspectorDetailsExpanded && currentTab === 'layout' ? 'flex' : 'none'
+    }
+    target.addEventListener('click', () => {
+      inspectorDetailsExpanded = !inspectorDetailsExpanded
+      syncInspectorExpanded()
+      if (inspectorDetailsExpanded && annotateInput) {
+        requestAnimationFrame(() => {
+          if (annotateInput && document.contains(annotateInput)) {
+            annotateInput.focus()
+            annotateInput.setSelectionRange(annotateInput.value.length, annotateInput.value.length)
+          }
+        })
+      }
+    })
+    syncInspectorExpanded()
+
+    card.append(tabs, typography, box, layout)
+    wrap.append(target, card)
+    body.append(wrap)
 
     if (lockedElement) {
       panel.appendChild(renderAnnotateInput(lockedElement))
@@ -2779,6 +2837,78 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function resetDesignTracker(): void {
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
+    designApplyOnceMatches = false
+  }
+
+  function getDesignSelectionGroupKey(element: HTMLElement): string {
+    const parent = element.parentElement
+    const children = parent ? Array.from(parent.children) : []
+    const tagName = element.tagName.toLowerCase()
+    const className = Array.from(element.classList).filter(name => !name.startsWith('ei-')).sort().join('.')
+    const siblingIndex = children.indexOf(element)
+    return [getRoute(), parent?.tagName.toLowerCase() ?? '', tagName, className, String(siblingIndex)].join('|')
+  }
+
+  function getMatchingLayerElements(element: HTMLElement): HTMLElement[] {
+    const parent = element.parentElement
+    if (!parent) return [element]
+    const tagName = element.tagName
+    const classNames = Array.from(element.classList).filter(name => !name.startsWith('ei-')).sort()
+    if (classNames.length === 0) return [element]
+    const matches = Array.from(parent.children).filter((child): child is HTMLElement => {
+      if (!(child instanceof HTMLElement)) return false
+      if (child.tagName !== tagName) return false
+      return classNames.every(className => child.classList.contains(className))
+    })
+    return [element, ...matches.filter(match => match !== element)]
+  }
+
+  function consumeDesignScopeElements(element: HTMLElement): HTMLElement[] {
+    const scopeElements = designApplyOnceMatches ? getMatchingLayerElements(element) : [element]
+    designApplyOnceMatches = false
+    return scopeElements
+  }
+
+  function getCurrentDesignScopeElements(element: HTMLElement): HTMLElement[] {
+    return designApplyOnceMatches ? getMatchingLayerElements(element) : [element]
+  }
+
+  function hasDesignScopedChanges(element: HTMLElement): boolean {
+    const scopeElements = new Set(getCurrentDesignScopeElements(element))
+    const scopeGroupKey = getDesignSelectionGroupKey(element)
+    return changes.some((change) => change.type === 'design' && (
+      scopeElements.has(change.element) || change.meta.groupKey === scopeGroupKey
+    ))
+  }
+
+  function resetDesignSelectionChanges(element: HTMLElement): void {
+    const scopeElements = new Set(getCurrentDesignScopeElements(element))
+    const scopeGroupKey = getDesignSelectionGroupKey(element)
+    const idsToRemove = changes
+      .filter((change) => change.type === 'design' && (
+        scopeElements.has(change.element) || change.meta.groupKey === scopeGroupKey
+      ))
+      .map(change => change.id)
+
+    if (idsToRemove.length === 0) return
+    idsToRemove.forEach(removeChange)
+    resetDesignTracker()
+    if (!document.contains(element)) {
+      renderDesign(null)
+      return
+    }
+    lockedElement = element
+    renderDesign(extractInspectorInfo(element))
+  }
+
+  function createDesignActionIconButton(label: string, iconUrl: string): HTMLButtonElement {
+    const button = el('button', 'ei-design-action-btn') as HTMLButtonElement
+    button.type = 'button'
+    button.title = label
+    button.setAttribute('aria-label', label)
+    button.setAttribute(IGNORE_ATTR, 'true')
+    button.innerHTML = `<img src="${iconUrl}" alt="" />`
+    return button
   }
 
   function renderDesign(info: InspectorInfo | null): void {
@@ -2786,6 +2916,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
+    panel.classList.remove('is-inspector-compact')
     titleEl.textContent = i18n.panel.designTitle
     subtitle.textContent = ''
     subtitle.style.display = 'none'
@@ -2833,17 +2964,34 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         .join(', ')
       const note = getExistingDesignNote().trim()
       if (!diffs.length && !note) return
-      if (activeChangeId) {
-        updateChange(activeChangeId, autoComment, diffs)
-      } else {
-        activeChangeId = addChange(info.element, [autoComment, note].filter(Boolean).join('\n'), 'design', diffs)
-        const createdChange = changes.find(c => c.id === activeChangeId)
-        if (createdChange && note) {
-          createdChange.meta.note = note
-          createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
-          createdChange.patch = buildChangePatch(createdChange.type, createdChange.diffs, createdChange.comment)
+      const scopedElements = scopeElements.filter(element => document.contains(element))
+      scopedElements.forEach((element) => {
+        if (element !== primaryElement) {
+          diffs.forEach((diff) => {
+            if (diff.property === 'textContent') element.textContent = diff.modified
+            else element.style.setProperty(diff.property, diff.modified)
+          })
         }
-      }
+        const existingScopedChange = changes.find(c => c.type === 'design' && c.element === element)
+        if (existingScopedChange) {
+          updateChange(existingScopedChange.id, autoComment, diffs)
+          existingScopedChange.meta.groupKey = getDesignSelectionGroupKey(info.element)
+          if (note) existingScopedChange.meta.note = note
+          activeChangeId = element === primaryElement ? existingScopedChange.id : activeChangeId
+          return
+        }
+        const changeId = addChange(element, [autoComment, note].filter(Boolean).join('\n'), 'design', diffs)
+        const createdChange = changes.find(c => c.id === changeId)
+        if (createdChange) {
+          createdChange.meta.groupKey = getDesignSelectionGroupKey(info.element)
+          if (note) {
+            createdChange.meta.note = note
+            createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
+            createdChange.patch = buildChangePatch(createdChange.type, createdChange.diffs, createdChange.comment)
+          }
+        }
+        if (element === primaryElement) activeChangeId = changeId
+      })
       // Update highlight to reflect new element dimensions
       requestAnimationFrame(() => {
         const freshInfo = extractInspectorInfo(info.element)
@@ -2854,29 +3002,63 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const syncDesignNote = (note: string) => {
       const trimmedNote = note.trim()
-      if (!activeChangeId) {
-        if (!trimmedNote) return
-        activeChangeId = addChange(info.element, trimmedNote, 'design', [])
-      }
-      const change = changes.find(c => c.id === activeChangeId)
-      if (!change) return
-      change.meta.note = trimmedNote
-      const styleComment = (change.diffs ?? [])
-        .filter(d => !isInternalResetDiff(d))
-        .map(d => `${d.property}: ${d.original} → ${d.modified}`)
-        .join(', ')
-      change.comment = [styleComment, trimmedNote].filter(Boolean).join('\n')
-      change.patch = buildChangePatch(change.type, change.diffs, change.comment)
-      change.timestamp = Date.now()
-      change.meta.updatedAt = new Date().toISOString()
-      change.meta.route = getRoute()
+      const scopedElements = scopeElements.filter(element => document.contains(element))
+      if (!scopedElements.length || (!activeChangeId && !trimmedNote)) return
+      scopedElements.forEach((element) => {
+        let change = changes.find(c => c.type === 'design' && c.element === element)
+        if (!change) {
+          const changeId = addChange(element, trimmedNote, 'design', [])
+          change = changes.find(c => c.id === changeId)
+          if (element === primaryElement) activeChangeId = changeId
+        }
+        if (!change) return
+        change.meta.groupKey = getDesignSelectionGroupKey(info.element)
+        change.meta.note = trimmedNote
+        const styleComment = (change.diffs ?? [])
+          .filter(d => !isInternalResetDiff(d))
+          .map(d => `${d.property}: ${d.original} → ${d.modified}`)
+          .join(', ')
+        change.comment = [styleComment, trimmedNote].filter(Boolean).join('\n')
+        change.patch = buildChangePatch(change.type, change.diffs, change.comment)
+        change.timestamp = Date.now()
+        change.meta.updatedAt = new Date().toISOString()
+        change.meta.route = getRoute()
+        options.onChangeAdd?.(change)
+      })
       persistChangesState()
-      options.onChangeAdd?.(change)
       renderMarkers()
     }
 
-    styleTracker = createStyleTracker(info.element, saveToChanges)
-    const designPanel = buildDesignPanel(info.element, info, styleTracker, {
+    const designActions = el('div', 'ei-design-actions')
+    designActions.style.display = 'flex'
+    const actionsLeft = el('div', 'ei-design-actions-left')
+    const actionsRight = el('div', 'ei-design-actions-right')
+
+    const matchBtn = createDesignActionIconButton(i18n.design.selectMatchingLayers, DESIGN_SELECT_MATCHING_LAYERS_URL)
+    if (designApplyOnceMatches) matchBtn.dataset.active = 'true'
+    matchBtn.addEventListener('click', () => {
+      designApplyOnceMatches = true
+      renderDesign(extractInspectorInfo(info.element))
+    })
+
+    const devModeBtn = createDesignActionIconButton(i18n.design.devMode, DESIGN_DEV_MODE_URL)
+    devModeBtn.disabled = true
+
+    const resetBtn = createDesignActionIconButton(i18n.design.reset, DESIGN_RESET_URL)
+    resetBtn.disabled = !hasDesignScopedChanges(info.element)
+    resetBtn.addEventListener('click', () => {
+      resetDesignSelectionChanges(info.element)
+    })
+
+    actionsLeft.append(matchBtn, devModeBtn)
+    actionsRight.append(resetBtn)
+    designActions.append(actionsLeft, actionsRight)
+    panel.insertBefore(designActions, body)
+
+    const scopeElements = consumeDesignScopeElements(info.element)
+    const primaryElement = scopeElements[0] ?? info.element
+    styleTracker = createStyleTracker(primaryElement, saveToChanges)
+    const designPanel = buildDesignPanel(primaryElement, extractInspectorInfo(primaryElement), styleTracker, {
       onStyleChange: () => {
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
@@ -2905,6 +3087,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     annotateInput = null
     cleanupPanelExtras()
 
+    panel.classList.remove('is-inspector-compact')
     titleEl.textContent = i18n.panel.moveTitle
     subtitle.textContent = i18n.panel.moveSubtitle
     copyBtn.style.display = 'none'
@@ -3775,6 +3958,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderGuides(info: InspectorInfo | null): void {
     currentInfo = info
+    panel.classList.remove('is-inspector-compact')
     titleEl.textContent = i18n.panel.guidesTitle
     subtitle.textContent = i18n.panel.guidesSubtitle
     copyBtn.style.display = 'none'

@@ -95,7 +95,7 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
   const input = document.createElement('input')
   input.type = 'text'
   input.className = 'ei-dp-num'
-  input.value = String(Math.round(value * 100) / 100)
+  input.value = String(Math.round(value))
   input.setAttribute(IGNORE_ATTR, 'true')
 
   function clamp(v: number): number {
@@ -106,7 +106,7 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
   }
 
   function commit(newVal: number): void {
-    const clamped = clamp(Math.round(newVal * 100) / 100)
+    const clamped = clamp(Math.round(newVal))
     input.value = String(clamped)
     onChange(clamped)
   }
@@ -136,35 +136,58 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
     if (Number.isFinite(num)) commit(num)
   })
 
-  let dragStartY = 0
+  let dragStartX = 0
   let dragStartValue = 0
 
-  input.addEventListener('mousedown', (e) => {
-    if (document.activeElement === input) return
+  input.addEventListener('pointerdown', (e) => {
+    if (document.activeElement === input || e.button !== 0) return
     e.preventDefault()
-    dragStartY = e.clientY
+    dragStartX = e.clientX
     dragStartValue = parseFloat(input.value) || 0
     let dragged = false
+    let latestValue = dragStartValue
+    let rafId: number | null = null
+    const dragScale = step * 0.35
 
-    const onMove = (moveEvent: MouseEvent) => {
-      const delta = dragStartY - moveEvent.clientY
-      if (!dragged && Math.abs(delta) < 2) return
+    const flush = (): void => {
+      rafId = null
+      commit(latestValue)
+    }
+
+    const scheduleCommit = (value: number): void => {
+      latestValue = value
+      if (rafId == null) rafId = window.requestAnimationFrame(flush)
+    }
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - dragStartX
+      if (!dragged && Math.abs(delta) < 3) return
       dragged = true
-      const multiplier = moveEvent.shiftKey ? 10 : 1
-      commit(dragStartValue + delta * multiplier * step)
+      input.classList.add('is-scrubbing')
+      const multiplier = moveEvent.shiftKey ? 4 : 1
+      scheduleCommit(dragStartValue + delta * dragScale * multiplier)
     }
 
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      if (rafId != null) {
+        window.cancelAnimationFrame(rafId)
+        commit(latestValue)
+      }
+      input.classList.remove('is-scrubbing')
+      input.releasePointerCapture(e.pointerId)
+      input.removeEventListener('pointermove', onMove)
+      input.removeEventListener('pointerup', onUp)
+      input.removeEventListener('pointercancel', onUp)
       if (!dragged) {
         input.focus()
         input.select()
       }
     }
 
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    input.setPointerCapture(e.pointerId)
+    input.addEventListener('pointermove', onMove)
+    input.addEventListener('pointerup', onUp)
+    input.addEventListener('pointercancel', onUp)
   })
 
   return input
@@ -3919,6 +3942,7 @@ export function getDesignStyles(): string {
 .ei-dp-field-icon svg { display: block; }
 .ei-dp-field-input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 6px 0 0; outline: none; cursor: ew-resize; letter-spacing: 0.055px; }
 .ei-dp-field-input:focus { cursor: text; }
+.ei-dp-field-input.is-scrubbing { cursor: ew-resize; color: var(--interactive-accent); user-select: none; }
 .ei-dp-field-suffix { flex-shrink: 0; font-size: 11px; color: var(--text-muted); padding-right: 6px; user-select: none; }
 .ei-dp-field-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: var(--field-radius); transition: background 0.12s ease, color 0.12s ease; }
 .ei-dp-field-action:hover { color: var(--text-secondary); }
@@ -4234,7 +4258,7 @@ export function getDesignStyles(): string {
 .ei-dp-font-family-select { margin-bottom: 8px; }
 .ei-dp-font-select:hover { background: var(--surface-hover-strong); }
 .ei-dp-font-text { font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ei-dp-font-arrow { display: flex; align-items: center; color: var(--text-muted); flex-shrink: 0; margin-left: 8px; }
+.ei-dp-font-arrow { display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 16px; color: var(--text-muted); flex-shrink: 0; margin-left: 8px; line-height: 16px; }
 .ei-dp-font-arrow svg { display: block; }
 .ei-dp-font-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 180px; max-height: 200px; overflow-y: auto; }
 .ei-dp-font-dropdown::-webkit-scrollbar { width: 8px; }

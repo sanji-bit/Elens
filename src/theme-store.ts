@@ -3,7 +3,7 @@ import type { ThemeConfig } from './types'
 export const THEME_STORAGE_KEY = 'elens-theme'
 
 const CORE_THEME_DEFAULTS: ThemeConfig = {
-  brand: { accent: '#0C8CE9' },
+  brand: { accent: '#008AFF' },
 }
 
 export function loadPersistedTheme(): ThemeConfig | null {

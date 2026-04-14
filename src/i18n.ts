@@ -33,6 +33,7 @@ export const zhCN = {
     copy: '复制',
     copied: '已复制',
     copyAI: '复制 AI',
+    cancel: '取消',
     export: '导出',
     import: '导入',
     imported: '已导入',
@@ -98,6 +99,9 @@ export const zhCN = {
     layout: '布局',
   },
   design: {
+    selectMatchingLayers: 'Select matching layers',
+    devMode: 'Dev Mode',
+    reset: 'Reset',
     fixed: '固定',
     hug: '自适应',
     fill: '填充',

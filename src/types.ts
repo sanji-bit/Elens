@@ -387,6 +387,27 @@ export type ThemeBuildResult = {
   components: ComponentTokens
 }
 
+export type ViewportPresetCategory = 'desktop' | 'tablet' | 'mobile' | 'custom'
+
+export type ViewportPreset = {
+  id: string
+  label: string
+  width: number
+  height: number
+  category?: ViewportPresetCategory
+}
+
+export type ViewportState = {
+  presetId?: string
+  width: number
+  height: number
+}
+
+export type ViewportController = {
+  setViewportSize: (width: number, height: number) => void | boolean | Promise<void | boolean>
+  getViewportSize?: () => { width: number; height: number } | null | Promise<{ width: number; height: number } | null>
+}
+
 export type InspectorTheme = ThemeConfig
 
 export type ElementInspectorOptions = {
@@ -394,6 +415,10 @@ export type ElementInspectorOptions = {
   defaultMode?: 'inspector' | 'design'
   theme?: InspectorTheme
   persistTheme?: boolean
+  viewportPresets?: ViewportPreset[]
+  defaultViewportPreset?: string
+  persistViewportPreset?: boolean
+  viewportController?: ViewportController
   onInspect?: (info: InspectorInfo) => void
   onChangeAdd?: (change: Change) => void
   onChangeRemove?: (id: string) => void
@@ -405,6 +430,10 @@ export type ElementInspectorInstance = {
   updateTheme: (theme: InspectorTheme, options?: { persist?: boolean }) => void
   getTheme: () => ResolvedThemeConfig
   resetTheme: (options?: { persist?: boolean }) => void
+  setViewportPreset: (id: string | null) => Promise<boolean>
+  setViewportSize: (width: number, height: number) => Promise<boolean>
+  getViewportPreset: () => ViewportPreset | null
+  getViewportState: () => ViewportState | null
   destroy: () => void
   getCurrentInfo: () => InspectorInfo | null
   getChanges: () => Change[]

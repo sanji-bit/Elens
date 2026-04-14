@@ -16,6 +16,9 @@ export const zhCN = {
     screenshot: 'Figma捕获',
     screenshotTooltip: 'Figma捕获 · C',
     captureOptions: '捕获选项',
+    viewport: '视口尺寸',
+    viewportTooltip: '视口尺寸',
+    viewportOptions: '视口预设',
     exit: '退出',
     exitTooltip: '退出当前模式 · Esc',
   },
@@ -174,6 +177,16 @@ export const zhCN = {
     captured: '已截取！粘贴到 Figma (Ctrl+V)',
     captureFailed: '截图失败',
     unknownError: '未知错误',
+  },
+  viewport: {
+    unsupported: '当前环境不支持调整视口尺寸',
+    applied: '已切换视口尺寸',
+    applyFailed: '视口尺寸切换失败',
+    custom: '自定义尺寸',
+    width: '宽',
+    height: '高',
+    apply: '应用',
+    invalid: '请输入有效尺寸',
   },
 } as const
 

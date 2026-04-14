@@ -160,8 +160,15 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-capture-menu { position: fixed; min-width: 220px; border-radius: var(--radius-3xl); background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: var(--space-3); z-index: ${zIndex + 5}; pointer-events: auto; font-family: var(--font-family); }
 .ei-capture-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 24px; padding: 0 8px; border-radius: var(--radius-xl); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
 .ei-capture-menu-item:hover { background: var(--surface-hover-strong); }
+.ei-capture-menu-item[data-active="true"] { background: color-mix(in srgb, var(--interactive-accent) 22%, var(--surface-panel)); color: var(--interactive-accent); }
+.ei-capture-menu-item[data-active="true"] .ei-capture-menu-icon,
+.ei-capture-menu-item[data-active="true"] .ei-capture-menu-label { color: inherit; }
 .ei-capture-menu-icon { flex-shrink: 0; width: 16px; height: 16px; color: var(--text-secondary); }
 .ei-capture-menu-label { font-size: var(--text-base); font-weight: 400; color: var(--text-primary); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.ei-viewport-custom { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-subtle); }
+.ei-viewport-custom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ei-viewport-custom .ei-dp-field-input { cursor: text; padding-left: 8px; }
+.ei-viewport-custom .ei-button { width: 100%; }
 .ei-panel { position: fixed; top: 16px; left: 16px; width: var(--panel-width); border-radius: var(--panel-radius); overflow: hidden; background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--panel-shadow); pointer-events: auto; color: var(--text-primary); user-select: text; z-index: 4; transition: height 140ms ease, min-height 140ms ease; }
 .ei-panel.is-changes { min-height: 520px; display: flex; flex-direction: column; }
 .ei-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }

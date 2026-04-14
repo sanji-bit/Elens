@@ -3185,6 +3185,113 @@ export type DesignPanelCallbacks = {
   getInitialNote: () => string
 }
 
+export type DesignDevEditorCallbacks = {
+  onInput: (value: string, setError: (message: string, line?: number) => void) => void
+}
+
+export function buildDesignDevEditor(initialValue: string, callbacks: DesignDevEditorCallbacks): HTMLDivElement {
+  const container = el('div', 'ei-design-dev-editor')
+  const codeShell = el('div', 'ei-design-dev-code-shell')
+  const gutter = el('div', 'ei-design-dev-gutter')
+  const codeWrap = el('div', 'ei-design-dev-code-wrap')
+  const activeLine = el('div', 'ei-design-dev-active-line')
+  const errorLine = el('div', 'ei-design-dev-error-line')
+  const highlight = el('pre', 'ei-design-dev-highlight')
+  const textarea = document.createElement('textarea')
+  textarea.className = 'ei-design-dev-code-input'
+  textarea.setAttribute(IGNORE_ATTR, 'true')
+  textarea.spellcheck = false
+  textarea.value = initialValue
+
+  const escapeHtml = (value: string): string => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  const paintColorTokens = (value: string): string => value
+    .replace(/(rgba?\([^)]*\)|hsla?\([^)]*\)|#[\da-fA-F]{3,8}\b)/g, '<span class="ei-code-color-token"><span class="ei-code-color-chip" style="background:$1"></span>$1</span>')
+
+  const highlightCss = (value: string): string => paintColorTokens(escapeHtml(value)
+    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="ei-code-comment">$1</span>')
+    .replace(/^([ \t]*)([.#]?[\w-]+)(\s*\{)/gm, '$1<span class="ei-code-selector">$2</span><span class="ei-code-brace">$3</span>')
+    .replace(/^([ \t]*)([\w-]+)(\s*:)([^;]+)(;?)/gm, '$1<span class="ei-code-property">$2</span><span class="ei-code-punctuation">$3</span><span class="ei-code-value">$4</span><span class="ei-code-punctuation">$5</span>')
+    .replace(/([{}])/g, '<span class="ei-code-brace">$1</span>'))
+
+  const updateActiveLine = (): void => {
+    const lineHeight = 16
+    const currentLine = textarea.value.slice(0, textarea.selectionStart).split('\n').length - 1
+    activeLine.style.transform = `translateY(${currentLine * lineHeight - textarea.scrollTop}px)`
+  }
+
+  let errorLineNumber: number | null = null
+
+  const updateErrorLine = (): void => {
+    if (!errorLineNumber) {
+      errorLine.hidden = true
+      return
+    }
+    const lineHeight = 16
+    errorLine.hidden = false
+    errorLine.style.transform = `translateY(${(errorLineNumber - 1) * lineHeight - textarea.scrollTop}px)`
+  }
+
+  const syncEditor = (): void => {
+    const lines = textarea.value.split('\n').length
+    gutter.innerHTML = Array.from({ length: lines }, (_, index) => {
+      const classes = [index === textarea.value.slice(0, textarea.selectionStart).split('\n').length - 1 ? 'is-active' : '', errorLineNumber === index + 1 ? 'is-error' : ''].filter(Boolean).join(' ')
+      return `<div class="${classes}">${index + 1}</div>`
+    }).join('')
+    highlight.innerHTML = highlightCss(textarea.value) + '\n'
+    gutter.scrollTop = textarea.scrollTop
+    highlight.scrollTop = textarea.scrollTop
+    highlight.scrollLeft = textarea.scrollLeft
+    updateActiveLine()
+    updateErrorLine()
+  }
+
+  const error = el('div', 'ei-design-dev-error')
+  error.hidden = true
+  const setError = (message: string, line?: number): void => {
+    error.textContent = message
+    error.hidden = !message
+    errorLineNumber = message ? (line ?? 1) : null
+    syncEditor()
+  }
+
+  textarea.addEventListener('input', () => {
+    setError('')
+    callbacks.onInput(textarea.value, setError)
+  })
+  textarea.addEventListener('scroll', syncEditor)
+  textarea.addEventListener('click', syncEditor)
+  textarea.addEventListener('keyup', syncEditor)
+  textarea.addEventListener('keydown', (event) => {
+    event.stopPropagation()
+    if (event.key === 'Tab') {
+      event.preventDefault()
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      textarea.value = `${textarea.value.slice(0, start)}  ${textarea.value.slice(end)}`
+      textarea.setSelectionRange(start + 2, start + 2)
+      syncEditor()
+      return
+    }
+  })
+
+  codeWrap.append(activeLine, errorLine, highlight, textarea)
+  codeShell.append(gutter, codeWrap)
+  syncEditor()
+  updateActiveLine()
+
+  container.append(codeShell, error)
+  requestAnimationFrame(() => {
+    if (!document.contains(textarea)) return
+    textarea.focus()
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+  })
+  return container
+}
+
 export function buildDesignPanel(
   element: HTMLElement,
   info: InspectorInfo,
@@ -3922,6 +4029,55 @@ export function buildDesignPanel(
 export function getDesignStyles(): string {
   return `
 .ei-dp { padding: 4px 0 0; }
+.ei-design-dev-editor { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 0; }
+.ei-design-dev-code-shell { display: grid; grid-template-columns: 18px minmax(0, 1fr); min-height: 520px; max-height: 520px; border: 0; border-radius: 0; background: transparent; overflow: hidden; }
+.ei-design-dev-gutter { padding: 12px 1px 12px 0; border-right: 0; background: transparent; color: #858585; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; line-height: 16px; text-align: right; user-select: none; overflow: hidden; }
+.ei-design-dev-gutter > div { display: block; height: 16px; line-height: 16px; }
+.ei-design-dev-gutter > div.is-active { color: #c6c6c6; }
+.ei-design-dev-gutter > div.is-error { color: #f48771; }
+.ei-design-dev-code-wrap { position: relative; min-width: 0; min-height: 520px; max-height: 520px; overflow: hidden; background: transparent; }
+.ei-design-dev-active-line { position: absolute; left: 0; right: 0; top: 12px; height: 16px; background: rgba(255,255,255,0.04); pointer-events: none; }
+.ei-design-dev-error-line { position: absolute; left: 0; right: 0; top: 12px; height: 16px; background: rgba(244, 135, 113, 0.14); box-shadow: inset 2px 0 0 #f48771; pointer-events: none; }
+.ei-design-dev-highlight, .ei-design-dev-code-input { position: absolute; inset: 0; margin: 0; padding: 12px 12px; border: 0; background: transparent; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; line-height: 16px; white-space: pre; tab-size: 2; overflow: auto; }
+.ei-design-dev-highlight { pointer-events: none; color: #d4d4d4; }
+.ei-design-dev-code-input { color: transparent; caret-color: #d4d4d4; resize: none; outline: none; }
+.ei-design-dev-code-input::selection { background: rgba(38, 79, 120, 0.68); color: transparent; }
+.ei-code-selector { color: #d7ba7d; }
+.ei-code-brace, .ei-code-punctuation { color: #d4d4d4; }
+.ei-code-property { color: #9cdcfe; }
+.ei-code-value { color: #ce9178; }
+.ei-code-comment { color: #6a9955; }
+.ei-code-color-token { display: inline-flex; align-items: center; gap: 6px; }
+.ei-code-color-chip { width: 10px; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18); flex-shrink: 0; }
+.ei-design-dev-highlight::-webkit-scrollbar, .ei-design-dev-code-input::-webkit-scrollbar { width: 0; height: 0; }
+.ei-design-dev-highlight, .ei-design-dev-code-input { scrollbar-width: none; }
+.ei-design-dev-code-input { -ms-overflow-style: none; }
+.ei-design-dev-highlight { -ms-overflow-style: none; }
+.ei-design-dev-code-input, .ei-design-dev-highlight, .ei-design-dev-gutter { letter-spacing: 0; }
+.ei-design-dev-code-input, .ei-design-dev-highlight { font-variant-ligatures: none; }
+.ei-design-dev-code-input { z-index: 2; }
+.ei-design-dev-highlight, .ei-design-dev-active-line, .ei-design-dev-error-line { z-index: 1; }
+.ei-design-dev-gutter { z-index: 3; }
+.ei-design-dev-code-input, .ei-design-dev-highlight { color-scheme: dark; }
+.ei-design-dev-code-wrap::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); pointer-events: none; }
+.ei-design-dev-code-input, .ei-design-dev-highlight { background-clip: padding-box; }
+.ei-design-dev-code-input { min-height: 520px; }
+.ei-design-dev-highlight { min-height: 520px; }
+.ei-design-dev-code-shell .ei-code-color-token { vertical-align: baseline; }
+.ei-design-dev-code-shell .ei-code-color-chip { margin-top: 1px; }
+.ei-design-dev-code-shell .ei-code-selector, .ei-design-dev-code-shell .ei-code-property, .ei-design-dev-code-shell .ei-code-value, .ei-design-dev-code-shell .ei-code-comment { font-weight: 500; }
+.ei-design-dev-code-shell .ei-code-comment { font-weight: 400; }
+.ei-design-dev-code-shell .ei-code-value .ei-code-color-chip { transform: translateY(1px); }
+.ei-design-dev-code-shell .ei-code-color-token .ei-code-color-chip { background-clip: padding-box; }
+.ei-design-dev-code-shell .ei-code-color-token { white-space: nowrap; }
+.ei-design-dev-code-shell .ei-code-value { color: #ce9178; }
+.ei-design-dev-code-shell .ei-code-property { color: #9cdcfe; }
+.ei-design-dev-code-shell .ei-code-selector { color: #d7ba7d; }
+.ei-design-dev-code-shell .ei-code-comment { color: #6a9955; }
+.ei-design-dev-code-shell .ei-code-brace, .ei-design-dev-code-shell .ei-code-punctuation { color: #d4d4d4; }
+.ei-design-dev-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ei-design-dev-error { color: var(--danger); background: var(--danger-bg); border-radius: 8px; padding: 8px 10px; font-size: 11px; line-height: 16px; }
+.ei-design-dev-error[hidden] { display: none; }
 .ei-dp-section { }
 .ei-dp-section-border { border-top: 0.5px solid var(--border-subtle); }
 .ei-dp-section-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }

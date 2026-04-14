@@ -183,6 +183,7 @@ export type ChangeMeta = {
   route?: string
   note?: string
   groupKey?: string
+  designInputMode?: 'visual' | 'dev'
 }
 
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'guides' | 'changes'

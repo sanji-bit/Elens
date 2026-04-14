@@ -7,14 +7,16 @@ import ICON_SELECT_ELEMENT from './assets/select-element.svg?raw'
 import ICON_STATE_CAPTURE from './assets/state-capture.svg?raw'
 import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
 import ICON_DESIGN from './assets/toolbar-design.svg?raw'
+import DESIGN_MODE_ICON from './assets/design-mode-figma.svg?raw'
+import DESIGN_DEV_MODE_ICON from './assets/design-dev-mode-figma.svg?raw'
 import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
 import ICON_INSPECTOR from './assets/toolbar-inspector.svg?raw'
 import ICON_MOVE from './assets/toolbar-move.svg?raw'
 import ICON_OUTLINES from './assets/toolbar-outlines.svg?raw'
 import ICON_SCREENSHOT from './assets/toolbar-screenshot.svg?raw'
-import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, ThemeConfig } from './types'
-import { buildDesignPanel, createStyleTracker, type StyleTracker } from './design'
+import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, StyleDiff, ThemeConfig } from './types'
+import { buildDesignDevEditor, buildDesignPanel, createStyleTracker, type StyleTracker } from './design'
 import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
@@ -335,6 +337,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
   let designApplyOnceMatches = false
+  let designPanelView: 'visual' | 'dev' = 'visual'
+  let designDevDraft = ''
+  let designDevError = ''
+  let designDevSessionBaseline: Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }> = []
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
   // Guides mode state
   let guidesAnchorElement: HTMLElement | null = null
@@ -1976,6 +1982,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderChangesList(): void {
     body.innerHTML = ''
+    body.style.paddingLeft = ''
     cleanupPanelExtras()
     panel.classList.remove('is-inspector-compact')
     panel.classList.add('is-changes')
@@ -2585,6 +2592,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Inspector rendering ---
 
   function renderEmpty(): void {
+    body.style.paddingLeft = ''
     subtitle.textContent = currentMode === 'inspector'
       ? i18n.panel.inspectMode
       : currentMode === 'design'
@@ -2860,6 +2868,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     positionPanel(panelAnchor, info)
 
     body.innerHTML = ''
+    body.style.paddingLeft = ''
 
     const wrap = el('div', 'ei-inspector-wrap')
     const target = el('button', 'ei-inspector-target') as HTMLButtonElement
@@ -2926,6 +2935,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
     designApplyOnceMatches = false
+    designPanelView = 'visual'
+    designDevDraft = ''
+    designDevError = ''
+    designDevSessionBaseline = []
     clearDesignScopeOverlay()
   }
 
@@ -3029,6 +3042,252 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return button
   }
 
+  function createDesignModeSegmentButton(label: string, icon: string, active: boolean, iconKind: 'design' | 'code'): HTMLButtonElement {
+    const button = el('button', 'ei-tab ei-design-mode-tab') as HTMLButtonElement
+    button.dataset.iconOnly = 'true'
+    button.dataset.iconKind = iconKind
+    button.innerHTML = `<span class="ei-design-mode-tab-icon">${icon}</span>`
+    button.setAttribute('aria-pressed', active ? 'true' : 'false')
+    button.type = 'button'
+    button.title = label
+    button.setAttribute('aria-label', label)
+    button.setAttribute(IGNORE_ATTR, 'true')
+    if (active) button.dataset.active = 'true'
+    return button
+  }
+
+  function createDesignModeSegmentedControl(info: InspectorInfo): HTMLDivElement {
+    const control = el('div', 'ei-tabs ei-design-mode-tabs')
+    control.setAttribute(IGNORE_ATTR, 'true')
+
+    const visualBtn = createDesignModeSegmentButton('设计模式', DESIGN_MODE_ICON, designPanelView === 'visual', 'design')
+    visualBtn.addEventListener('click', () => {
+      if (designPanelView === 'visual') return
+      designDevSessionBaseline = []
+      designPanelView = 'visual'
+      designDevDraft = ''
+      designDevError = ''
+      renderDesign(extractInspectorInfo(currentInfo?.element ?? info.element))
+    })
+
+    const devBtn = createDesignModeSegmentButton('代码模式', DESIGN_DEV_MODE_ICON, designPanelView === 'dev', 'code')
+    devBtn.addEventListener('click', () => {
+      if (designPanelView === 'dev') return
+      designPanelView = 'dev'
+      designDevError = ''
+      renderDesign(extractInspectorInfo(currentInfo?.element ?? info.element))
+    })
+
+    control.append(visualBtn, devBtn)
+    return control
+  }
+
+  function getCssPatchSelector(element: HTMLElement): string {
+    const classes = Array.from(element.classList).filter(name => !name.startsWith('ei-'))
+    const firstClass = classes[0]
+    if (firstClass) return `.${CSS.escape(firstClass)}`
+    const tagName = element.tagName.toLowerCase()
+    return element.id ? `${tagName}#${CSS.escape(element.id)}` : tagName
+  }
+
+  function formatCssBoxValue(edges: { top: string; right: string; bottom: string; left: string }): string {
+    const { top, right, bottom, left } = edges
+    if (top === right && right === bottom && bottom === left) return top
+    if (top === bottom && right === left) return `${top} ${right}`
+    if (right === left) return `${top} ${right} ${bottom}`
+    return `${top} ${right} ${bottom} ${left}`
+  }
+
+  function formatCssBorderWidth(edges: { top: string; right: string; bottom: string; left: string }): string {
+    return formatCssBoxValue(edges)
+  }
+
+  function normalizeCssBackgroundValue(value: string): string {
+    return value === 'rgba(0, 0, 0, 0)' ? 'transparent' : value
+  }
+
+  function collectMatchedRuleDeclarations(element: HTMLElement): Map<string, string> {
+    const declarations = new Map<string, string>()
+
+    const visitRules = (rules: CSSRuleList): void => {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSStyleRule) {
+          try {
+            if (!element.matches(rule.selectorText)) continue
+          } catch {
+            continue
+          }
+          for (const property of Array.from(rule.style)) {
+            const value = rule.style.getPropertyValue(property).trim()
+            if (value) declarations.set(property, value)
+          }
+          continue
+        }
+
+        if ('cssRules' in rule) {
+          try {
+            visitRules((rule as CSSMediaRule | CSSSupportsRule).cssRules)
+          } catch {
+            // Ignore nested rule access failures.
+          }
+        }
+      }
+    }
+
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        visitRules(sheet.cssRules)
+      } catch {
+        // Ignore cross-origin or restricted stylesheets.
+      }
+    }
+
+    return declarations
+  }
+
+  function pickPreferredDeclaration(authored: Map<string, string>, property: string, fallback: string): string {
+    return authored.get(property) ?? fallback
+  }
+
+  function hasVisiblePadding(edges: { top: string; right: string; bottom: string; left: string }): boolean {
+    return [edges.top, edges.right, edges.bottom, edges.left].some(value => value !== '0px')
+  }
+
+  function hasVisibleBorder(edges: { top: string; right: string; bottom: string; left: string }, style: string, color: string): boolean {
+    const hasWidth = [edges.top, edges.right, edges.bottom, edges.left].some(value => value !== '0px')
+    return hasWidth && style !== 'none' && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)'
+  }
+
+  function hasVisibleBackground(value: string): boolean {
+    return value !== 'transparent' && value !== 'rgba(0, 0, 0, 0)' && value !== 'none'
+  }
+
+  function buildInitialCssPatch(info: InspectorInfo, existingChange?: Change): string {
+    const selector = getCssPatchSelector(info.element)
+    const diffs = existingChange?.diffs?.filter(diff => diff.property !== 'textContent' && !isInternalResetDiff(diff))
+    const hasText = info.text.trim().length > 0 && !Array.from(info.element.children).some((child) => {
+      const display = window.getComputedStyle(child).display
+      return display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item'
+    })
+    const authored = collectMatchedRuleDeclarations(info.element)
+
+    const boxDeclarations: Array<[string, string]> = []
+    if (hasVisiblePadding(info.boxModel.padding)) {
+      boxDeclarations.push(['padding', pickPreferredDeclaration(authored, 'padding', formatCssBoxValue(info.boxModel.padding))])
+    }
+    if (info.boxModel.borderRadius !== '0px') {
+      boxDeclarations.push(['border-radius', pickPreferredDeclaration(authored, 'border-radius', info.boxModel.borderRadius)])
+    }
+    if (hasVisibleBackground(info.visual.backgroundColor)) {
+      boxDeclarations.push(['background', pickPreferredDeclaration(authored, 'background', normalizeCssBackgroundValue(info.visual.backgroundColor))])
+    }
+    if (info.visual.boxShadow !== 'none') {
+      boxDeclarations.push(['box-shadow', pickPreferredDeclaration(authored, 'box-shadow', info.visual.boxShadow)])
+    }
+    if (hasVisibleBorder(info.boxModel.borderWidth, info.visual.borderStyle, info.visual.borderColor)) {
+      boxDeclarations.push(['border', pickPreferredDeclaration(authored, 'border', `${formatCssBorderWidth(info.boxModel.borderWidth)} ${info.visual.borderStyle} ${info.visual.borderColor}`)])
+    }
+
+    const textDeclarations: Array<[string, string]> = [
+      ['font-size', pickPreferredDeclaration(authored, 'font-size', info.typography.fontSize)],
+      ['font-weight', pickPreferredDeclaration(authored, 'font-weight', info.typography.fontWeight)],
+      ['color', pickPreferredDeclaration(authored, 'color', info.typography.color)],
+    ]
+    if (info.typography.textAlign !== 'start') {
+      textDeclarations.push(['text-align', pickPreferredDeclaration(authored, 'text-align', info.typography.textAlign)])
+    }
+    if (hasVisiblePadding(info.boxModel.padding)) {
+      textDeclarations.push(['padding', pickPreferredDeclaration(authored, 'padding', formatCssBoxValue(info.boxModel.padding))])
+    }
+    if (info.typography.textTransform !== 'none') {
+      textDeclarations.push(['text-transform', pickPreferredDeclaration(authored, 'text-transform', info.typography.textTransform)])
+    }
+    if (info.typography.letterSpacing !== 'normal') {
+      textDeclarations.push(['letter-spacing', pickPreferredDeclaration(authored, 'letter-spacing', info.typography.letterSpacing)])
+    }
+    if (hasVisibleBackground(info.visual.backgroundColor)) {
+      textDeclarations.push(['background', pickPreferredDeclaration(authored, 'background', normalizeCssBackgroundValue(info.visual.backgroundColor))])
+    }
+
+    const declarations: Array<[string, string]> = diffs?.length
+      ? diffs.map(diff => [diff.property, diff.modified])
+      : hasText
+        ? textDeclarations
+        : boxDeclarations
+    return `${selector} {\n${declarations.map(([property, value]) => `  ${property}: ${value};`).join('\n')}\n}`
+  }
+
+  function captureDesignDevBaseline(elements: HTMLElement[]): Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }> {
+    return elements.map((element) => ({
+      element,
+      inlineStyle: element.getAttribute('style') ?? '',
+      changeIds: changes.filter(change => change.type === 'design' && change.element === element).map(change => change.id),
+    }))
+  }
+
+  function rollbackDesignDevSession(baseline: Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }>): void {
+    baseline.forEach(({ element, inlineStyle, changeIds }) => {
+      if (!document.contains(element)) return
+      if (inlineStyle) element.setAttribute('style', inlineStyle)
+      else element.removeAttribute('style')
+      changeIds.forEach((id) => {
+        changes = changes.filter(change => change.id !== id)
+        disabledStyleDiffsByChangeId.delete(id)
+        disabledTextDiffByChangeId.delete(id)
+        disabledMoveDiffByChangeId.delete(id)
+        disabledNoteByChangeId.delete(id)
+      })
+    })
+    persistChangesState()
+    renderMarkers()
+  }
+
+  function parseCssPatch(input: string, element: HTMLElement): { declarations: StyleDiff[]; error?: string; line?: number } {
+    const trimmed = input.trim()
+    if (!trimmed) return { declarations: [], error: '请输入 CSS 声明。', line: 1 }
+    if (/@|:is\(|:where\(|:has\(|:[\w-]+|,/i.test(trimmed.split('{')[0] ?? '')) return { declarations: [], error: 'Dev Mode MVP 只支持单个普通选择器。', line: 1 }
+
+    let bodyText = trimmed
+    let bodyStartLine = 1
+    const openIndex = trimmed.indexOf('{')
+    const closeIndex = trimmed.lastIndexOf('}')
+    if (openIndex >= 0 || closeIndex >= 0) {
+      if (openIndex < 0 || closeIndex < 0 || closeIndex < openIndex) return { declarations: [], error: 'CSS block 不完整。', line: 1 }
+      const selectorText = trimmed.slice(0, openIndex).trim()
+      if (!selectorText || /[{},]/.test(selectorText)) return { declarations: [], error: 'Dev Mode MVP 只支持单个普通选择器。', line: 1 }
+      const tail = trimmed.slice(closeIndex + 1).trim()
+      if (tail) return { declarations: [], error: 'Dev Mode MVP 只支持一个 CSS block。', line: trimmed.slice(0, closeIndex + 1).split('\n').length + 1 }
+      bodyText = trimmed.slice(openIndex + 1, closeIndex)
+      bodyStartLine = trimmed.slice(0, openIndex + 1).split('\n').length
+      if (/[{}]/.test(bodyText)) return { declarations: [], error: 'Dev Mode MVP 不支持嵌套规则。', line: bodyStartLine }
+    }
+    if (!bodyText.trim()) return { declarations: [], error: '没有可保存的 CSS 声明。', line: bodyStartLine }
+
+    const computed = window.getComputedStyle(element)
+    const declarations: StyleDiff[] = []
+    const seen = new Set<string>()
+    const segments = bodyText.split(';')
+    let consumed = 0
+    for (const raw of segments) {
+      const rawLine = raw
+      const line = raw.trim()
+      const lineNumber = bodyStartLine + rawLine.slice(0, rawLine.length - rawLine.trimStart().length).split('\n').length - 1 + bodyText.slice(0, consumed).split('\n').length - 1
+      consumed += raw.length + 1
+      if (!line) continue
+      const separator = line.indexOf(':')
+      if (separator <= 0) return { declarations: [], error: `无法解析声明：${line}`, line: lineNumber }
+      const property = line.slice(0, separator).trim().toLowerCase()
+      const value = line.slice(separator + 1).trim()
+      if (!/^-[\w-]+$|^[a-z][\w-]*$/.test(property)) return { declarations: [], error: `不支持的属性名：${property}`, line: lineNumber }
+      if (!value || /[{}]/.test(value)) return { declarations: [], error: `不支持的属性值：${property}`, line: lineNumber }
+      if (seen.has(property)) return { declarations: [], error: `重复声明：${property}`, line: lineNumber }
+      seen.add(property)
+      declarations.push({ property, original: computed.getPropertyValue(property), modified: value })
+    }
+    if (!declarations.length) return { declarations: [], error: '没有可保存的 CSS 声明。', line: bodyStartLine }
+    return { declarations }
+  }
+
   function renderDesign(info: InspectorInfo | null): void {
     currentInfo = info
     annotateInput = null
@@ -3054,6 +3313,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     positionPanel(panelAnchor, info)
 
     body.innerHTML = ''
+    body.style.paddingLeft = designPanelView === 'dev' ? '8px' : ''
 
     // Create tracker and design panel with auto-save to Changes
     // Resume existing change if this element already has one
@@ -3070,7 +3330,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       if (!styleTracker) return
       const styleDiffs = styleTracker.getDiffs()
       const diffs = [...styleDiffs]
-      // Include or update text diff
       if (currentTextDiff) {
         const existingTextDiffIndex = diffs.findIndex(d => d.property === 'textContent')
         if (existingTextDiffIndex >= 0) {
@@ -3084,8 +3343,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         .map(d => `${d.property}: ${d.original} → ${d.modified}`)
         .join(', ')
       const note = getExistingDesignNote().trim()
-      if (!diffs.length && !note) return
       const scopedElements = scopeElements.filter(element => document.contains(element))
+      if (!diffs.length && !note) {
+        scopedElements.forEach((element) => {
+          const existingScopedChange = changes.find(c => c.type === 'design' && c.element === element)
+          if (existingScopedChange) removeChange(existingScopedChange.id)
+        })
+        requestAnimationFrame(() => {
+          const freshInfo = extractInspectorInfo(info.element)
+          currentInfo = freshInfo
+          updateHighlight(freshInfo)
+        })
+        return
+      }
       scopedElements.forEach((element) => {
         if (element !== primaryElement) {
           diffs.forEach((diff) => {
@@ -3097,6 +3367,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         if (existingScopedChange) {
           updateChange(existingScopedChange.id, autoComment, diffs)
           existingScopedChange.meta.groupKey = getDesignSelectionGroupKey(info.element)
+          existingScopedChange.meta.designInputMode = designPanelView
           if (note) existingScopedChange.meta.note = note
           activeChangeId = element === primaryElement ? existingScopedChange.id : activeChangeId
           return
@@ -3105,6 +3376,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const createdChange = changes.find(c => c.id === changeId)
         if (createdChange) {
           createdChange.meta.groupKey = getDesignSelectionGroupKey(info.element)
+          createdChange.meta.designInputMode = designPanelView
           if (note) {
             createdChange.meta.note = note
             createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
@@ -3113,7 +3385,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
         if (element === primaryElement) activeChangeId = changeId
       })
-      // Update highlight to reflect new element dimensions
       requestAnimationFrame(() => {
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
@@ -3134,6 +3405,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
         if (!change) return
         change.meta.groupKey = getDesignSelectionGroupKey(info.element)
+        change.meta.designInputMode = designPanelView
         change.meta.note = trimmedNote
         const styleComment = (change.diffs ?? [])
           .filter(d => !isInternalResetDiff(d))
@@ -3166,8 +3438,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (designApplyOnceMatches) renderDesignScopeOverlay(currentScopeElements)
     else clearDesignScopeOverlay()
 
-    const devModeBtn = createDesignActionIconButton(i18n.design.devMode, DESIGN_DEV_MODE_URL)
-    devModeBtn.disabled = true
+    const modeControl = createDesignModeSegmentedControl(info)
 
     const resetBtn = createDesignActionIconButton(i18n.design.reset, DESIGN_RESET_URL)
     resetBtn.disabled = !hasDesignScopedChanges(info.element)
@@ -3175,14 +3446,62 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       resetDesignSelectionChanges(info.element)
     })
 
-    actionsLeft.append(matchBtn, devModeBtn)
+    actionsLeft.append(modeControl, matchBtn)
     actionsRight.append(resetBtn)
     designActions.append(actionsLeft, actionsRight)
     panel.insertBefore(designActions, body)
 
     const scopeElements = consumeDesignScopeElements(info.element)
     const primaryElement = scopeElements[0] ?? info.element
-    styleTracker = createStyleTracker(primaryElement, saveToChanges)
+    styleTracker = createStyleTracker(primaryElement, designPanelView === 'dev' ? undefined : saveToChanges)
+
+    if (designPanelView === 'dev') {
+      if (!designDevDraft) {
+        designDevDraft = buildInitialCssPatch(extractInspectorInfo(primaryElement), existingChange)
+      }
+      if (!designDevSessionBaseline.length) {
+        designDevSessionBaseline = captureDesignDevBaseline(scopeElements)
+      }
+      const syncDesignHighlight = (): void => {
+        const freshInfo = extractInspectorInfo(info.element)
+        currentInfo = freshInfo
+        updateHighlight(freshInfo)
+      }
+      const applyDevPatch = (value: string, setError: (message: string, line?: number) => void) => {
+        designDevDraft = value
+        const parsed = parseCssPatch(value, primaryElement)
+        if (parsed.error) {
+          designDevError = parsed.error
+          setError(parsed.error, parsed.line)
+          return
+        }
+        styleTracker?.reset()
+        parsed.declarations.forEach((diff) => {
+          styleTracker?.apply(diff.property, diff.modified)
+        })
+        currentTextDiff = null
+        saveToChanges()
+        syncDesignHighlight()
+        designDevError = ''
+        setError('')
+      }
+      const devEditor = buildDesignDevEditor(designDevDraft, {
+        onInput: (value, setError) => {
+          applyDevPatch(value, setError)
+        },
+      })
+      if (designDevError) {
+        const errorEl = devEditor.querySelector<HTMLElement>('.ei-design-dev-error')
+        if (errorEl) {
+          errorEl.hidden = false
+          errorEl.textContent = designDevError
+        }
+      }
+      body.appendChild(devEditor)
+      updateHighlight(info)
+      return
+    }
+
     const designPanel = buildDesignPanel(primaryElement, extractInspectorInfo(primaryElement), styleTracker, {
       onStyleChange: () => {
         const freshInfo = extractInspectorInfo(info.element)

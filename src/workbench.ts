@@ -214,6 +214,19 @@ const DEFAULT_PENDING_NOTES = [
     lastReviewedAt: '2026-04-12',
     decision: '月度审查后再决定 stable / merge / remove',
   },
+  {
+    id: 'pending-design-dev-editor',
+    title: 'Design Dev Mode CSS 编辑器',
+    description: 'Design panel 里的 CSS patch 编辑区域，用于直接编辑当前 layer 的样式意图。',
+    classNames: ['.ei-design-dev-editor', '.ei-design-dev-code', '.ei-design-dev-actions', '.ei-design-dev-error', '.ei-annotate-input', '.ei-button'],
+    componentKind: 'project',
+    source: 'Design Dev Mode MVP',
+    closestStableComponent: '多行输入框 .ei-annotate-input / 文本按钮 .ei-button',
+    reasonCannotReuse: '需要更大编辑面积、monospace CSS patch 输入和错误提示；按钮与 textarea 交互仍复用现有 stable 组件。',
+    reviewStatus: 'pending',
+    lastReviewedAt: '2026-04-14',
+    decision: '先作为 Dev Mode 专用 pending 组件，验证后再决定是否沉淀为 stable。',
+  },
 ] as const
 
 const REVIEW_STATUS_LABELS = {

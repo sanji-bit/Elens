@@ -33,6 +33,8 @@ const utilityFiles = new Set([
   'src/theme-store.ts',
   'src/theme.ts',
   'src/index.ts',
+  'src/extension-bridge.ts',
+  'src/chrome-extension-entry.ts',
 ])
 
 const designSystemFiles = new Set([

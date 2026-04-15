@@ -1,3 +1,8 @@
+chrome.action.onClicked.addListener((tab) => {
+  if (!tab.id) return
+  chrome.tabs.sendMessage(tab.id, { type: 'ELENS_TOGGLE_INSPECTOR' })
+})
+
 function getViewportDelta(viewportMetrics) {
   if (!viewportMetrics) return { width: 0, height: 0 }
   const widthDelta = Math.max(0, (viewportMetrics.outerWidth ?? 0) - (viewportMetrics.innerWidth ?? 0))

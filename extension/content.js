@@ -1,3 +1,12 @@
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || message.type !== 'ELENS_TOGGLE_INSPECTOR') return
+
+  window.postMessage({
+    source: 'elens-extension-control',
+    type: 'ELENS_TOGGLE_INSPECTOR',
+  }, '*')
+})
+
 function getViewportMetrics() {
   return {
     innerWidth: window.innerWidth,

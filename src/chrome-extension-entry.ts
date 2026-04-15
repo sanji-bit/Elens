@@ -12,7 +12,7 @@ function mountInspector(): ElementInspectorInstance {
     enabled: true,
     viewportController: createChromeExtensionViewportController(),
     theme: {
-      zIndex: 2147483647,
+      zIndex: 2147483000,
     },
   })
 

@@ -15,7 +15,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 function mountBodyDropdown(dropdown: HTMLElement, anchor: HTMLElement, offset = 4): void {
   document.body.appendChild(dropdown)
   dropdown.style.position = 'fixed'
-  dropdown.style.zIndex = '2147483646'
+  dropdown.style.zIndex = '2147483647'
 
   const anchorRect = anchor.getBoundingClientRect()
   const dropdownRect = dropdown.getBoundingClientRect()
@@ -4084,7 +4084,7 @@ export function getDesignStyles(): string {
 .ei-dp-fill-trigger-opacity-wrap { display: flex; align-items: center; height: 100%; flex-shrink: 0; }
 .ei-dp-fill-trigger-opacity { width: 34px; height: 100%; border: 0; background: transparent; color: var(--text-secondary); font-size: 11px; font-family: inherit; line-height: var(--input-height); letter-spacing: 0.055px; text-align: right; outline: none; padding: 0; }
 .ei-dp-fill-trigger-opacity-suffix { color: var(--text-tertiary); font-size: 11px; line-height: var(--input-height); padding-left: 2px; }
-.ei-dp-fill-popover { position: fixed; z-index: 2147483646; width: 240px; max-height: min(720px, calc(100vh - 32px)); overflow: hidden; background: color-mix(in srgb, var(--surface-panel) 98%, transparent); border-radius: 16px; box-shadow: var(--panel-shadow), inset 0 0 0 1px var(--border-subtle); cursor: default; user-select: none; backdrop-filter: blur(18px); }
+.ei-dp-fill-popover { position: fixed; z-index: 2147483647; width: 240px; max-height: min(720px, calc(100vh - 32px)); overflow: hidden; background: color-mix(in srgb, var(--surface-panel) 98%, transparent); border-radius: 16px; box-shadow: var(--panel-shadow), inset 0 0 0 1px var(--border-subtle); cursor: default; user-select: none; backdrop-filter: blur(18px); }
 .ei-dp-fill-chrome-header { cursor: grab; }
 .ei-dp-fill-chrome-header:active { cursor: grabbing; }
 .ei-dp-fill-popover input,

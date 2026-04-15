@@ -43,6 +43,10 @@ export type InspectorInfo = {
     display: string
     position: string
     gap: string
+    rowGap: string
+    columnGap: string
+    isFlex: boolean
+    isGrid: boolean
     flexDirection: string
     justifyContent: string
     alignItems: string

@@ -14,6 +14,7 @@ import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
 import ICON_INSPECTOR from './assets/toolbar-inspector.svg?raw'
 import ICON_MOVE from './assets/toolbar-move.svg?raw'
+import ICON_MORE from './assets/toolbar-actions.svg?raw'
 import ICON_OUTLINES from './assets/toolbar-outlines.svg?raw'
 import ICON_SCREENSHOT from './assets/toolbar-screenshot.svg?raw'
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectorInfo, InspectorMode, OutputDetail, StyleDiff, ThemeConfig, ViewportControllerCapabilities, ViewportPreset, ViewportState, ViewportTarget, WindowBounds } from './types'
@@ -364,6 +365,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let viewportCapabilities: ViewportControllerCapabilities = options.viewportController?.capabilities ?? {}
   let currentViewportTarget: ViewportTarget = currentViewportState?.target ?? 'window'
   let viewportMenuOpen = false
+  let moreMenuOpen = false
 
   let currentMode: InspectorMode = 'off'
   let destroyed = false
@@ -394,6 +396,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let changeFlashElement: HTMLElement | null = null
   let toolbarExpanded = false
   let styleTracker: StyleTracker | null = null
+  let activeDesignTextChangeTarget: HTMLElement | null = null
+  let activeDesignTextChangeHandler: ((original: string, modified: string) => void) | null = null
+  let inlineTextEditSession: {
+    element: HTMLElement
+    originalText: string
+    previousContentEditable: string | null
+    previousOutline: string
+    inputHandler: () => void
+    blurHandler: () => void
+  } | null = null
   let designApplyOnceMatches = false
   let designScopeUserToggled = false
   let designPanelView: 'visual' | 'dev' = 'visual'
@@ -459,7 +471,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const hlMargin = el('div', 'ei-hl-margin')
   const hlPadding = el('div', 'ei-hl-padding')
   const hlContent = el('div', 'ei-hl-content')
-  hlPadding.appendChild(hlContent)
+  const hlGap = el('div', 'ei-hl-gap')
+  hlPadding.append(hlContent, hlGap)
   hlMargin.appendChild(hlPadding)
   highlight.appendChild(hlMargin)
 
@@ -600,6 +613,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const hlMarginBadges: Record<string, HTMLDivElement> = {}
   const hlMarginLines: Record<string, HTMLDivElement> = {}
   const hlMarginEdges: Record<string, HTMLDivElement> = {}
+  const hlGapBands = Array.from({ length: 8 }, () => el('div', 'ei-hl-gap-band'))
+  const hlGapBadges = Array.from({ length: 8 }, () => el('div', 'ei-hl-gap-badge'))
   for (const side of ['top', 'right', 'bottom', 'left'] as const) {
     hlPadBadges[side] = el('div', 'ei-hl-pad-badge')
     hlPadLines[side] = el('div', `ei-hl-pad-line ei-hl-pad-line-${side === 'top' || side === 'bottom' ? 'v' : 'h'}`)
@@ -615,6 +630,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hlMargin.appendChild(hlMarginLines[side])
     hlMargin.appendChild(hlMarginBadges[side])
   }
+  hlGapBands.forEach((band) => hlGap.appendChild(band))
+  hlGapBadges.forEach((badge) => hlGap.appendChild(badge))
   hlPadding.appendChild(hlLabel)
   hlPadding.appendChild(hlCode)
 
@@ -670,7 +687,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   screenshotDropdownBtn.appendChild(screenshotDropdownTip)
   screenshotGroup.append(screenshotBtn, screenshotDropdownBtn)
 
-  const viewportMenu = el('div', 'ei-capture-menu')
+  const viewportMenu = el('div', 'ei-capture-menu ei-viewport-menu')
   viewportMenu.setAttribute(IGNORE_ATTR, 'true')
   viewportMenu.style.display = 'none'
 
@@ -678,6 +695,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const captureMenu = el('div', 'ei-capture-menu')
   captureMenu.setAttribute(IGNORE_ATTR, 'true')
   captureMenu.style.display = 'none'
+
+  const moreMenu = el('div', 'ei-capture-menu ei-more-menu')
+  moreMenu.setAttribute(IGNORE_ATTR, 'true')
+  moreMenu.style.display = 'none'
 
   const outputDetailMenu = el('div', 'ei-output-detail-menu')
   outputDetailMenu.setAttribute(IGNORE_ATTR, 'true')
@@ -701,6 +722,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const captureWindowItem = makeCaptureMenuItem(ICON_CAPTURE_WINDOW, i18n.capture.currentWindow)
   const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, i18n.capture.selectElement)
   const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, i18n.capture.stateCapture)
+  const guidesMenuItem = makeCaptureMenuItem(ICON_GUIDES, i18n.toolbar.guides)
+  const outlinesMenuItem = makeCaptureMenuItem(ICON_OUTLINES, i18n.toolbar.outlines)
+  guidesMenuItem.setAttribute(IGNORE_ATTR, 'true')
+  outlinesMenuItem.setAttribute(IGNORE_ATTR, 'true')
+
+  const moreBtn = makeToolbarBtn(ICON_MORE, i18n.toolbar.moreTooltip)
+  moreBtn.classList.add('ei-toolbar-extra')
+  moreBtn.setAttribute('aria-label', i18n.toolbar.more)
+  moreBtn.title = i18n.toolbar.more
 
   const viewportMode = el('div', 'ei-tabs ei-viewport-mode')
   const viewportModeViewportBtn = el('button', 'ei-tab', i18n.viewport.modeViewport)
@@ -710,7 +740,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportModeWindowBtn.type = 'button'
   viewportModeWindowBtn.setAttribute(IGNORE_ATTR, 'true')
   viewportMode.append(viewportModeViewportBtn, viewportModeWindowBtn)
-  const viewportModeHint = el('div', 'ei-panel-subtitle ei-viewport-mode-hint')
 
   const viewportPresetItems = viewportPresets.map((preset) => {
     const item = makeCaptureMenuItem(null, preset.label)
@@ -720,7 +749,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   const viewportCustom = el('div', 'ei-viewport-custom')
   const viewportCustomGrid = el('div', 'ei-viewport-custom-grid')
-  const viewportWidthField = el('label', 'ei-dp-field')
+  const viewportWidthField = el('label', 'ei-dp-field ei-viewport-field')
   viewportWidthField.appendChild(el('span', 'ei-dp-field-icon', 'W'))
   const viewportWidthInput = document.createElement('input')
   viewportWidthInput.className = 'ei-dp-field-input'
@@ -729,7 +758,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportWidthInput.placeholder = i18n.viewport.width
   viewportWidthInput.setAttribute(IGNORE_ATTR, 'true')
   viewportWidthField.append(viewportWidthInput, el('span', 'ei-dp-field-suffix', 'px'))
-  const viewportHeightField = el('label', 'ei-dp-field')
+  const viewportHeightField = el('label', 'ei-dp-field ei-viewport-field')
   viewportHeightField.appendChild(el('span', 'ei-dp-field-icon', 'H'))
   const viewportHeightInput = document.createElement('input')
   viewportHeightInput.className = 'ei-dp-field-input'
@@ -744,8 +773,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportApplyButton.setAttribute(IGNORE_ATTR, 'true')
   viewportCustom.append(viewportCustomGrid, viewportApplyButton)
 
-  viewportMenu.append(viewportMode, viewportModeHint, ...viewportPresetItems, viewportCustom)
+  viewportMenu.append(viewportMode, ...viewportPresetItems, viewportCustom)
   captureMenu.append(captureEntireScreenItem, captureWindowItem, selectElementItem, stateCaptureItem)
+  moreMenu.append(guidesMenuItem, outlinesMenuItem)
 
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
   toolbarDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
@@ -753,14 +783,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exitTooltip)
   exitBtn.classList.add('ei-toolbar-extra')
 
-  const guidesBtn = makeToolbarBtn(ICON_GUIDES, i18n.toolbar.guidesTooltip)
-  guidesBtn.classList.add('ei-toolbar-extra')
-
-  const outlinesBtn = makeToolbarBtn(ICON_OUTLINES, i18n.toolbar.outlinesTooltip)
-  outlinesBtn.classList.add('ei-toolbar-extra')
-
-  toolbar.append(inspectorBtn, designBtn, moveBtn, guidesBtn, outlinesBtn, viewportGroup, screenshotGroup, changesBtn, toolbarDivider, exitBtn)
-  root.append(viewportMenu, captureMenu, outputDetailMenu)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, screenshotGroup, changesBtn, moreBtn, toolbarDivider, exitBtn)
+  root.append(viewportMenu, captureMenu, moreMenu, outputDetailMenu)
 
   // Panel
   const panel = el('div', 'ei-panel')
@@ -906,7 +930,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function clampPanelPosition(left: number, top: number): { left: number; top: number } {
-    const panelWidth = 380
+    const panelWidth = Math.max(panel.offsetWidth || 0, 380)
     const estimatedHeight = Math.min(Math.max(panel.offsetHeight || 420, 260), window.innerHeight - 24)
     return {
       left: Math.max(12, Math.min(left, window.innerWidth - panelWidth - 12)),
@@ -923,9 +947,25 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    if (!anchor) return
+    const measuredPanelWidth = Math.max(panel.offsetWidth || 0, 380)
 
-    const panelWidth = 380
+    if (!anchor) {
+      if (currentMode === 'design') {
+        const next = clampPanelPosition(window.innerWidth - measuredPanelWidth - 8, 16)
+        panel.style.left = `${next.left}px`
+        panel.style.top = `${next.top}px`
+      }
+      return
+    }
+
+    if (currentMode === 'design') {
+      const next = clampPanelPosition(window.innerWidth - measuredPanelWidth - 16, 16)
+      panel.style.left = `${next.left}px`
+      panel.style.top = `${next.top}px`
+      return
+    }
+
+    const panelWidth = measuredPanelWidth
     const gap = 16
     const estimatedHeight = Math.min(Math.max(panel.offsetHeight || 420, 260), window.innerHeight - 24)
 
@@ -2056,6 +2096,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
   }
 
+  function syncMarkersPosition(): void {
+    if (changes.length === 0) return
+    renderMarkers()
+  }
+
   // --- Annotate input (inspector mode) ---
 
   function renderAnnotateInput(element: HTMLElement): HTMLDivElement {
@@ -2801,11 +2846,161 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     setHighlightVisible(false)
   }
 
+  type GapSegment = {
+    left: number
+    top: number
+    width: number
+    height: number
+    value: number
+  }
+
+  function clearGapOverlay(): void {
+    hlGapBands.forEach((band) => {
+      band.style.display = 'none'
+    })
+    hlGapBadges.forEach((badge) => {
+      badge.style.display = 'none'
+    })
+  }
+
+  function isVisibleGapChild(element: Element): element is HTMLElement {
+    if (!(element instanceof HTMLElement)) return false
+    if (element.hasAttribute(IGNORE_ATTR) || element.closest(`[${IGNORE_ATTR}="true"]`)) return false
+    const rect = element.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return false
+    const style = window.getComputedStyle(element)
+    return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0
+  }
+
+  function collectFlexGapSegments(info: InspectorInfo): GapSegment[] {
+    if (info.layout.flexWrap !== 'nowrap') return []
+    const columnGap = parseFloat(info.layout.columnGap) || 0
+    const rowGap = parseFloat(info.layout.rowGap) || 0
+    const isColumn = info.layout.flexDirection.startsWith('column')
+    const gapValue = isColumn ? rowGap : columnGap
+    if (gapValue <= 0) return []
+
+    const children = Array.from(info.element.children)
+      .filter(isVisibleGapChild)
+      .map((element) => element.getBoundingClientRect())
+      .sort((a, b) => isColumn ? a.top - b.top : a.left - b.left)
+    if (children.length < 2) return []
+
+    const segments: GapSegment[] = []
+    for (let index = 0; index < children.length - 1; index += 1) {
+      const current = children[index]
+      const next = children[index + 1]
+      if (!current || !next) continue
+      if (isColumn) {
+        const top = current.bottom
+        const height = next.top - current.bottom
+        if (height <= 0) continue
+        segments.push({
+          left: Math.max(current.left, next.left),
+          top,
+          width: Math.max(Math.min(current.right, next.right) - Math.max(current.left, next.left), 1),
+          height,
+          value: gapValue,
+        })
+      } else {
+        const left = current.right
+        const width = next.left - current.right
+        if (width <= 0) continue
+        segments.push({
+          left,
+          top: Math.max(current.top, next.top),
+          width,
+          height: Math.max(Math.min(current.bottom, next.bottom) - Math.max(current.top, next.top), 1),
+          value: gapValue,
+        })
+      }
+    }
+    return segments
+  }
+
+  function collectGridGapSegments(info: InspectorInfo): GapSegment[] {
+    const columnGap = parseFloat(info.layout.columnGap) || 0
+    const rowGap = parseFloat(info.layout.rowGap) || 0
+    if (columnGap <= 0 && rowGap <= 0) return []
+
+    const rects = Array.from(info.element.children)
+      .filter(isVisibleGapChild)
+      .map((element) => element.getBoundingClientRect())
+    if (rects.length < 2) return []
+
+    const segments: GapSegment[] = []
+    for (let index = 0; index < rects.length; index += 1) {
+      for (let nextIndex = index + 1; nextIndex < rects.length; nextIndex += 1) {
+        const current = rects[index]
+        const next = rects[nextIndex]
+        if (!current || !next) continue
+        const verticalOverlap = Math.min(current.bottom, next.bottom) - Math.max(current.top, next.top)
+        const horizontalOverlap = Math.min(current.right, next.right) - Math.max(current.left, next.left)
+
+        if (columnGap > 0 && verticalOverlap > 0) {
+          const leftGap = next.left - current.right
+          const rightGap = current.left - next.right
+          const width = leftGap > 0 ? leftGap : rightGap
+          if (width > 0 && Math.abs(width - columnGap) <= Math.max(2, columnGap * 0.35)) {
+            segments.push({
+              left: leftGap > 0 ? current.right : next.right,
+              top: Math.max(current.top, next.top),
+              width,
+              height: verticalOverlap,
+              value: columnGap,
+            })
+          }
+        }
+
+        if (rowGap > 0 && horizontalOverlap > 0) {
+          const topGap = next.top - current.bottom
+          const bottomGap = current.top - next.bottom
+          const height = topGap > 0 ? topGap : bottomGap
+          if (height > 0 && Math.abs(height - rowGap) <= Math.max(2, rowGap * 0.35)) {
+            segments.push({
+              left: Math.max(current.left, next.left),
+              top: topGap > 0 ? current.bottom : next.bottom,
+              width: horizontalOverlap,
+              height,
+              value: rowGap,
+            })
+          }
+        }
+      }
+    }
+
+    const seen = new Set<string>()
+    return segments.filter((segment) => {
+      const key = `${Math.round(segment.left)}:${Math.round(segment.top)}:${Math.round(segment.width)}:${Math.round(segment.height)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  function renderGapOverlay(info: InspectorInfo): void {
+    clearGapOverlay()
+    if (!info.layout.isFlex && !info.layout.isGrid) return
+
+    const segments = (info.layout.isFlex ? collectFlexGapSegments(info) : collectGridGapSegments(info)).slice(0, hlGapBands.length)
+    segments.forEach((segment, index) => {
+      const band = hlGapBands[index]
+      const badge = hlGapBadges[index]
+      if (!band || !badge) return
+      const left = segment.left - info.rect.left
+      const top = segment.top - info.rect.top
+      band.style.cssText = `display:block;left:${left}px;top:${top}px;width:${segment.width}px;height:${segment.height}px;`
+      badge.textContent = String(Math.round(segment.value))
+      badge.style.cssText = `display:block;left:${left + segment.width / 2}px;top:${top + segment.height / 2}px;`
+    })
+  }
+
   function updateHighlight(info: InspectorInfo | null): void {
     // Support capture selection mode (element/state) when currentMode is 'off'
     // Also support outlines mode for hover highlight
     const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
     if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info) {
+      clearGapOverlay()
       setHighlightVisible(false)
       // Remove hover highlight class from previous element in outlines mode
       if (outlinesHoverElement) {
@@ -2899,6 +3094,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
       }
 
+      renderGapOverlay(info)
+
       // Margin badges + measurement lines (in margin layer coordinates)
       const marginSides: [string, number][] = [['top', mt], ['right', mr], ['bottom', mb], ['left', ml]]
       for (const [side, val] of marginSides) {
@@ -2939,6 +3136,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
       }
     } else {
+      clearGapOverlay()
       hlLabel.style.display = 'none'
       hlCode.style.display = 'none'
       for (const side of ['top', 'right', 'bottom', 'left']) {
@@ -2989,6 +3187,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       ['display', info.layout.display],
       ['position', info.layout.position],
       ['gap', info.layout.gap],
+      ['row-gap', info.layout.rowGap],
+      ['column-gap', info.layout.columnGap],
       ['flex-direction', info.layout.flexDirection],
       ['justify-content', info.layout.justifyContent],
       ['align-items', info.layout.alignItems],
@@ -3122,6 +3322,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function resetDesignTracker(): void {
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
+    activeDesignTextChangeTarget = null
+    activeDesignTextChangeHandler = null
     designApplyOnceMatches = false
     designScopeUserToggled = false
     designPanelView = 'visual'
@@ -3129,6 +3331,125 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designDevError = ''
     designDevSessionBaseline = []
     clearDesignScopeOverlay()
+  }
+
+  function isInlineEditableTextElement(element: HTMLElement): boolean {
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement ||
+      element.isContentEditable
+    ) {
+      return false
+    }
+
+    const text = element.textContent ?? ''
+    if (text.length === 0 || text.trim().length === 0) return false
+
+    const hasComplexChild = Array.from(element.children).some((child) => {
+      if (!(child instanceof HTMLElement)) return false
+      if (isEditableTarget(child) || child.querySelector('input, textarea, select, [contenteditable]')) {
+        return true
+      }
+      const display = window.getComputedStyle(child).display
+      return display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item'
+    })
+
+    return !hasComplexChild
+  }
+
+  function placeCaretAtEnd(element: HTMLElement): void {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    range.collapse(false)
+    const selection = window.getSelection()
+    if (!selection) return
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+
+  function normalizeInlineTextElement(element: HTMLElement): string {
+    const text = element.textContent ?? ''
+    if (element.childNodes.length !== 1 || element.firstChild?.nodeType !== Node.TEXT_NODE) {
+      element.textContent = text
+      placeCaretAtEnd(element)
+    }
+    return text
+  }
+
+  function syncInlineTextEditPanelText(original: string, next: string): void {
+    const textInput = body.querySelector<HTMLTextAreaElement>('.ei-dp-text-input')
+    if (!textInput) return
+    textInput.value = next
+    textInput.style.height = 'auto'
+    textInput.style.height = `${Math.min(textInput.scrollHeight, 80)}px`
+    const restoreBtn = body.querySelector<HTMLElement>('.ei-dp-text-restore')
+    if (restoreBtn) restoreBtn.style.display = next !== original ? 'flex' : 'none'
+  }
+
+  function finishInlineTextEdit(commit: boolean): void {
+    const session = inlineTextEditSession
+    if (!session) return
+
+    inlineTextEditSession = null
+    session.element.removeEventListener('input', session.inputHandler)
+    session.element.removeEventListener('blur', session.blurHandler)
+
+    if (!commit) {
+      session.element.textContent = session.originalText
+      if (activeDesignTextChangeTarget === session.element) {
+        activeDesignTextChangeHandler?.(session.originalText, session.originalText)
+      }
+    }
+
+    if (session.previousContentEditable == null) {
+      session.element.removeAttribute('contenteditable')
+    } else {
+      session.element.setAttribute('contenteditable', session.previousContentEditable)
+    }
+    session.element.style.outline = session.previousOutline
+
+    if (lockedElement === session.element && currentMode === 'design') {
+      const freshInfo = extractInspectorInfo(session.element)
+      currentInfo = freshInfo
+      updateHighlight(freshInfo)
+      renderDesign(freshInfo)
+    }
+  }
+
+  function startInlineTextEdit(element: HTMLElement): void {
+    if (inlineTextEditSession?.element === element) return
+    finishInlineTextEdit(true)
+    if (lockedElement !== element || activeDesignTextChangeTarget !== element || !activeDesignTextChangeHandler) return
+
+    const originalText = element.textContent ?? ''
+    const previousContentEditable = element.getAttribute('contenteditable')
+    const previousOutline = element.style.outline
+    const inputHandler = () => {
+      const nextText = normalizeInlineTextElement(element)
+      activeDesignTextChangeHandler?.(originalText, nextText)
+      syncInlineTextEditPanelText(originalText, nextText)
+      const freshInfo = extractInspectorInfo(element)
+      currentInfo = freshInfo
+      updateHighlight(freshInfo)
+    }
+    const blurHandler = () => finishInlineTextEdit(true)
+
+    inlineTextEditSession = {
+      element,
+      originalText,
+      previousContentEditable,
+      previousOutline,
+      inputHandler,
+      blurHandler,
+    }
+
+    element.setAttribute('contenteditable', 'plaintext-only')
+    element.style.outline = 'none'
+    element.addEventListener('input', inputHandler)
+    element.addEventListener('blur', blurHandler)
+    element.focus({ preventScroll: true })
+    placeCaretAtEnd(element)
   }
 
   function getElementSignature(element: HTMLElement): string {
@@ -3581,6 +3902,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
     }
 
+    const applyTextChange = (original: string, modified: string) => {
+      if (modified !== original) {
+        currentTextDiff = { property: 'textContent', original, modified }
+      } else {
+        currentTextDiff = null
+      }
+      saveToChanges()
+    }
+
     const syncDesignNote = (note: string) => {
       const trimmedNote = note.trim()
       const scopedElements = scopeElements.filter(element => document.contains(element))
@@ -3657,6 +3987,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         currentInfo = freshInfo
         updateHighlight(freshInfo)
       }
+      activeDesignTextChangeTarget = null
+      activeDesignTextChangeHandler = null
+
       const applyDevPatch = (value: string, setError: (message: string, line?: number) => void) => {
         designDevDraft = value
         const parsed = parseCssPatch(value, primaryElement)
@@ -3692,20 +4025,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
+    activeDesignTextChangeTarget = primaryElement
+    activeDesignTextChangeHandler = applyTextChange
+
     const designPanel = buildDesignPanel(primaryElement, extractInspectorInfo(primaryElement), styleTracker, {
       onStyleChange: () => {
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
         updateHighlight(freshInfo)
       },
-      onTextChange: (original, modified) => {
-        if (modified !== original) {
-          currentTextDiff = { property: 'textContent', original, modified }
-        } else {
-          currentTextDiff = null
-        }
-        saveToChanges()
-      },
+      onTextChange: applyTextChange,
       onNoteChange: (note) => {
         syncDesignNote(note)
       },
@@ -3807,6 +4136,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
     if (!document.contains(lockedElement)) {
+      finishInlineTextEdit(true)
       resetDesignTracker()
       lockedElement = null
       panelAnchor = null
@@ -3863,6 +4193,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function blockMouse(event: Event): void {
     if (outlinesEnabled) return // Outlines mode: allow normal interaction
     if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (event.type === 'wheel') return
+    if (isEditableTarget(event.target)) return
     if (currentMode === 'move' && (event.type === 'mousedown' || event.type === 'mouseup')) return
     event.preventDefault()
     event.stopPropagation()
@@ -3877,12 +4209,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (outlinesEnabled) return // Outlines mode: no interaction
     if (!isInteractiveMode() || isIgnoredEvent(event)) return
     if (isPanelEvent(event)) return
+    if (inlineTextEditSession && isEditableTarget(event.target)) return
     event.preventDefault()
     event.stopPropagation()
     hideTooltip()
 
     const element = getInspectableElementFromPoint(event.clientX, event.clientY, IGNORE_ATTR)
     if (!element || isLikelyBackgroundElement(element)) {
+      finishInlineTextEdit(true)
       resetDesignTracker()
       lockedElement = null
       panelAnchor = null
@@ -3916,6 +4250,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     if (lockedElement === element) {
+      if (currentMode === 'design' && isInlineEditableTextElement(element)) {
+        startInlineTextEdit(element)
+        return
+      }
+      finishInlineTextEdit(true)
       resetDesignTracker()
       lockedElement = null
       panelAnchor = null
@@ -3924,6 +4263,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
+    finishInlineTextEdit(true)
     resetDesignTracker()
     lockedElement = element
     panelAnchor = { x: event.clientX, y: event.clientY }
@@ -3932,6 +4272,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isIgnoredEvent(event)) return
+
+    if (event.key === 'Escape' && inlineTextEditSession) {
+      event.preventDefault()
+      event.stopPropagation()
+      finishInlineTextEdit(false)
+      return
+    }
+
     if (isEditableTarget(event.target)) return
 
     if (event.key === 'Escape') {
@@ -4176,6 +4524,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function deactivateDesign(): void {
+    finishInlineTextEdit(true)
     resetDesignTracker()
     lockedElement = null
     currentInfo = null
@@ -4789,7 +5138,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designBtn.dataset.active = currentMode === 'design' ? 'true' : 'false'
     moveBtn.dataset.active = currentMode === 'move' ? 'true' : 'false'
     changesBtn.dataset.active = currentMode === 'changes' ? 'true' : 'false'
-    guidesBtn.dataset.active = currentMode === 'guides' ? 'true' : 'false'
+    guidesMenuItem.dataset.active = currentMode === 'guides' ? 'true' : 'false'
+    outlinesMenuItem.dataset.active = outlinesEnabled ? 'true' : 'false'
+    moreBtn.dataset.active = currentMode === 'guides' || outlinesEnabled ? 'true' : 'false'
   }
 
   function expandToolbar(): void {
@@ -4803,30 +5154,65 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function collapseToolbar(): void {
     toolbarExpanded = false
     toolbar.dataset.expanded = 'false'
-    // Reset to bottom-right default position
     toolbarPos = null
-    toolbar.style.left = ''
-    toolbar.style.top = ''
-    toolbar.style.right = '16px'
-    toolbar.style.bottom = '16px'
+    requestAnimationFrame(() => initToolbarPosition())
   }
 
   // Toolbar drag
   let toolbarPos: { left: number; top: number } | null = null
-  function initToolbarPosition(): void {
-    if (!toolbarPos) {
-      const rect = toolbar.getBoundingClientRect()
-      toolbarPos = { left: window.innerWidth - rect.width - 16, top: window.innerHeight - rect.height - 16 }
+  let toolbarPinnedToBottomCenter = true
+
+  function positionToolbarBottomCenter(): void {
+    const rect = toolbar.getBoundingClientRect()
+    toolbarPos = {
+      left: Math.max(16, Math.round((window.innerWidth - rect.width) / 2)),
+      top: window.innerHeight - rect.height - 16,
     }
-    toolbar.style.left = `${toolbarPos.left}px`
-    toolbar.style.top = `${toolbarPos.top}px`
+  }
+
+  function initToolbarPosition(): void {
+    if (toolbarPinnedToBottomCenter || !toolbarPos) {
+      positionToolbarBottomCenter()
+    }
+    const nextToolbarPos = toolbarPos
+    if (!nextToolbarPos) return
+    toolbar.style.left = `${nextToolbarPos.left}px`
+    toolbar.style.top = `${nextToolbarPos.top}px`
     toolbar.style.right = 'auto'
     toolbar.style.bottom = 'auto'
+  }
+
+  function scheduleToolbarReposition(): void {
+    requestAnimationFrame(() => {
+      initToolbarPosition()
+      requestAnimationFrame(() => initToolbarPosition())
+    })
+  }
+
+  function resetToolbarPosition(): void {
+    toolbarPinnedToBottomCenter = true
+    toolbarPos = null
+    scheduleToolbarReposition()
+  }
+
+  function pinToolbarToBottomCenter(): void {
+    if (!toolbarPinnedToBottomCenter) return
+    scheduleToolbarReposition()
+  }
+
+  function repinToolbarPosition(): void {
+    toolbarPinnedToBottomCenter = true
+    scheduleToolbarReposition()
+  }
+
+  function unpinToolbarPosition(): void {
+    toolbarPinnedToBottomCenter = false
   }
 
   function startToolbarDrag(e: MouseEvent): void {
     if ((e.target as HTMLElement).closest('.ei-toolbar-btn')) return
     e.preventDefault()
+    unpinToolbarPosition()
     const startX = e.clientX
     const startY = e.clientY
     const rect = toolbar.getBoundingClientRect()
@@ -4845,53 +5231,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      if (!dragged) repinToolbarPosition()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }
-
-  function unlockCurrent(): void {
-    resetDesignTracker()
-    cancelMoveDrag()
-    lockedElement = null
-    panelAnchor = null
-    panelPosition = null
-    hideMoveIndicator()
-    renderForCurrentMode(null)
-  }
-
-  // --- Figma Capture Functions (replaced by new capture system) ---
-  // See captureEntireScreen, captureWindow, startSelectElementCapture, startStateCapture above
-
-  function showToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
-    const toast = el('div', 'ei-toast')
-    toast.textContent = message
-    toast.style.cssText = `
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      border-radius: 20px;
-      background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--surface-panel)'};
-      color: var(--overlay-label-text);
-      font-size: 13px;
-      font-weight: var(--font-medium);
-      z-index: ${theme.config.zIndex + 10};
-      border: 1px solid ${type === 'error' ? 'var(--danger-bg)' : type === 'success' ? 'var(--success-bg)' : 'var(--border-default)'};
-      box-shadow: var(--shadow-dropdown);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    `
-    root.appendChild(toast)
-    requestAnimationFrame(() => {
-      toast.style.opacity = '1'
-    })
-    setTimeout(() => {
-      toast.style.opacity = '0'
-      setTimeout(() => toast.remove(), 300)
-    }, 3000)
   }
 
   function syncViewportMenu(): void {
@@ -4944,7 +5287,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     viewportModeWindowBtn.dataset.active = currentViewportTarget === 'window' ? 'true' : 'false'
     viewportModeViewportBtn.disabled = !canResizeViewport()
     viewportModeWindowBtn.disabled = !canResizeWindow()
-    viewportModeHint.textContent = currentViewportTarget === 'window' ? i18n.viewport.modeHintWindow : i18n.viewport.modeHintViewport
   }
 
   function getPresetTarget(preset?: ViewportPreset | null): ViewportTarget {
@@ -5005,18 +5347,28 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   async function applyViewportTarget(target: ViewportTarget, bounds: WindowBounds): Promise<boolean> {
+    let applied = false
+
     if (target === 'window') {
-      if (canResizeWindow()) return applyWindowBounds(bounds)
-      if (!canResizeViewport()) {
+      if (canResizeWindow()) {
+        applied = await applyWindowBounds(bounds)
+      } else if (!canResizeViewport()) {
         showToast(i18n.viewport.unsupported, 'info')
         return false
       }
     }
 
-    if (canResizeViewport()) return applyViewportSize(bounds.width, bounds.height)
+    if (!applied && canResizeViewport()) {
+      applied = await applyViewportSize(bounds.width, bounds.height)
+    }
 
-    showToast(i18n.viewport.unsupported, 'info')
-    return false
+    if (!applied) {
+      showToast(i18n.viewport.unsupported, 'info')
+      return false
+    }
+
+    resetToolbarPosition()
+    return true
   }
 
   async function setViewportSize(width: number, height: number): Promise<boolean> {
@@ -5075,8 +5427,69 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return true
   }
 
+  function unlockCurrent(): void {
+    finishInlineTextEdit(true)
+    resetDesignTracker()
+    cancelMoveDrag()
+    lockedElement = null
+    panelAnchor = null
+    panelPosition = null
+    hideMoveIndicator()
+    renderForCurrentMode(null)
+  }
+
+  // --- Figma Capture Functions (replaced by new capture system) ---
+  // See captureEntireScreen, captureWindow, startSelectElementCapture, startStateCapture above
+
+  function showToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+    const toast = el('div', 'ei-toast')
+    toast.textContent = message
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 20px;
+      background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--surface-panel)'};
+      color: var(--overlay-label-text);
+      font-size: 13px;
+      font-weight: var(--font-medium);
+      z-index: ${theme.config.zIndex + 10};
+      border: 1px solid ${type === 'error' ? 'var(--danger-bg)' : type === 'success' ? 'var(--success-bg)' : 'var(--border-default)'};
+      box-shadow: var(--shadow-dropdown);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `
+    root.appendChild(toast)
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1'
+    })
+    setTimeout(() => {
+      toast.style.opacity = '0'
+      setTimeout(() => toast.remove(), 300)
+    }, 3000)
+  }
+
+  async function applyDefaultViewportPreset(): Promise<void> {
+    if (currentViewportPreset) {
+      await setViewportPreset(currentViewportPreset.id)
+      return
+    }
+    const fallbackPreset = viewportPresets[0]
+    if (!fallbackPreset) {
+      openViewportMenu()
+      return
+    }
+    await setViewportPreset(fallbackPreset.id)
+  }
+
   function destroy(): void {
     if (destroyed) return
+    finishInlineTextEdit(true)
+    window.removeEventListener('resize', syncMarkersPosition)
+    window.removeEventListener('scroll', syncMarkersPosition, true)
     setMode('off')
     destroyed = true
     if (rafId != null) {
@@ -5090,7 +5503,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function clearOutlines(): void {
     outlinesEnabled = false
-    outlinesBtn.dataset.active = ''
+    outlinesMenuItem.dataset.active = 'false'
     document.body.dataset.eiOutlines = ''
     if (outlinesHoverElement) {
       outlinesHoverElement.classList.remove('ei-hover-highlight')
@@ -5118,7 +5531,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   designBtn.addEventListener('click', () => toggleToolbarMode('design'))
   moveBtn.addEventListener('click', () => toggleToolbarMode('move'))
   changesBtn.addEventListener('click', () => toggleToolbarMode('changes'))
-  guidesBtn.addEventListener('click', () => toggleToolbarMode('guides'))
   exitBtn.addEventListener('click', () => {
     setMode('off')
     clearOutlines()
@@ -5130,7 +5542,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function toggleOutlines(): void {
     outlinesEnabled = !outlinesEnabled
-    outlinesBtn.dataset.active = outlinesEnabled ? 'true' : ''
     document.body.dataset.eiOutlines = outlinesEnabled ? 'true' : ''
     if (outlinesEnabled) {
       // Clear mode when entering outlines mode
@@ -5145,13 +5556,36 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
       // Unbind events when disabling outlines (if mode is off)
       if (currentMode === 'off') unbindEvents()
+      updateToolbar()
     }
   }
 
-  // --- Outlines toggle ---
-  outlinesBtn.addEventListener('click', () => {
-    toggleOutlines()
-  })
+  // --- More Dropdown Menu ---
+  function positionMoreMenu(): void {
+    const rect = moreBtn.getBoundingClientRect()
+    moreMenu.style.left = `${rect.left}px`
+    moreMenu.style.top = `${rect.top - moreMenu.offsetHeight - 8}px`
+  }
+
+  function openMoreMenu(): void {
+    if (moreMenuOpen) return
+    moreMenuOpen = true
+    moreMenu.style.display = 'block'
+    positionMoreMenu()
+    moreBtn.style.background = 'var(--surface-active)'
+  }
+
+  function closeMoreMenu(): void {
+    if (!moreMenuOpen) return
+    moreMenuOpen = false
+    moreMenu.style.display = 'none'
+    moreBtn.style.background = ''
+  }
+
+  function toggleMoreMenu(): void {
+    if (moreMenuOpen) closeMoreMenu()
+    else openMoreMenu()
+  }
 
   // --- Capture Dropdown Menu ---
   let isCaptureMenuOpen = false
@@ -5377,6 +5811,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (isCaptureMenuOpen && !captureMenu.contains(target) && !screenshotDropdownBtn.contains(target)) {
       closeCaptureMenu()
     }
+    if (moreMenuOpen && !moreMenu.contains(target) && !moreBtn.contains(target)) {
+      closeMoreMenu()
+    }
     if (isOutputDetailMenuOpen && !outputDetailMenu.contains(target)) {
       closeOutputDetailMenu()
     }
@@ -5384,13 +5821,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // Update window resize handler to reposition menu
   window.addEventListener('resize', () => {
+    pinToolbarToBottomCenter()
     if (viewportMenuOpen) positionViewportMenu()
     if (isCaptureMenuOpen) positionCaptureMenu()
+    if (moreMenuOpen) positionMoreMenu()
     if (isOutputDetailMenuOpen) closeOutputDetailMenu()
   })
 
   viewportBtn.addEventListener('click', () => {
-    openViewportMenu()
+    void applyDefaultViewportPreset()
   })
   viewportDropdownBtn.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -5450,6 +5889,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
   })
 
+  moreBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    toggleMoreMenu()
+  })
+  guidesMenuItem.addEventListener('click', () => {
+    closeMoreMenu()
+    toggleToolbarMode('guides')
+  })
+  outlinesMenuItem.addEventListener('click', () => {
+    closeMoreMenu()
+    toggleOutlines()
+    updateToolbar()
+  })
+
   screenshotBtn.addEventListener('click', () => triggerPrimaryCapture())
   screenshotDropdownBtn.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -5475,10 +5928,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   copyBtn.addEventListener('click', copyCurrent)
   unlockBtn.addEventListener('click', unlockCurrent)
   dragHandle.addEventListener('mousedown', startPanelDrag)
+  window.addEventListener('resize', syncMarkersPosition)
+  window.addEventListener('scroll', syncMarkersPosition, true)
 
-  // Initial toolbar position: right:16 bottom:16
-  toolbar.style.right = '16px'
-  toolbar.style.bottom = '16px'
+  // Initial toolbar position: bottom center
+  toolbar.style.right = 'auto'
+  toolbar.style.bottom = 'auto'
 
   restorePersistedChanges()
   syncViewportMenu()

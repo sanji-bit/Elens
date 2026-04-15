@@ -1,6 +1,6 @@
 chrome.action.onClicked.addListener((tab) => {
   if (!tab.id) return
-  chrome.tabs.sendMessage(tab.id, { type: 'ELENS_TOGGLE_INSPECTOR' })
+  void chrome.tabs.sendMessage(tab.id, { type: 'ELENS_TOGGLE_INSPECTOR' }).catch(() => {})
 })
 
 function getViewportDelta(viewportMetrics) {

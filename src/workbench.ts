@@ -928,17 +928,31 @@ function createNavigationSample(context: SampleRenderContext): HTMLElement {
 function createMenuSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   host.innerHTML = `
-    <div class="wb-section-head"><div><h3>交互演示</h3><p>点击菜单项，检查 hover / selected 行为是否和按钮体系一致。</p></div></div>
-    <div class="ei-capture-menu wb-mini-menu">
-      <button class="ei-capture-menu-item ${context.previewClass}" data-active="true"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">捕获选区</span></button>
-      <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">◎</span><span class="ei-capture-menu-label">捕获状态</span></button>
-      <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">⌁</span><span class="ei-capture-menu-label">捕获画面</span></button>
+    <div class="wb-section-head"><div><h3>交互演示</h3><p>基础菜单项模式现在支持 24 / 28 两档，点击菜单项可检查 dropdown menu 与操作列表里的状态反馈是否一致。</p></div></div>
+    <div class="wb-gallery-stack">
+      <div>
+        <div class="wb-kv"><span class="wb-kv-label">Dropdown / 默认 24</span><span class="wb-kv-value">var(--dropdown-option-height)</span></div>
+        <div class="ei-capture-menu wb-mini-menu">
+          <button class="ei-capture-menu-item ${context.previewClass}" data-active="true"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">捕获选区</span></button>
+          <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">◎</span><span class="ei-capture-menu-label">捕获状态</span></button>
+          <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">⌁</span><span class="ei-capture-menu-label">捕获画面</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="wb-kv"><span class="wb-kv-label">Action list / Large 28</span><span class="wb-kv-value">var(--dropdown-option-height-lg)</span></div>
+        <div class="ei-capture-menu wb-mini-menu">
+          <button class="ei-capture-menu-item ${context.previewClass}" data-size="lg" data-active="true"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">应用变更</span></button>
+          <button class="ei-capture-menu-item ${context.previewClass}" data-size="lg"><span class="ei-capture-menu-icon">↗</span><span class="ei-capture-menu-label">跳转到图层</span></button>
+          <button class="ei-capture-menu-item ${context.previewClass}" data-size="lg"><span class="ei-capture-menu-icon">⊘</span><span class="ei-capture-menu-label">忽略本次操作</span></button>
+        </div>
+      </div>
     </div>
     <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-capture-menu-item"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-capture-menu-item wb-preview-hover"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">active</span><button class="ei-capture-menu-item wb-preview-active"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-capture-menu-item wb-preview-disabled" disabled><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">菜单项</span></button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-capture-menu-item"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-capture-menu-item wb-preview-hover"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">large</span><button class="ei-capture-menu-item" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">28 菜单项</span></button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">active</span><button class="ei-capture-menu-item wb-preview-active" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">28 菜单项</span></button></div>
+      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-capture-menu-item wb-preview-disabled" data-size="lg" disabled><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">28 菜单项</span></button></div>
     </div>
   `
   return host

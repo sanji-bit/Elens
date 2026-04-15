@@ -220,9 +220,11 @@ pointer-events: none;
 | 背景 | `var(--surface-panel)` |
 | 边框 | `var(--border-default)` |
 | 内边距 | `var(--space-3)` |
-| 选项高度 | `var(--dropdown-option-height)` |
+| 选项高度 | `var(--dropdown-option-height)` / `var(--dropdown-option-height-lg)` |
 | 选项圆角 | `var(--radius-lg)` |
 | 选项间距 | `var(--dropdown-menu-item-gap)` |
+
+基础菜单项模式默认使用 `var(--dropdown-option-height)`，当下拉菜单或操作列表需要更强可点按性时，使用 `var(--dropdown-option-height-lg)`。
 
 ### 5.5 Badge / Tag
 

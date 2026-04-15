@@ -161,7 +161,8 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-toolbar-btn-group .ei-toolbar-btn:last-child { border-radius: 0 var(--radius-full) var(--radius-full) 0; }
 .ei-toolbar-dropdown-btn { width: calc(var(--btn-icon-size-sm) - var(--space-2)) !important; display: flex !important; align-items: center !important; justify-content: center !important; }
 .ei-capture-menu { position: fixed; display: flex; flex-direction: column; gap: var(--dropdown-menu-item-gap); min-width: calc(var(--panel-width) - 100px); border-radius: var(--radius-3xl); background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: var(--space-3); z-index: ${zIndex + 5}; pointer-events: auto; font-family: var(--font-family); }
-.ei-capture-menu-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--input-height); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
+.ei-capture-menu-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--dropdown-option-height); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
+.ei-capture-menu-item[data-size="lg"] { min-height: var(--dropdown-option-height-lg); }
 .ei-capture-menu-item:hover { background: var(--surface-hover-strong); }
 .ei-capture-menu-item[data-active="true"] { background: color-mix(in srgb, var(--interactive-accent) 22%, var(--surface-panel)); color: var(--interactive-accent); }
 .ei-capture-menu-item[data-active="true"] .ei-capture-menu-icon,

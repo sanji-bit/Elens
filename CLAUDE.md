@@ -54,6 +54,11 @@ These patterns are established design system components and must be reused:
 - New `.ei-*` or `.ei-dp-*` component classes must be justified.
 - Avoid hardcoded visual values when an existing token, CSS variable, or component pattern can be used.
 - Workbench samples must use real runtime classes and real component structure, not fake mock components.
+- `DESIGN_SYSTEM.md` component specifications must be token-first: stable UI colors, sizes, spacing, radii, shadows, borders, z-indexes, and motion values must use tokens or CSS variables as the primary value.
+- Token definition sections may include concrete values because they are the source of truth; component specification sections must not use raw `px`, hex, `rgb/rgba`, named colors, or duration values as the primary spec.
+- When changing stable UI tokens, component dimensions, color, radius, shadow, border, spacing, or interaction states, update `DESIGN_SYSTEM.md` and the matching Workbench sample or explicitly explain why they remain valid.
+- New stable UI tokens must be added to `src/design-tokens.ts` and exposed through `generateCSSVariables()` before documentation or component specs reference them.
+- Do not invent local one-off CSS variables or raw values to bypass the design system; if a reusable value is missing, add or propose a semantic token first.
 
 ## Required Completion Report For UI Changes
 

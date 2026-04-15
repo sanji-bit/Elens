@@ -44,7 +44,69 @@ const designSystemFiles = new Set([
 ])
 
 const findings = []
+const documentErrors = []
 const registeredComponentClasses = loadRegisteredComponentClasses()
+
+function addDocumentError(rule, message, sample) {
+  documentErrors.push({ rule, message, sample: sample.trim() })
+}
+
+function checkDesignSystemComponentSpecVariables() {
+  const file = join(root, 'DESIGN_SYSTEM.md')
+  let text = ''
+
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch {
+    return
+  }
+
+  const startMarker = '## 5. 组件规范'
+  const endMarker = '## 6. 动效规范'
+  const start = text.indexOf(startMarker)
+  const end = text.indexOf(endMarker)
+
+  if (start === -1 || end === -1 || end <= start) return
+
+  const componentSpec = text.slice(start, end)
+  const inlineCodeMatches = componentSpec.matchAll(/`([^`]+)`/g)
+  const bareValueRules = [
+    /(^|[^\w-])-?\d+(?:\.\d+)?px\b/i,
+    /#[0-9a-f]{3,8}\b/i,
+    /\brgba?\s*\(/i,
+    /\b(?:black|white)\b/i,
+    /(^|[^\w-])\d+(?:\.\d+)?ms\b/i,
+  ]
+
+  for (const match of inlineCodeMatches) {
+    const value = match[1]?.trim() ?? ''
+    if (!value) continue
+    if (value.includes('--') || value.includes('var(')) continue
+    if (!bareValueRules.some((rule) => rule.test(value))) continue
+
+    addDocumentError(
+      'component-spec-naked-value',
+      'DESIGN_SYSTEM.md 的组件规范区必须使用 token / CSS variable 作为主规范，不要继续使用裸值。',
+      `\`${value}\``,
+    )
+  }
+}
+
+checkDesignSystemComponentSpecVariables()
+if (documentErrors.length > 0) {
+  for (const error of documentErrors) {
+    console.log(`[ERROR] ${error.rule}`)
+    console.log('  DESIGN_SYSTEM.md')
+    console.log(`  ${error.message}`)
+    console.log(`  ${error.sample}`)
+    console.log('')
+  }
+}
+
+if (documentErrors.length > 0) {
+  process.exit(1)
+}
+
 
 function loadRegisteredComponentClasses() {
   const workbenchPath = join(root, 'src/workbench.ts')

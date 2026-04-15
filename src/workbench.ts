@@ -816,23 +816,27 @@ function createFontSelectSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   const demo = el('div', 'wb-gallery-stack')
   demo.innerHTML = `
-    <div class="wb-section-head"><div><h3>交互演示</h3><p>这是设计模式里真正的字体选择器。点击字段本体会展开选项列表。</p></div></div>
+    <div class="wb-section-head"><div><h3>交互演示</h3><p>这是设计模式里真正的字体选择器。点击字段本体会展开选项列表，并保留顶部搜索、本地字体入口、常用字体分组和键盘上下选择。</p></div></div>
     ${createFontSelectMarkup('Inter')}
     <div class="wb-mini-menu wb-font-menu" hidden>
-      <div class="ei-dp-font-option" data-active="true">Inter</div>
-      <div class="ei-dp-font-option">SF Pro</div>
-      <div class="ei-dp-font-option">Roboto</div>
-      <div class="ei-dp-font-option">Helvetica Neue</div>
-      <div class="ei-dp-font-option">Arial</div>
+      <div class="ei-dp-font-search-row"><span class="ei-dp-font-search-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><input class="ei-dp-font-search-input" placeholder="搜索字体"></div>
+      <div class="ei-dp-font-section-title">常用字体</div>
+      <button class="ei-dp-font-option" data-active="true" style="font-family: 'Inter', Inter;"><span class="ei-dp-font-option-label">Inter</span></button>
+      <button class="ei-dp-font-option" style="font-family: 'SF Pro', SF Pro;"><span class="ei-dp-font-option-label">SF Pro</span></button>
+      <button class="ei-dp-font-option" style="font-family: 'Roboto', Roboto;"><span class="ei-dp-font-option-label">Roboto</span></button>
+      <button class="ei-dp-font-option" style="font-family: 'Helvetica Neue', Helvetica Neue;"><span class="ei-dp-font-option-label">Helvetica Neue</span></button>
+      <button class="ei-button ei-button-ghost ei-dp-font-access-btn" type="button"><span class="ei-dp-font-access-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 17V21H9V17M5.2 17H18.8C19.9201 17 20.4802 17 20.908 16.782C21.2843 16.5903 21.5903 16.2843 21.782 15.908C22 15.4802 22 14.9201 22 13.8V6.2C22 5.0799 22 4.51984 21.782 4.09202C21.5903 3.71569 21.2843 3.40973 20.908 3.21799C20.4802 3 19.9201 3 18.8 3H5.2C4.07989 3 3.51984 3 3.09202 3.21799C2.71569 3.40973 2.40973 3.71569 2.21799 4.09202C2 4.51984 2 5.07989 2 6.2V13.8C2 14.9201 2 15.4802 2.21799 15.908C2.40973 16.2843 2.71569 16.5903 3.09202 16.782C3.51984 17 4.0799 17 5.2 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>访问本地字体</span></button>
     </div>
     <div class="wb-kv"><span class="wb-kv-label">下拉项高</span><span class="wb-kv-value">${context.dropdownOptionHeight}</span></div>
   `
   const trigger = demo.querySelector<HTMLElement>('.ei-dp-font-select')
   const menu = demo.querySelector<HTMLElement>('.wb-font-menu')
   const text = demo.querySelector<HTMLElement>('.ei-dp-font-text')
+  const searchInput = demo.querySelector<HTMLInputElement>('.ei-dp-font-search-input')
   trigger?.addEventListener('click', (event) => {
     event.stopPropagation()
     menu?.toggleAttribute('hidden')
+    if (!menu?.hasAttribute('hidden')) searchInput?.focus()
   })
   demo.querySelectorAll<HTMLElement>('.ei-dp-font-option').forEach((item) => {
     item.addEventListener('click', (event) => {
@@ -841,6 +845,13 @@ function createFontSelectSample(context: SampleRenderContext): HTMLElement {
       item.dataset.active = 'true'
       if (text) text.textContent = item.textContent ?? 'Inter'
       menu?.setAttribute('hidden', '')
+    })
+  })
+  searchInput?.addEventListener('input', () => {
+    const query = searchInput.value.trim().toLowerCase()
+    demo.querySelectorAll<HTMLElement>('.ei-dp-font-option').forEach((item) => {
+      const visible = !query || (item.textContent ?? '').toLowerCase().includes(query)
+      item.toggleAttribute('hidden', !visible)
     })
   })
   host.appendChild(demo)
@@ -918,7 +929,7 @@ function createMenuSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   host.innerHTML = `
     <div class="wb-section-head"><div><h3>交互演示</h3><p>点击菜单项，检查 hover / selected 行为是否和按钮体系一致。</p></div></div>
-    <div class="wb-mini-menu">
+    <div class="ei-capture-menu wb-mini-menu">
       <button class="ei-capture-menu-item ${context.previewClass}" data-active="true"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">捕获选区</span></button>
       <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">◎</span><span class="ei-capture-menu-label">捕获状态</span></button>
       <button class="ei-capture-menu-item ${context.previewClass}"><span class="ei-capture-menu-icon">⌁</span><span class="ei-capture-menu-label">捕获画面</span></button>

@@ -359,10 +359,14 @@ export type ComponentTokens = {
     width: string
     radius: string
     shadow: string
+    offset: string
+    headerPadding: string
+    bodyPadding: string
   }
   field: {
     height: string
     radius: string
+    paddingX: string
   }
   button: {
     iconSize: string
@@ -370,11 +374,15 @@ export type ComponentTokens = {
     textHeight: string
     textHeightMd: string
     textHeightLg: string
+    textPaddingX: string
+    radius: string
   }
   dropdown: {
     minWidth: string
     optionHeight: string
     optionHeightLg: string
+    menuItemGap: string
+    padding: string
   }
   toolbar: {
     buttonGap: string
@@ -382,6 +390,14 @@ export type ComponentTokens = {
   }
   tooltip: {
     maxWidth: string
+    padding: string
+    radius: string
+  }
+  annotate: {
+    minHeight: string
+    maxHeight: string
+    padding: string
+    radius: string
   }
 }
 

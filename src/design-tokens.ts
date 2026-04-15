@@ -139,9 +139,13 @@ export const tokens = {
     },
     input: {
       height: '24px',
+      paddingX: '6px',
     },
     panel: {
       width: '320px',
+      offset: '16px',
+      headerPadding: '12px 16px',
+      bodyPadding: '4px 16px 16px',
     },
     toolbar: {
       buttonGap: '6px',
@@ -149,11 +153,22 @@ export const tokens = {
     },
     tooltip: {
       maxWidth: '320px',
+      padding: '6px 10px',
     },
     dropdown: {
       minWidth: '150px',
       optionHeight: '24px',
       optionHeightLg: '28px',
+      menuItemGap: '1px',
+      padding: '8px',
+    },
+    annotate: {
+      minHeight: '64px',
+      maxHeight: '120px',
+      padding: '12px',
+    },
+    buttonStyle: {
+      textPaddingX: '12px',
     },
   },
 } as const
@@ -482,10 +497,14 @@ export function deriveComponentTokens(_semantic: DerivedSemanticTokens, config: 
       width: config.component.panel.width,
       radius: config.component.panel.radius,
       shadow: tokens.shadows.panel,
+      offset: tokens.components.panel.offset,
+      headerPadding: tokens.components.panel.headerPadding,
+      bodyPadding: tokens.components.panel.bodyPadding,
     },
     field: {
       height: config.component.field.height,
       radius: config.component.field.radius,
+      paddingX: tokens.components.input.paddingX,
     },
     button: {
       iconSize: tokens.components.button.iconSize,
@@ -493,11 +512,15 @@ export function deriveComponentTokens(_semantic: DerivedSemanticTokens, config: 
       textHeight: tokens.components.button.textHeight,
       textHeightMd: tokens.components.button.textHeightMd,
       textHeightLg: tokens.components.button.textHeightLg,
+      textPaddingX: tokens.components.buttonStyle.textPaddingX,
+      radius: tokens.radius.xl,
     },
     dropdown: {
       minWidth: tokens.components.dropdown.minWidth,
       optionHeight: config.component.dropdown.optionHeight,
       optionHeightLg: tokens.components.dropdown.optionHeightLg,
+      menuItemGap: tokens.components.dropdown.menuItemGap,
+      padding: tokens.components.dropdown.padding,
     },
     toolbar: {
       buttonGap: config.component.toolbar.buttonGap,
@@ -505,6 +528,14 @@ export function deriveComponentTokens(_semantic: DerivedSemanticTokens, config: 
     },
     tooltip: {
       maxWidth: tokens.components.tooltip.maxWidth,
+      padding: tokens.components.tooltip.padding,
+      radius: tokens.radius['3xl'],
+    },
+    annotate: {
+      minHeight: tokens.components.annotate.minHeight,
+      maxHeight: tokens.components.annotate.maxHeight,
+      padding: tokens.components.annotate.padding,
+      radius: tokens.radius.xl,
     },
   }
 }
@@ -657,15 +688,29 @@ export function generateCSSVariables(theme: ThemeBuildResult): string {
   --btn-text-height-lg: ${components.button.textHeightLg};
   --input-height: ${components.field.height};
   --field-radius: ${components.field.radius};
+  --field-padding-x: ${components.field.paddingX};
   --panel-width: ${components.panel.width};
   --panel-radius: ${components.panel.radius};
   --panel-shadow: ${components.panel.shadow};
+  --panel-offset: ${components.panel.offset};
+  --panel-header-padding: ${components.panel.headerPadding};
+  --panel-body-padding: ${components.panel.bodyPadding};
   --dropdown-min-width: ${components.dropdown.minWidth};
   --dropdown-option-height: ${components.dropdown.optionHeight};
   --dropdown-option-height-lg: ${components.dropdown.optionHeightLg};
+  --dropdown-menu-item-gap: ${components.dropdown.menuItemGap};
+  --dropdown-padding: ${components.dropdown.padding};
   --toolbar-button-gap: ${components.toolbar.buttonGap};
   --toolbar-padding: ${components.toolbar.padding};
   --tooltip-max-width: ${components.tooltip.maxWidth};
+  --tooltip-padding: ${components.tooltip.padding};
+  --tooltip-radius: ${components.tooltip.radius};
+  --button-padding-x: ${components.button.textPaddingX};
+  --button-radius: ${components.button.radius};
+  --annotate-min-height: ${components.annotate.minHeight};
+  --annotate-max-height: ${components.annotate.maxHeight};
+  --annotate-padding: ${components.annotate.padding};
+  --annotate-radius: ${components.annotate.radius};
 }
 `
 }

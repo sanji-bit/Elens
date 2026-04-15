@@ -2235,11 +2235,71 @@ const COMMON_FONTS = [
   'Monaco',
 ]
 
+type LocalFontRecord = {
+  family?: string
+  fullName?: string
+}
+
+type LocalFontQuery = () => Promise<LocalFontRecord[]>
+
+type LocalFontAccessState = 'idle' | 'loading' | 'granted' | 'denied' | 'empty' | 'unsupported' | 'error'
+
+const localFontAccessState: {
+  status: LocalFontAccessState
+  requested: boolean
+  fonts: string[]
+} = {
+  status: typeof (globalThis as { queryLocalFonts?: LocalFontQuery }).queryLocalFonts === 'function' ? 'idle' : 'unsupported',
+  requested: false,
+  fonts: [],
+}
+
+function normalizeFontName(value: string): string {
+  return value.replace(/['"]/g, '').trim()
+}
+
+function getLocalFontQuery(): LocalFontQuery | null {
+  const query = (globalThis as { queryLocalFonts?: LocalFontQuery }).queryLocalFonts
+  return typeof query === 'function' ? query : null
+}
+
+function dedupeFontNames(fonts: string[]): string[] {
+  return [...new Set(fonts.map(normalizeFontName).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+}
+
+async function loadLocalFonts(): Promise<void> {
+  const query = getLocalFontQuery()
+  localFontAccessState.requested = true
+  if (!query) {
+    localFontAccessState.status = 'unsupported'
+    localFontAccessState.fonts = []
+    return
+  }
+
+  localFontAccessState.status = 'loading'
+  try {
+    const fonts = await query()
+    const families = dedupeFontNames(fonts.map((font) => font.family ?? font.fullName ?? ''))
+    localFontAccessState.fonts = families
+    localFontAccessState.status = families.length ? 'granted' : 'empty'
+  } catch (error) {
+    localFontAccessState.fonts = []
+    localFontAccessState.status = error instanceof DOMException && (
+      error.name === 'NotAllowedError'
+      || error.name === 'SecurityError'
+      || error.name === 'AbortError'
+    )
+      ? 'denied'
+      : 'error'
+  }
+}
+
 function createFontSelect(value: string, onChange: (value: string) => void): HTMLDivElement {
   const wrap = el('div', 'ei-dp-font-select ei-dp-font-family-select')
   wrap.setAttribute(IGNORE_ATTR, 'true')
 
-  const textEl = el('span', 'ei-dp-font-text', value || 'Inter')
+  const initialValue = normalizeFontName(value) || 'Inter'
+  const textEl = el('span', 'ei-dp-font-text', initialValue)
 
   const arrowEl = el('span', 'ei-dp-font-arrow')
   arrowEl.innerHTML = DOWN_ARROW_ICON
@@ -2248,10 +2308,12 @@ function createFontSelect(value: string, onChange: (value: string) => void): HTM
 
   wrap.addEventListener('click', (e) => {
     e.stopPropagation()
-    openFontDropdown(wrap, textEl.textContent || '', (font) => {
+    const committedValue = textEl.textContent || initialValue
+    const applyValue = (font: string): void => {
       textEl.textContent = font
       onChange(font)
-    })
+    }
+    void openFontDropdown(wrap, committedValue, applyValue)
   })
 
   return wrap
@@ -2259,6 +2321,354 @@ function createFontSelect(value: string, onChange: (value: string) => void): HTM
 
 let activeColorFormatDropdown: HTMLDivElement | null = null
 let activeFontDropdown: HTMLDivElement | null = null
+let activeFontDropdownCleanup: (() => void) | null = null
+let activeFontDropdownCommitted = false
+
+function commitFontDropdownSelection(): void {
+  activeFontDropdownCommitted = true
+}
+
+function restoreFontDropdownPreview(): void {
+  if (activeFontDropdownCommitted) return
+  activeFontDropdownCleanup?.()
+}
+
+function clearFontDropdownState(): void {
+  activeFontDropdownCleanup = null
+  activeFontDropdownCommitted = false
+}
+
+function closeFontDropdown(): void {
+  restoreFontDropdownPreview()
+  if (activeFontDropdown) {
+    activeFontDropdown.remove()
+    activeFontDropdown = null
+  }
+  clearFontDropdownState()
+  document.removeEventListener('mousedown', handleFontDropdownOutside, true)
+}
+
+function closeFontDropdownCommitted(): void {
+  commitFontDropdownSelection()
+  if (activeFontDropdown) {
+    activeFontDropdown.remove()
+    activeFontDropdown = null
+  }
+  clearFontDropdownState()
+  document.removeEventListener('mousedown', handleFontDropdownOutside, true)
+}
+
+function previewFontOption(font: string): void {
+  activeFontDropdownCleanup?.()
+}
+
+function applyFontPreview(font: string, onSelect: (font: string) => void): void {
+  onSelect(font)
+}
+
+function restoreFontPreview(onSelect: (font: string) => void, current: string): void {
+  onSelect(current)
+}
+
+function closeFontPreviewSelection(): void {
+  closeFontDropdownCommitted()
+}
+
+function noop(): void {}
+
+function handleFontDropdownOutside(e: MouseEvent): void {
+  if (activeFontDropdown && e.target instanceof Element && !activeFontDropdown.contains(e.target)) {
+    closeFontDropdown()
+  }
+}
+
+async function openFontDropdown(
+  anchor: HTMLElement,
+  currentFont: string,
+  onSelect: (font: string) => void,
+): Promise<void> {
+  closeFontDropdown()
+
+  if (localFontAccessState.requested && localFontAccessState.status === 'granted') {
+    await loadLocalFonts()
+  }
+
+  const dropdown = el('div', 'ei-dp-font-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  const current = normalizeFontName(currentFont)
+  let previewedFont = current
+  let query = ''
+  let highlightedIndex = -1
+  activeFontDropdownCleanup = () => restoreFontPreview(onSelect, current)
+  const preview = (font: string): void => {
+    previewedFont = font
+    applyFontPreview(font, onSelect)
+  }
+
+  const getNavigableItems = (): HTMLButtonElement[] => Array.from(
+    dropdown.querySelectorAll<HTMLButtonElement>('.ei-dp-font-option:not([hidden])'),
+  )
+
+  const syncHighlightedOption = (): void => {
+    const items = getNavigableItems()
+    items.forEach((item, index) => {
+      const highlighted = index === highlightedIndex
+      item.dataset.highlighted = highlighted ? 'true' : 'false'
+      if (highlighted) {
+        const font = item.dataset.font ?? ''
+        if (font && font !== previewedFont) preview(font)
+      }
+    })
+    if (highlightedIndex >= 0) {
+      items[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  }
+
+  const render = (): void => {
+    const previousItems = getNavigableItems()
+    if (highlightedIndex >= previousItems.length) highlightedIndex = previousItems.length - 1
+    dropdown.textContent = ''
+
+    const focusSearchInput = (): void => {
+      const latest = dropdown.querySelector<HTMLInputElement>('.ei-dp-font-search-input')
+      latest?.focus()
+      if (latest) latest.selectionStart = latest.selectionEnd = latest.value.length
+    }
+
+    const moveHighlight = (direction: 1 | -1): void => {
+      const items = getNavigableItems()
+      if (!items.length) return
+      highlightedIndex = highlightedIndex < 0
+        ? (direction === 1 ? 0 : items.length - 1)
+        : (highlightedIndex + direction + items.length) % items.length
+      syncHighlightedOption()
+    }
+
+    const chooseHighlighted = (): void => {
+      const items = getNavigableItems()
+      if (highlightedIndex < 0 || highlightedIndex >= items.length) return
+      items[highlightedIndex]?.click()
+    }
+
+    const resetHighlight = (): void => {
+      const items = getNavigableItems()
+      highlightedIndex = items.findIndex((item) => item.dataset.active === 'true')
+      syncHighlightedOption()
+    }
+
+    const handleSearchKeydown = (e: KeyboardEvent): void => {
+      e.stopPropagation()
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        moveHighlight(1)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        moveHighlight(-1)
+        return
+      }
+      if (e.key === 'Enter' && highlightedIndex >= 0) {
+        e.preventDefault()
+        chooseHighlighted()
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeFontDropdown()
+      }
+    }
+
+    const handleOptionKeydown = (e: KeyboardEvent): void => {
+      e.stopPropagation()
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        moveHighlight(1)
+        focusSearchInput()
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        moveHighlight(-1)
+        focusSearchInput()
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        chooseHighlighted()
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeFontDropdown()
+      }
+    }
+
+    const bindOptionBehavior = (item: HTMLButtonElement, font: string): void => {
+      item.dataset.font = font
+      item.addEventListener('mouseenter', () => {
+        const items = getNavigableItems()
+        highlightedIndex = items.indexOf(item)
+        syncHighlightedOption()
+      })
+      item.addEventListener('click', () => {
+        preview(font)
+      })
+      item.addEventListener('keydown', handleOptionKeydown)
+    }
+
+    const applyPostRenderState = (): void => {
+      resetHighlight()
+      requestAnimationFrame(syncHighlightedOption)
+    }
+
+    const createSectionTitle = (text: string): HTMLDivElement => {
+      const title = el('div', 'ei-dp-font-section-title', text)
+      title.setAttribute(IGNORE_ATTR, 'true')
+      return title
+    }
+
+    const createOption = (font: string, sectionClassName?: string): HTMLButtonElement => {
+      const item = el('button', `ei-dp-font-option${sectionClassName ? ` ${sectionClassName}` : ''}`)
+      item.type = 'button'
+      item.setAttribute(IGNORE_ATTR, 'true')
+      item.style.fontFamily = `'${font}', ${font}`
+      if (font === current) item.dataset.active = 'true'
+
+      const label = el('span', 'ei-dp-font-option-label', font)
+      label.setAttribute(IGNORE_ATTR, 'true')
+      item.appendChild(label)
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation()
+        preview(font)
+        onSelect(font)
+        closeFontDropdownCommitted()
+      })
+      bindOptionBehavior(item, font)
+      return item
+    }
+
+    const allFonts = dedupeFontNames([
+      ...COMMON_FONTS,
+      ...localFontAccessState.fonts,
+      current,
+    ])
+    const normalizedQuery = query.trim().toLowerCase()
+    const matchesQuery = (font: string): boolean => !normalizedQuery || font.toLowerCase().includes(normalizedQuery)
+
+    const searchRow = el('div', 'ei-dp-font-search-row')
+    searchRow.setAttribute(IGNORE_ATTR, 'true')
+    const searchIcon = el('span', 'ei-dp-font-search-icon')
+    searchIcon.setAttribute(IGNORE_ATTR, 'true')
+    searchIcon.innerHTML = SEARCH_ICON
+    const searchInput = el('input', 'ei-dp-font-search-input')
+    searchInput.type = 'text'
+    searchInput.value = query
+    searchInput.placeholder = i18n.design.searchFontsPlaceholder
+    searchInput.setAttribute(IGNORE_ATTR, 'true')
+    searchInput.addEventListener('click', (e) => e.stopPropagation())
+    searchInput.addEventListener('input', (e) => {
+      e.stopPropagation()
+      query = searchInput.value
+      render()
+      mountBodyDropdown(dropdown, anchor)
+      focusSearchInput()
+    })
+    searchInput.addEventListener('keydown', handleSearchKeydown)
+    searchRow.append(searchIcon, searchInput)
+    dropdown.appendChild(searchRow)
+
+    const commonFonts = COMMON_FONTS.filter((font) => allFonts.includes(font) && matchesQuery(font))
+    const currentOnlyFonts = current && !COMMON_FONTS.includes(current) && !localFontAccessState.fonts.includes(current) && matchesQuery(current)
+      ? [current]
+      : []
+
+    if (commonFonts.length) {
+      dropdown.appendChild(createSectionTitle(i18n.design.commonFontsSection))
+      for (const font of commonFonts) {
+        dropdown.appendChild(createOption(font))
+      }
+    }
+
+    if (currentOnlyFonts.length) {
+      for (const font of currentOnlyFonts) {
+        dropdown.appendChild(createOption(font, 'ei-dp-font-option-current'))
+      }
+    }
+
+    const status = localFontAccessState.status
+    if (status === 'granted' && localFontAccessState.fonts.length) {
+      const localFonts = localFontAccessState.fonts.filter(matchesQuery)
+      if (localFonts.length) {
+        dropdown.appendChild(createSectionTitle(i18n.design.localFontsSection))
+        for (const font of localFonts) {
+          dropdown.appendChild(createOption(font))
+        }
+      }
+    } else {
+      const statusRow = el('div', 'ei-dp-font-status-row')
+      statusRow.setAttribute(IGNORE_ATTR, 'true')
+
+      const statusTextMap: Partial<Record<LocalFontAccessState, string>> = {
+        loading: i18n.design.localFontsLoading,
+        unsupported: i18n.design.localFontsUnsupported,
+        denied: i18n.design.localFontsDenied,
+        empty: i18n.design.localFontsEmpty,
+        error: i18n.design.localFontsDenied,
+      }
+
+      const actionNeeded = status === 'idle' || status === 'denied' || status === 'error'
+      if (actionNeeded) {
+        const action = el('button', 'ei-button ei-button-ghost ei-dp-font-access-btn')
+        action.type = 'button'
+        action.setAttribute(IGNORE_ATTR, 'true')
+        action.innerHTML = `<span class="ei-dp-font-access-icon">${LOCAL_FONTS_ICON}</span><span>${status === 'idle' ? i18n.design.localFontsAccess : i18n.design.retryLocalFontsAccess}</span>`
+        action.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          render()
+          mountBodyDropdown(dropdown, anchor)
+          await loadLocalFonts()
+          render()
+          mountBodyDropdown(dropdown, anchor)
+          focusSearchInput()
+        })
+        statusRow.appendChild(action)
+      }
+
+      const statusText = statusTextMap[status]
+      if (statusText) {
+        const message = el('div', 'ei-dp-font-status-text', statusText)
+        message.setAttribute(IGNORE_ATTR, 'true')
+        statusRow.appendChild(message)
+      }
+
+      if (status !== 'idle' || actionNeeded) {
+        dropdown.appendChild(statusRow)
+      }
+    }
+
+    if (!dropdown.querySelector('.ei-dp-font-option, .ei-dp-font-status-row')) {
+      const empty = el('div', 'ei-dp-font-status-text', i18n.design.localFontsEmpty)
+      empty.setAttribute(IGNORE_ATTR, 'true')
+      dropdown.appendChild(empty)
+    }
+
+    applyPostRenderState()
+  }
+
+  render()
+  mountBodyDropdown(dropdown, anchor)
+  requestAnimationFrame(() => {
+    dropdown.querySelector<HTMLInputElement>('.ei-dp-font-search-input')?.focus()
+  })
+
+  activeFontDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleFontDropdownOutside, true)
+  })
+}
 
 function closeColorFormatDropdown(): void {
   if (activeColorFormatDropdown) {
@@ -2301,52 +2711,6 @@ function openColorFormatDropdown(anchor: HTMLElement, currentFormat: ColorFormat
   })
 }
 
-function closeFontDropdown(): void {
-  if (activeFontDropdown) {
-    activeFontDropdown.remove()
-    activeFontDropdown = null
-  }
-  document.removeEventListener('mousedown', handleFontDropdownOutside, true)
-}
-
-function handleFontDropdownOutside(e: MouseEvent): void {
-  if (activeFontDropdown && e.target instanceof Element && !activeFontDropdown.contains(e.target)) {
-    closeFontDropdown()
-  }
-}
-
-function openFontDropdown(
-  anchor: HTMLElement,
-  currentFont: string,
-  onSelect: (font: string) => void,
-): void {
-  closeFontDropdown()
-
-  const dropdown = el('div', 'ei-dp-font-dropdown')
-  dropdown.setAttribute(IGNORE_ATTR, 'true')
-
-  for (const font of COMMON_FONTS) {
-    const item = el('div', 'ei-dp-font-option', font)
-    item.setAttribute(IGNORE_ATTR, 'true')
-    if (font === currentFont) {
-      item.dataset.active = 'true'
-    }
-    item.addEventListener('click', (e) => {
-      e.stopPropagation()
-      onSelect(font)
-      closeFontDropdown()
-    })
-    dropdown.appendChild(item)
-  }
-
-  mountBodyDropdown(dropdown, anchor)
-
-  activeFontDropdown = dropdown
-  requestAnimationFrame(() => {
-    document.addEventListener('mousedown', handleFontDropdownOutside, true)
-  })
-}
-
 // --- Text Align Button Group ---
 
 const ALIGN_ICONS: Record<string, string> = {
@@ -2354,6 +2718,9 @@ const ALIGN_ICONS: Record<string, string> = {
   center: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 7.5C5 7.36739 5.05268 7.24021 5.14645 7.14645C5.24021 7.05268 5.36739 7 5.5 7H18.5C18.6326 7 18.7598 7.05268 18.8536 7.14645C18.9473 7.24021 19 7.36739 19 7.5C19 7.63261 18.9473 7.75979 18.8536 7.85355C18.7598 7.94732 18.6326 8 18.5 8H5.5C5.36739 8 5.24021 7.94732 5.14645 7.85355C5.05268 7.75979 5 7.63261 5 7.5ZM8 11.5C8 11.3674 8.05268 11.2402 8.14645 11.1464C8.24021 11.0527 8.36739 11 8.5 11H15.5C15.6326 11 15.7598 11.0527 15.8536 11.1464C15.9473 11.2402 16 11.3674 16 11.5C16 11.6326 15.9473 11.7598 15.8536 11.8536C15.7598 11.9473 15.6326 12 15.5 12H8.5C8.36739 12 8.24021 11.9473 8.14645 11.8536C8.05268 11.7598 8 11.6326 8 11.5ZM7.5 15C7.36739 15 7.24021 15.0527 7.14645 15.1464C7.05268 15.2402 7 15.3674 7 15.5C7 15.6326 7.05268 15.7598 7.14645 15.8536C7.24021 15.9473 7.36739 16 7.5 16H16.5C16.6326 16 16.7598 15.9473 16.8536 15.8536C16.9473 15.7598 17 15.6326 17 15.5C17 15.3674 16.9473 15.2402 16.8536 15.1464C16.7598 15.0527 16.6326 15 16.5 15H7.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
   right: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M19 7.5C19 7.36739 18.9473 7.24021 18.8536 7.14645C18.7598 7.05268 18.6326 7 18.5 7H5.5C5.36739 7 5.24021 7.05268 5.14645 7.14645C5.05268 7.24021 5 7.36739 5 7.5C5 7.63261 5.05268 7.75979 5.14645 7.85355C5.24021 7.94732 5.36739 8 5.5 8H18.5C18.6326 8 18.7598 7.94732 18.8536 7.85355C18.9473 7.75979 19 7.63261 19 7.5ZM19 11.5C19 11.3674 18.9473 11.2402 18.8536 11.1464C18.7598 11.0527 18.6326 11 18.5 11H11.5C11.3674 11 11.2402 11.0527 11.1464 11.1464C11.0527 11.2402 11 11.3674 11 11.5C11 11.6326 11.0527 11.7598 11.1464 11.8536C11.2402 11.9473 11.3674 12 11.5 12H18.5C18.6326 12 18.7598 11.9473 18.8536 11.8536C18.9473 11.7598 19 11.6326 19 11.5ZM18.5 15C18.6326 15 18.7598 15.0527 18.8536 15.1464C18.9473 15.2402 19 15.3674 19 15.5C19 15.6326 18.9473 15.7598 18.8536 15.8536C18.7598 15.9473 18.6326 16 18.5 16H9.5C9.36739 16 9.24021 15.9473 9.14645 15.8536C9.05268 15.7598 9 15.6326 9 15.5C9 15.3674 9.05268 15.2402 9.14645 15.1464C9.24021 15.0527 9.36739 15 9.5 15H18.5Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
 }
+
+const SEARCH_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const LOCAL_FONTS_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 17V21H9V17M5.2 17H18.8C19.9201 17 20.4802 17 20.908 16.782C21.2843 16.5903 21.5903 16.2843 21.782 15.908C22 15.4802 22 14.9201 22 13.8V6.2C22 5.0799 22 4.51984 21.782 4.09202C21.5903 3.71569 21.2843 3.40973 20.908 3.21799C20.4802 3 19.9201 3 18.8 3H5.2C4.07989 3 3.51984 3 3.09202 3.21799C2.71569 3.40973 2.40973 3.71569 2.21799 4.09202C2 4.51984 2 5.07989 2 6.2V13.8C2 14.9201 2 15.4802 2.21799 15.908C2.40973 16.2843 2.71569 16.5903 3.09202 16.782C3.51984 17 4.0799 17 5.2 17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 const VERTICAL_ALIGN_ICONS: Record<string, string> = {
   top: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.5 5C5.36739 5 5.24021 5.05268 5.14645 5.14645C5.05268 5.24021 5 5.36739 5 5.5C5 5.63261 5.05268 5.75979 5.14645 5.85355C5.24021 5.94732 5.36739 6 5.5 6H17.5C17.6326 6 17.7598 5.94732 17.8536 5.85355C17.9473 5.75979 18 5.63261 18 5.5C18 5.36739 17.9473 5.24021 17.8536 5.14645C17.7598 5.05268 17.6326 5 17.5 5H5.5ZM11.854 7.146C11.8076 7.09944 11.7524 7.06249 11.6916 7.03729C11.6309 7.01208 11.5658 6.99911 11.5 6.99911C11.4342 6.99911 11.3691 7.01208 11.3084 7.03729C11.2476 7.06249 11.1924 7.09944 11.146 7.146L8.146 10.146C8.05211 10.2399 7.99937 10.3672 7.99937 10.5C7.99937 10.6328 8.05211 10.7601 8.146 10.854C8.23989 10.9479 8.36722 11.0006 8.5 11.0006C8.63278 11.0006 8.76011 10.9479 8.854 10.854L11 8.707V16.5C11 16.6326 11.0527 16.7598 11.1464 16.8536C11.2402 16.9473 11.3674 17 11.5 17C11.6326 17 11.7598 16.9473 11.8536 16.8536C11.9473 16.7598 12 16.6326 12 16.5V8.707L14.146 10.854C14.2399 10.9479 14.3672 11.0006 14.5 11.0006C14.6328 11.0006 14.7601 10.9479 14.854 10.854C14.9479 10.7601 15.0006 10.6328 15.0006 10.5C15.0006 10.3672 14.9479 10.2399 14.854 10.146L11.854 7.146Z" fill="currentColor" fill-opacity="0.7"/></svg>`,
@@ -4382,14 +4749,31 @@ export function getDesignStyles(): string {
 .ei-dp-font-text { font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ei-dp-font-arrow { display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 16px; color: var(--text-muted); flex-shrink: 0; margin-left: 8px; line-height: 16px; }
 .ei-dp-font-arrow svg { display: block; }
-.ei-dp-font-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 180px; max-height: 200px; overflow-y: auto; }
+.ei-dp-font-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 220px; max-width: 280px; max-height: 320px; overflow-y: auto; }
 .ei-dp-font-dropdown::-webkit-scrollbar { width: 8px; }
 .ei-dp-font-dropdown::-webkit-scrollbar-track { background: var(--surface-field); border-radius: 4px; }
 .ei-dp-font-dropdown::-webkit-scrollbar-thumb { background: var(--surface-active); border-radius: 4px; }
 .ei-dp-font-dropdown::-webkit-scrollbar-thumb:hover { background: var(--surface-hover-strong); }
-.ei-dp-font-option { display: flex; align-items: center; height: var(--dropdown-option-height); padding: 0 8px; border-radius: var(--field-radius); cursor: pointer; font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; transition: background 0.1s ease; }
-.ei-dp-font-option:hover { background: var(--border-subtle); }
+.ei-dp-font-section-title { margin: 8px 0 4px; padding: 0 8px; font-size: 11px; line-height: 16px; color: var(--text-muted); letter-spacing: 0.055px; }
+.ei-dp-font-section-title:first-child { margin-top: 0; }
+.ei-dp-font-option { display: flex; align-items: center; width: 100%; min-height: var(--dropdown-option-height); padding: 4px 8px; border: 0; border-radius: var(--field-radius); background: transparent; cursor: pointer; font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; text-align: left; transition: background 0.1s ease; }
+.ei-dp-font-option-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ei-dp-font-option:hover, .ei-dp-font-option[data-highlighted="true"] { background: var(--border-subtle); }
 .ei-dp-font-option[data-active="true"] { background: var(--surface-active); }
+.ei-dp-font-option[data-active="true"][data-highlighted="true"] { background: color-mix(in srgb, var(--surface-active) 72%, var(--border-subtle)); }
+.ei-dp-font-option-current { margin-bottom: 4px; }
+.ei-dp-font-search-row { display: flex; align-items: center; margin-bottom: 8px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); transition: border-color 0.15s ease, background 0.12s ease; }
+.ei-dp-font-search-row:hover { border-color: var(--border-default); }
+.ei-dp-font-search-row:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-font-search-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
+.ei-dp-font-search-icon svg { display: block; width: 14px; height: 14px; }
+.ei-dp-font-search-input { flex: 1; min-width: 0; height: var(--input-height); border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; padding: 0 0 0 6px; outline: none; transition: none; }
+.ei-dp-font-search-input::placeholder { color: var(--text-muted); }
+.ei-dp-font-status-row { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 8px 0 0; border-top: 0.5px solid var(--border-subtle); }
+.ei-dp-font-status-text { padding: 0 8px; font-size: 10px; line-height: 14px; color: var(--text-secondary); }
+.ei-dp-font-access-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+.ei-dp-font-access-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: currentColor; }
+.ei-dp-font-access-icon svg { display: block; width: 14px; height: 14px; }
 .ei-dp-color-format-dropdown { position: absolute; z-index: 100; background: var(--surface-dropdown); border-radius: 13px; padding: 8px; box-shadow: var(--shadow-dropdown), inset 0px 0.5px 0px var(--border-subtle), inset 0px 0px 0.5px var(--text-muted); min-width: 112px; }
 .ei-dp-color-format-option { display: flex; align-items: center; height: var(--dropdown-option-height); padding: 0 8px 0 0; border-radius: var(--field-radius); cursor: pointer; font-size: 11px; color: var(--text-primary); letter-spacing: 0.055px; transition: background 0.1s ease; }
 .ei-dp-color-format-option:hover { background: var(--border-subtle); }

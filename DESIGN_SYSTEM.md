@@ -162,25 +162,25 @@ font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
 | 变体 | 高度 | 宽度 | 圆角 |
 |------|------|------|------|
-| Icon (圆形) | `32px` | `32px` | `9999px` |
-| Icon (方形) | `24px` | `24px` | `4px` |
-| Text (小) | `24px` | auto | `8px` |
-| Text (中) | `28px` | auto | `8px` |
-| Text (大) | `32px` | auto | `8px` |
+| Icon (圆形) | `var(--btn-icon-size)` | `var(--btn-icon-size)` | `var(--radius-full)` |
+| Icon (方形) | `var(--btn-icon-size-sm)` | `var(--btn-icon-size-sm)` | `var(--radius-md)` |
+| Text (小) | `var(--btn-text-height)` | auto | `var(--radius-xl)` |
+| Text (中) | `var(--btn-text-height-md)` | auto | `var(--radius-xl)` |
+| Text (大) | `var(--btn-text-height-lg)` | auto | `var(--radius-xl)` |
 
 #### 状态样式
 
 ```css
 /* 默认 */
 background: transparent;
-color: rgba(255,255,255,0.85);
+color: var(--text-primary);
 
 /* 悬停 */
-background: rgba(255,255,255,0.15);
+background: var(--surface-hover-strong);
 
 /* 激活 */
-background: var(--accent);
-color: #fff;
+background: var(--interactive-accent);
+color: var(--overlay-label-text);
 
 /* 禁用 */
 opacity: 0.35;
@@ -191,73 +191,74 @@ pointer-events: none;
 
 | 属性 | 值 |
 |------|-----|
-| 高度 | `24px` |
-| 圆角 | `5px` |
-| 背景 | `rgba(255,255,255,0.06)` |
-| 边框 | `1px solid transparent` |
-| 悬停边框 | `rgba(255,255,255,0.10)` |
-| 聚焦边框 | `var(--accent)` |
-| 字号 | `11px` |
-| 内边距 | `0 6px` |
+| 高度 | `var(--input-height)` |
+| 圆角 | `var(--field-radius)` |
+| 背景 | `var(--surface-field)` |
+| 边框 | `var(--border-input)` |
+| 悬停边框 | `var(--border-hover)` |
+| 聚焦边框 | `var(--interactive-accent)` |
+| 字号 | `var(--text-base)` |
+| 内边距 | `var(--space-3)` horizontal |
 
 ### 5.3 选择器 (Select / Dropdown)
 
 | 属性 | 值 |
 |------|-----|
-| 触发器高度 | `24px` |
-| 下拉面板圆角 | `13px` |
-| 下拉面板背景 | `rgba(30,30,30,1)` |
-| 下拉面板内边距 | `8px` |
-| 选项高度 | `24px` / `28px` |
-| 选项圆角 | `5px` |
-| 最小宽度 | `150px` |
+| 触发器高度 | `var(--input-height)` |
+| 下拉面板圆角 | `var(--radius-4xl)` |
+| 下拉面板背景 | `var(--surface-dropdown)` |
+| 下拉面板内边距 | `var(--space-4)` |
+| 选项高度 | `var(--dropdown-option-height)` / `var(--dropdown-option-height-lg)` |
+| 选项圆角 | `var(--field-radius)` |
+| 最小宽度 | `var(--dropdown-min-width)` |
 
 ### 5.4 下拉菜单 (Dropdown Menu)
 
 | 属性 | 值 |
 |------|-----|
-| 圆角 | `12px` |
-| 背景 | `#111113` |
-| 边框 | `1px solid rgba(255,255,255,0.1)` |
-| 内边距 | `6px` |
-| 选项高度 | `24px` |
-| 选项圆角 | `8px` |
+| 圆角 | `var(--radius-3xl)` |
+| 背景 | `var(--surface-panel)` |
+| 边框 | `var(--border-default)` |
+| 内边距 | `var(--space-3)` |
+| 选项高度 | `var(--dropdown-option-height)` |
+| 选项圆角 | `var(--radius-lg)` |
+| 选项间距 | `var(--dropdown-menu-item-gap)` |
 
 ### 5.5 Badge / Tag
 
 | 变体 | 圆角 | 内边距 | 字号 |
 |------|------|--------|------|
-| 圆形 | `999px` | `3px 8px` | `10px` |
-| 小 | `3px` | `1px 4px` | `9px` |
-| Type 标签 | `999px` | `2px 6px` | `9px` |
+| 圆形 | `var(--radius-full)` | `var(--space-2)` / `var(--space-4)` | `var(--text-sm)` |
+| 小 | `var(--radius-sm)` | `var(--space-1)` / `var(--space-2)` | `var(--text-xs)` |
+| Type 标签 | `var(--radius-full)` | `var(--space-1)` / `var(--space-3)` | `var(--text-xs)` |
 
 ### 5.6 面板 (Panel)
 
 | 属性 | 值 |
 |------|-----|
-| 宽度 | `320px` |
-| 圆角 | `18px` |
-| 背景 | `#111113` |
-| 边框 | `1px solid rgba(255,255,255,0.1)` |
-| 阴影 | `0 20px 50px rgba(0,0,0,0.55)` |
+| 宽度 | `var(--panel-width)` |
+| 圆角 | `var(--panel-radius)` |
+| 背景 | `var(--surface-panel)` |
+| 边框 | `var(--border-default)` |
+| 阴影 | `var(--panel-shadow)` |
 
 ### 5.7 工具栏 (Toolbar)
 
 | 属性 | 值 |
 |------|-----|
-| 圆角 | `9999px` |
-| 背景 | `black` |
-| 内边距 | `6px` |
-| 按钮间距 | `6px` |
+| 圆角 | `var(--radius-full)` |
+| 背景 | `var(--surface-toolbar)` |
+| 内边距 | `var(--toolbar-padding)` |
+| 按钮间距 | `var(--toolbar-button-gap)` |
 
 ### 5.8 Tooltip
 
 | 属性 | 值 |
 |------|-----|
-| 最大宽度 | `320px` |
-| 圆角 | `12px` |
-| 内边距 | `10px 12px` |
-| 字号 | `11px` |
+| 最大宽度 | `var(--tooltip-max-width)` |
+| 圆角 | `var(--radius-3xl)` |
+| 内边距 | `var(--space-5)` / `var(--space-6)` |
+| 字号 | `var(--text-base)` |
 
 ---
 
@@ -303,22 +304,22 @@ transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease
 
 | 用途 | 尺寸 |
 |------|------|
-| Toolbar 按钮 | `24px` 视口，stroke `1.5px` |
-| 输入框图标 | `24px` 视口 |
-| 对齐网格图标 | `16px` 视口 |
-| 小图标 | `16px` 视口 |
+| Toolbar 按钮 | `var(--btn-icon-size-sm)` 视口，stroke 建议跟随图标体系统一控制 |
+| 输入框图标 | `var(--btn-icon-size-sm)` 视口 |
+| 对齐网格图标 | `var(--icon-size-sm)` 视口 |
+| 小图标 | `var(--icon-size-sm)` 视口 |
 
 ### 7.2 颜色
 
 ```css
 /* 默认 */
-color: rgba(255,255,255,0.4);
+color: var(--text-tertiary);
 
 /* 悬停 */
-color: rgba(255,255,255,0.7);
+color: var(--text-secondary);
 
 /* 激活 */
-color: var(--accent);
+color: var(--interactive-accent);
 ```
 
 ---
@@ -353,14 +354,14 @@ color: var(--accent);
 
 ### 9.1 对比度
 
-- 主要文字 `rgba(255,255,255,0.85)` 在深色背景上满足 WCAG AA 标准
-- 次要文字 `rgba(255,255,255,0.45)` 用于装饰性文字
+- 主要文字使用 `var(--text-primary)`，在深色背景上保持主要信息可读性
+- 次要文字使用 `var(--text-tertiary)`，用于装饰性文字或弱化信息
 
 ### 9.2 聚焦状态
 
 ```css
 .ei-field:focus-within {
-  border-color: var(--accent);
+  border-color: var(--interactive-accent);
 }
 
 .ei-btn:focus {
@@ -370,5 +371,5 @@ color: var(--accent);
 
 ### 9.3 交互区域
 
-- 所有可点击元素最小尺寸 `24px`
-- Toolbar 按钮尺寸 `32px` 以便于触摸操作
+- 所有可点击元素最小尺寸使用 `var(--btn-icon-size-sm)` 或更大值
+- Toolbar 按钮尺寸使用 `var(--btn-icon-size)` 以便于触摸操作

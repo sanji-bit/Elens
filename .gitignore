@@ -2,5 +2,6 @@
 .DS_Store
 node_modules/.vite/
 /demo/demo-dist/
+/dist/
 /extension/inspector.js
 /extension/assets/

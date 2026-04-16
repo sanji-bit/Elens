@@ -4401,6 +4401,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function onKeyDown(event: KeyboardEvent): void {
     if (isIgnoredEvent(event)) return
 
+    const hasModifierKey = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
+
     if (event.key === 'Escape' && inlineTextEditSession) {
       event.preventDefault()
       event.stopPropagation()
@@ -4433,49 +4435,49 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    if (event.key === 'i' || event.key === 'I') {
+    if (!hasModifierKey && (event.key === 'i' || event.key === 'I')) {
       event.preventDefault()
       event.stopPropagation()
       setMode('inspector')
       return
     }
 
-    if (event.key === 'd' || event.key === 'D') {
+    if (!hasModifierKey && (event.key === 'd' || event.key === 'D')) {
       event.preventDefault()
       event.stopPropagation()
       setMode('design')
       return
     }
 
-    if (event.key === 'v' || event.key === 'V') {
+    if (!hasModifierKey && (event.key === 'v' || event.key === 'V')) {
       event.preventDefault()
       event.stopPropagation()
       setMode('move')
       return
     }
 
-    if (event.key === 'r' || event.key === 'R') {
+    if (!hasModifierKey && (event.key === 'r' || event.key === 'R')) {
       event.preventDefault()
       event.stopPropagation()
       setMode('guides')
       return
     }
 
-    if (event.key === 'o' || event.key === 'O') {
+    if (!hasModifierKey && (event.key === 'o' || event.key === 'O')) {
       event.preventDefault()
       event.stopPropagation()
       toggleOutlines()
       return
     }
 
-    if (event.key === 'j' || event.key === 'J') {
+    if (!hasModifierKey && (event.key === 'j' || event.key === 'J')) {
       event.preventDefault()
       event.stopPropagation()
       toggleToolbarMode('changes')
       return
     }
 
-    if (event.key === 'c' || event.key === 'C') {
+    if (!hasModifierKey && (event.key === 'c' || event.key === 'C')) {
       event.preventDefault()
       event.stopPropagation()
       triggerPrimaryCapture()

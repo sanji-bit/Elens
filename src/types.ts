@@ -384,6 +384,11 @@ export type ComponentTokens = {
     menuItemGap: string
     padding: string
   }
+  menuItem: {
+    heightLg: string
+    radiusLg: string
+    fontSizeLg: string
+  }
   toolbar: {
     buttonGap: string
     padding: string
@@ -451,6 +456,7 @@ export type ViewportController = {
   getViewportSize?: () => { width: number; height: number } | null | Promise<{ width: number; height: number } | null>
   setWindowBounds?: (bounds: WindowBounds) => void | boolean | Promise<void | boolean>
   getWindowBounds?: () => WindowBounds | null | Promise<WindowBounds | null>
+  captureVisibleTab?: () => string | null | Promise<string | null>
 }
 
 export type InspectorTheme = ThemeConfig

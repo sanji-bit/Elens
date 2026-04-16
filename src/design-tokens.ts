@@ -162,6 +162,10 @@ export const tokens = {
       menuItemGap: '1px',
       padding: '8px',
     },
+    menuItem: {
+      heightLg: '32px',
+      fontSizeLg: '13px',
+    },
     annotate: {
       minHeight: '64px',
       maxHeight: '120px',
@@ -522,6 +526,11 @@ export function deriveComponentTokens(_semantic: DerivedSemanticTokens, config: 
       menuItemGap: tokens.components.dropdown.menuItemGap,
       padding: tokens.components.dropdown.padding,
     },
+    menuItem: {
+      heightLg: tokens.components.menuItem.heightLg,
+      radiusLg: tokens.radius.xl,
+      fontSizeLg: tokens.components.menuItem.fontSizeLg,
+    },
     toolbar: {
       buttonGap: config.component.toolbar.buttonGap,
       padding: tokens.components.toolbar.padding,
@@ -700,6 +709,9 @@ export function generateCSSVariables(theme: ThemeBuildResult): string {
   --dropdown-option-height-lg: ${components.dropdown.optionHeightLg};
   --dropdown-menu-item-gap: ${components.dropdown.menuItemGap};
   --dropdown-padding: ${components.dropdown.padding};
+  --menu-item-height-lg: ${components.menuItem.heightLg};
+  --menu-item-radius-lg: ${components.menuItem.radiusLg};
+  --menu-item-font-size-lg: ${components.menuItem.fontSizeLg};
   --toolbar-button-gap: ${components.toolbar.buttonGap};
   --toolbar-padding: ${components.toolbar.padding};
   --tooltip-max-width: ${components.tooltip.maxWidth};

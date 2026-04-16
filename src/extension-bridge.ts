@@ -4,11 +4,12 @@ const REQUEST_SOURCE = 'elens'
 const RESPONSE_SOURCE = 'elens-extension'
 const REQUEST_TIMEOUT = 2000
 
-type BridgeRequestType = 'ELENS_SET_VIEWPORT_SIZE' | 'ELENS_GET_VIEWPORT_SIZE' | 'ELENS_SET_WINDOW_BOUNDS' | 'ELENS_GET_WINDOW_BOUNDS'
+type BridgeRequestType = 'ELENS_SET_VIEWPORT_SIZE' | 'ELENS_GET_VIEWPORT_SIZE' | 'ELENS_SET_WINDOW_BOUNDS' | 'ELENS_GET_WINDOW_BOUNDS' | 'ELENS_CAPTURE_VISIBLE_TAB'
 
 type BridgeResponse<T> = {
   ok: boolean
   result?: T
+  error?: string
 }
 
 type BridgeMessage = {
@@ -23,6 +24,7 @@ type BridgeResponseMessage<T> = {
   id: string
   ok: boolean
   result?: T
+  error?: string
 }
 
 function isBridgeResponse<T>(value: unknown, id: string): value is BridgeResponseMessage<T> {
@@ -43,7 +45,7 @@ function requestExtension<T>(type: BridgeRequestType, bounds?: WindowBounds): Pr
       if (event.source !== window || !isBridgeResponse<T>(event.data, id)) return
       window.clearTimeout(timeout)
       window.removeEventListener('message', onMessage)
-      resolve({ ok: event.data.ok, result: event.data.result })
+      resolve({ ok: event.data.ok, result: event.data.result, error: event.data.error })
     }
 
     window.addEventListener('message', onMessage)
@@ -73,6 +75,13 @@ export function createChromeExtensionViewportController(): ViewportController {
     async getWindowBounds() {
       const response = await requestExtension<WindowBounds>('ELENS_GET_WINDOW_BOUNDS')
       return response.ok ? response.result ?? null : null
+    },
+    async captureVisibleTab() {
+      const response = await requestExtension<string>('ELENS_CAPTURE_VISIBLE_TAB')
+      if (!response.ok) {
+        throw new Error(response.error || '截图桥接不可用，请刷新扩展后重试')
+      }
+      return response.result ?? null
     },
   }
 }

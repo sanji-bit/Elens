@@ -69,6 +69,17 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-hl-margin-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px); }
 .ei-hl-gap-band { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--purple) 32%, transparent), color-mix(in srgb, var(--purple) 32%, transparent) 2px, color-mix(in srgb, var(--purple) 12%, transparent) 2px, color-mix(in srgb, var(--purple) 12%, transparent) 5px); border: 1px dashed var(--purple); }
 .ei-hl-gap-badge { position: absolute; display: none; transform: translate(-50%, -50%); background: var(--purple); color: var(--overlay-label-text); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; font-family: var(--font-family); z-index: 2; }
+.ei-design-quick-bar { position: fixed; display: none; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-2xl); background: var(--surface-panel); box-shadow: var(--shadow-toolbar); pointer-events: auto; z-index: 3; }
+.ei-design-quick-bar[data-visible="true"] { display: inline-flex; }
+.ei-design-quick-bar-btn { width: 24px; height: 24px; border: 0; border-radius: var(--radius-lg); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default); }
+.ei-design-quick-bar-btn[data-active="true"] { background: var(--surface-active); color: var(--text-primary); }
+.ei-design-quick-bar-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.ei-design-quick-bar-btn:hover .ei-toolbar-tip { opacity: 1; }
+.ei-design-quick-bar-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--interactive-accent); }
+.ei-design-quick-bar-btn svg, .ei-design-quick-bar-btn img { width: 16px; height: 16px; min-width: 16px; min-height: 16px; display: block; flex: 0 0 16px; object-fit: contain; }
+.ei-design-quick-bar-btn svg { overflow: visible; }
+.ei-design-quick-bar-btn [fill*="var(--fill-0, white)"] { fill: currentColor; }
+.ei-design-quick-bar-btn [stroke="currentColor"] { vector-effect: non-scaling-stroke; }
 .ei-highlight[data-design="true"] .ei-hl-margin-badge,
 .ei-highlight[data-design="true"] .ei-hl-margin-line,
 .ei-highlight[data-design="true"] .ei-hl-margin-edge { display: block; }
@@ -159,10 +170,9 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-toolbar-btn-group .ei-toolbar-btn { border-radius: 0; }
 .ei-toolbar-btn-group .ei-toolbar-btn:first-child { border-radius: var(--radius-full) 0 0 var(--radius-full); }
 .ei-toolbar-btn-group .ei-toolbar-btn:last-child { border-radius: 0 var(--radius-full) var(--radius-full) 0; }
-.ei-toolbar-dropdown-btn { width: calc(var(--btn-icon-size-sm) - var(--space-2)) !important; display: flex !important; align-items: center !important; justify-content: center !important; }
 .ei-capture-menu { position: fixed; display: flex; flex-direction: column; gap: var(--dropdown-menu-item-gap); min-width: calc(var(--panel-width) - 100px); border-radius: var(--radius-3xl); background: var(--surface-panel); border: 1px solid var(--border-default); box-shadow: var(--shadow-dropdown); padding: var(--space-3); z-index: ${zIndex + 5}; pointer-events: auto; font-family: var(--font-family); }
-.ei-capture-menu-item { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--dropdown-option-height); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
-.ei-capture-menu-item[data-size="lg"] { min-height: var(--dropdown-option-height-lg); }
+.ei-capture-menu-item { display: flex; align-items: center; gap: var(--space-4); width: 100%; min-height: var(--dropdown-option-height); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; transition: background var(--duration-slow) var(--ease-default); }
+.ei-capture-menu-item[data-size="lg"] { min-height: var(--menu-item-height-lg); border-radius: var(--menu-item-radius-lg); }
 .ei-capture-menu-item:hover { background: var(--surface-hover-strong); }
 .ei-capture-menu-item[data-active="true"] { background: color-mix(in srgb, var(--interactive-accent) 22%, var(--surface-panel)); color: var(--interactive-accent); }
 .ei-capture-menu-item[data-active="true"] .ei-capture-menu-icon,
@@ -170,6 +180,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-capture-menu-icon { flex-shrink: 0; width: var(--space-8); height: var(--space-8); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; }
 .ei-capture-menu-icon svg { width: var(--space-8); height: var(--space-8); display: block; }
 .ei-capture-menu-label { font-size: var(--text-base); line-height: 16px; font-weight: var(--font-normal); color: var(--text-primary); font-family: var(--font-family); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.ei-capture-menu-item[data-size="lg"] .ei-capture-menu-label { font-size: var(--menu-item-font-size-lg); }
 .ei-viewport-menu { width: calc(var(--panel-width) - 120px); min-width: calc(var(--panel-width) - 120px); }
 .ei-viewport-mode.ei-tabs { grid-template-columns: repeat(2, 1fr); margin-bottom: var(--space-4); }
 .ei-viewport-custom { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); margin-top: var(--space-4); border-top: 1px solid var(--border-subtle); }

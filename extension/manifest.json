@@ -3,7 +3,7 @@
   "name": "Elens",
   "version": "0.0.1",
   "description": "Elens inspector for Chrome pages",
-  "permissions": ["windows"],
+  "permissions": ["windows", "activeTab", "tabs"],
   "action": {
     "default_title": "Toggle Elens inspector"
   },

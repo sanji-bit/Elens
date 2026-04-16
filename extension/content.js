@@ -25,6 +25,7 @@ window.addEventListener('message', (event) => {
     && message.type !== 'ELENS_GET_VIEWPORT_SIZE'
     && message.type !== 'ELENS_SET_WINDOW_BOUNDS'
     && message.type !== 'ELENS_GET_WINDOW_BOUNDS'
+    && message.type !== 'ELENS_CAPTURE_VISIBLE_TAB'
   ) return
 
   chrome.runtime.sendMessage({
@@ -38,6 +39,7 @@ window.addEventListener('message', (event) => {
       id: message.id,
       ok: Boolean(response?.ok),
       result: response?.result,
+      error: response?.error,
     }, '*')
   })
 })

@@ -105,5 +105,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true
   }
 
+  if (message.type === 'ELENS_CAPTURE_VISIBLE_TAB') {
+    chrome.tabs.captureVisibleTab(undefined, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError?.message || 'captureVisibleTab 返回空结果' })
+        return
+      }
+      sendResponse({ ok: true, result: dataUrl })
+    })
+    return true
+  }
+
   return undefined
 })

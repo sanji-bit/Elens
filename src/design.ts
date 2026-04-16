@@ -1131,6 +1131,7 @@ function createColorSegmentGroup(
   format: ColorFormat,
   draft: FillDraft,
   applySolid: () => void,
+  applyGradient: () => void,
   applyImage: () => void,
   render: () => void,
 ): HTMLDivElement {
@@ -1148,8 +1149,124 @@ function createColorSegmentGroup(
   }
 
   if (draft.kind === 'gradient') {
-    group.dataset.single = 'true'
-    group.appendChild(createColorSegmentInput(createGradientCss(draft), () => undefined))
+    const activeStop = getActiveGradientStop(draft)
+    const activeColor = activeStop.color
+    const activeOpacity = activeStop.opacity
+    const activeRgb = hexToRgb(activeColor)
+    const activeHsl = rgbToHslColor(activeRgb)
+    const activeHsv = rgbToHsvColor(activeRgb)
+
+    if (format === 'hex') {
+      group.append(
+        createColorSegmentInput(formatColorValue(activeColor, 'hex'), (value) => {
+          updateGradientStop(draft, activeStop.id, { color: ensureHexColor(value.startsWith('#') ? value : `#${value}`, activeColor) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
+          updateGradientStop(draft, activeStop.id, { opacity: value })
+          applyGradient()
+          render()
+        }),
+        el('span', 'ei-dp-color-segment-suffix', '%'),
+      )
+      return group
+    }
+
+    if (format === 'css') {
+      group.dataset.single = 'true'
+      group.appendChild(createColorSegmentInput(formatColorValue(activeColor, 'css', activeOpacity), (value) => {
+        const hex = rgbToHex(value)
+        if (hex) {
+          const alphaMatch = value.match(/rgba?\([^)]*,\s*([\d.]+)\s*\)/i)
+          updateGradientStop(draft, activeStop.id, {
+            color: hex,
+            opacity: alphaMatch ? clamp(Number(alphaMatch[1]) * 100, 0, 100) : activeOpacity,
+          })
+          applyGradient()
+          render()
+        }
+      }))
+      return group
+    }
+
+    if (format === 'rgb') {
+      group.append(
+        createColorNumberSegment(activeRgb.r, 0, 255, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, r: value }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(activeRgb.g, 0, 255, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, g: value }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(activeRgb.b, 0, 255, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, b: value }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
+          updateGradientStop(draft, activeStop.id, { opacity: value })
+          applyGradient()
+          render()
+        }),
+        el('span', 'ei-dp-color-segment-suffix', '%'),
+      )
+      return group
+    }
+
+    if (format === 'hsl') {
+      group.append(
+        createColorNumberSegment(Math.round(activeHsl.h), 0, 360, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, h: value }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(Math.round(activeHsl.s * 100), 0, 100, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, s: value / 100 }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(Math.round(activeHsl.l * 100), 0, 100, (value) => {
+          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, l: value / 100 }) })
+          applyGradient()
+          render()
+        }),
+        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
+          updateGradientStop(draft, activeStop.id, { opacity: value })
+          applyGradient()
+          render()
+        }),
+        el('span', 'ei-dp-color-segment-suffix', '%'),
+      )
+      return group
+    }
+
+    group.append(
+      createColorNumberSegment(Math.round(activeHsv.h), 0, 360, (value) => {
+        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, h: value }) })
+        applyGradient()
+        render()
+      }),
+      createColorNumberSegment(Math.round(activeHsv.s * 100), 0, 100, (value) => {
+        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, s: value / 100 }) })
+        applyGradient()
+        render()
+      }),
+      createColorNumberSegment(Math.round(activeHsv.v * 100), 0, 100, (value) => {
+        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, v: value / 100 }) })
+        applyGradient()
+        render()
+      }),
+      createColorNumberSegment(activeOpacity, 0, 100, (value) => {
+        updateGradientStop(draft, activeStop.id, { opacity: value })
+        applyGradient()
+        render()
+      }),
+      el('span', 'ei-dp-color-segment-suffix', '%'),
+    )
     return group
   }
 
@@ -1295,15 +1412,16 @@ function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void
   const tabs = el('div', 'ei-inspector-radio-group ei-dp-fill-modebar')
   tabs.setAttribute('role', 'radiogroup')
   const items: Array<{ kind: FillKind; icon: string; label: string }> = [
-    { kind: 'solid', label: 'Solid', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/></svg>' },
-    { kind: 'gradient', label: 'Gradient', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>' },
-    { kind: 'image', label: 'Image', icon: '<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="1.5"/><path d="M6 14l3-3 2 2 2-3 2 4"/></svg>' },
+    { kind: 'solid', label: 'Solid', icon: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H9V9H3V3Z" fill="currentColor" fill-opacity="0.4"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2 1H10C10.2652 1 10.5196 1.10536 10.7071 1.29289C10.8946 1.48043 11 1.73478 11 2V10C11 10.2652 10.8946 10.5196 10.7071 10.7071C10.5196 10.8946 10.2652 11 10 11H2C1.73478 11 1.48043 10.8946 1.29289 10.7071C1.10536 10.5196 1 10.2652 1 10V2C1 1.73478 1.10536 1.48043 1.29289 1.29289C1.48043 1.10536 1.73478 1 2 1ZM0 2C0 1.46957 0.210714 0.960859 0.585786 0.585786C0.960859 0.210714 1.46957 0 2 0H10C10.5304 0 11.0391 0.210714 11.4142 0.585786C11.7893 0.960859 12 1.46957 12 2V10C12 10.5304 11.7893 11.0391 11.4142 11.4142C11.0391 11.7893 10.5304 12 10 12H2C1.46957 12 0.960859 11.7893 0.585786 11.4142C0.210714 11.0391 0 10.5304 0 10V2ZM3 9V3H9V9H3ZM2 2.5C2 2.36739 2.05268 2.24021 2.14645 2.14645C2.24021 2.05268 2.36739 2 2.5 2H9.5C9.63261 2 9.75979 2.05268 9.85355 2.14645C9.94732 2.24021 10 2.36739 10 2.5V9.5C10 9.63261 9.94732 9.75979 9.85355 9.85355C9.75979 9.94732 9.63261 10 9.5 10H2.5C2.36739 10 2.24021 9.94732 2.14645 9.85355C2.05268 9.75979 2 9.63261 2 9.5V2.5Z" fill="currentColor"/></svg>' },
+    { kind: 'gradient', label: 'Gradient', icon: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 1H10C10.2652 1 10.5196 1.10536 10.7071 1.29289C10.8946 1.48043 11 1.73478 11 2V10C11 10.2652 10.8946 10.5196 10.7071 10.7071C10.5196 10.8946 10.2652 11 10 11H2C1.73478 11 1.48043 10.8946 1.29289 10.7071C1.10536 10.5196 1 10.2652 1 10V2C1 1.73478 1.10536 1.48043 1.29289 1.29289C1.48043 1.10536 1.73478 1 2 1ZM0 2C0 1.46957 0.210714 0.960859 0.585786 0.585786C0.960859 0.210714 1.46957 0 2 0H10C10.5304 0 11.0391 0.210714 11.4142 0.585786C11.7893 0.960859 12 1.46957 12 2V10C12 10.5304 11.7893 11.0391 11.4142 11.4142C11.0391 11.7893 10.5304 12 10 12H2C1.46957 12 0.960859 11.7893 0.585786 11.4142C0.210714 11.0391 0 10.5304 0 10V2ZM3.75 2.875C3.75 3.10706 3.65781 3.32962 3.49372 3.49372C3.32962 3.65781 3.10706 3.75 2.875 3.75C2.64294 3.75 2.42038 3.65781 2.25628 3.49372C2.09219 3.32962 2 3.10706 2 2.875C2 2.64294 2.09219 2.42038 2.25628 2.25628C2.42038 2.09219 2.64294 2 2.875 2C3.10706 2 3.32962 2.09219 3.49372 2.25628C3.65781 2.42038 3.75 2.64294 3.75 2.875ZM7.541 3.5C7.70676 3.5 7.86573 3.43415 7.98294 3.31694C8.10015 3.19973 8.166 3.04076 8.166 2.875C8.166 2.70924 8.10015 2.55027 7.98294 2.43306C7.86573 2.31585 7.70676 2.25 7.541 2.25C7.37524 2.25 7.21627 2.31585 7.09906 2.43306C6.98185 2.55027 6.916 2.70924 6.916 2.875C6.916 3.04076 6.98185 3.19973 7.09906 3.31694C7.21627 3.43415 7.37524 3.5 7.541 3.5ZM6.083 4.375C6.083 4.57391 6.00398 4.76468 5.86333 4.90533C5.72268 5.04598 5.53191 5.125 5.333 5.125C5.13409 5.125 4.94332 5.04598 4.80267 4.90533C4.66202 4.76468 4.583 4.57391 4.583 4.375C4.583 4.17609 4.66202 3.98532 4.80267 3.84467C4.94332 3.70402 5.13409 3.625 5.333 3.625C5.53191 3.625 5.72268 3.70402 5.86333 3.84467C6.00398 3.98532 6.083 4.17609 6.083 4.375ZM6.083 7.495C6.083 7.69391 6.00398 7.88468 5.86333 8.02533C5.72268 8.16598 5.53191 8.245 5.333 8.245C5.13409 8.245 4.94332 8.16598 4.80267 8.02533C4.66202 7.88468 4.583 7.69391 4.583 7.495C4.583 7.29609 4.66202 7.10532 4.80267 6.96467C4.94332 6.82402 5.13409 6.745 5.333 6.745C5.53191 6.745 5.72268 6.82402 5.86333 6.96467C6.00398 7.10532 6.083 7.29609 6.083 7.495ZM7.541 9.74C7.70676 9.74 7.86573 9.67415 7.98294 9.55694C8.10015 9.43973 8.166 9.28076 8.166 9.115C8.166 8.94924 8.10015 8.79027 7.98294 8.67306C7.86573 8.55585 7.70676 8.49 7.541 8.49C7.37524 8.49 7.21627 8.55585 7.09906 8.67306C6.98185 8.79027 6.916 8.94924 6.916 9.115C6.916 9.28076 6.98185 9.43973 7.09906 9.55694C7.21627 9.67415 7.37524 9.74 7.541 9.74ZM8.166 5.875C8.166 6.04076 8.10015 6.19973 7.98294 6.31694C7.86573 6.43415 7.70676 6.5 7.541 6.5C7.37524 6.5 7.21627 6.43415 7.09906 6.31694C6.98185 6.19973 6.916 6.04076 6.916 5.875C6.916 5.70924 6.98185 5.55027 7.09906 5.43306C7.21627 5.31585 7.37524 5.25 7.541 5.25C7.70676 5.25 7.86573 5.31585 7.98294 5.43306C8.10015 5.55027 8.166 5.70924 8.166 5.875ZM2.875 9.99C3.10706 9.99 3.32962 9.89781 3.49372 9.73372C3.65781 9.56962 3.75 9.34706 3.75 9.115C3.75 8.88294 3.65781 8.66038 3.49372 8.49628C3.32962 8.33219 3.10706 8.24 2.875 8.24C2.64294 8.24 2.42038 8.33219 2.25628 8.49628C2.09219 8.66038 2 8.88294 2 9.115C2 9.34706 2.09219 9.56962 2.25628 9.73372C2.42038 9.89781 2.64294 9.99 2.875 9.99ZM3.75 5.875C3.75 6.10706 3.65781 6.32962 3.49372 6.49372C3.32962 6.65781 3.10706 6.75 2.875 6.75C2.64294 6.75 2.42038 6.65781 2.25628 6.49372C2.09219 6.32962 2 6.10706 2 5.875C2 5.64294 2.09219 5.42038 2.25628 5.25628C2.42038 5.09219 2.64294 5 2.875 5C3.10706 5 3.32962 5.09219 3.49372 5.25628C3.65781 5.42038 3.75 5.64294 3.75 5.875ZM9.5 4.875C9.63261 4.875 9.75979 4.82232 9.85355 4.72855C9.94732 4.63479 10 4.50761 10 4.375C10 4.24239 9.94732 4.11521 9.85355 4.02145C9.75979 3.92768 9.63261 3.875 9.5 3.875C9.36739 3.875 9.24021 3.92768 9.14645 4.02145C9.05268 4.11521 9 4.24239 9 4.375C9 4.50761 9.05268 4.63479 9.14645 4.72855C9.24021 4.82232 9.36739 4.875 9.5 4.875ZM10 7.498C10 7.63061 9.94732 7.75778 9.85355 7.85155C9.75979 7.94532 9.63261 7.998 9.5 7.998C9.36739 7.998 9.24021 7.94532 9.14645 7.85155C9.05268 7.75778 9 7.63061 9 7.498C9 7.36539 9.05268 7.23821 9.14645 7.14445C9.24021 7.05068 9.36739 6.998 9.5 6.998C9.63261 6.998 9.75979 7.05068 9.85355 7.14445C9.94732 7.23821 10 7.36539 10 7.498Z" fill="currentColor"/></svg>' },
+    { kind: 'image', label: 'Image', icon: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 0C10.5304 0 11.0391 0.210714 11.4142 0.585786C11.7893 0.960859 12 1.46957 12 2V10C12 10.5304 11.7893 11.0391 11.4142 11.4142C11.0391 11.7893 10.5304 12 10 12H2C1.46957 12 0.960859 11.7893 0.585786 11.4142C0.210714 11.0391 0 10.5304 0 10V2C0 1.46957 0.210714 0.960859 0.585786 0.585786C0.960859 0.210714 1.46957 0 2 0H10ZM2 1C1.73478 1 1.48043 1.10536 1.29289 1.29289C1.10536 1.48043 1 1.73478 1 2V10C1 10.2652 1.10536 10.5196 1.29289 10.7071C1.48043 10.8946 1.73478 11 2 11H10C10.2652 11 10.5196 10.8946 10.7071 10.7071C10.8946 10.5196 11 10.2652 11 10V2C11 1.73478 10.8946 1.48043 10.7071 1.29289C10.5196 1.10536 10.2652 1 10 1H2ZM4.225 5.082C4.32117 5.01857 4.43629 4.9903 4.5509 5.00196C4.66551 5.01362 4.77258 5.0645 4.854 5.146L8.854 9.146C8.90176 9.19212 8.93985 9.2473 8.96605 9.3083C8.99226 9.3693 9.00605 9.43491 9.00663 9.5013C9.0072 9.56769 8.99455 9.63353 8.96941 9.69498C8.94427 9.75642 8.90714 9.81225 8.8602 9.8592C8.81325 9.90614 8.75743 9.94327 8.69598 9.96841C8.63453 9.99355 8.56869 10.0062 8.5023 10.0056C8.43591 10.005 8.3703 9.99126 8.3093 9.96505C8.2483 9.93885 8.19312 9.90075 8.147 9.853L4.5 6.208L2.854 7.854C2.80758 7.90049 2.75245 7.93738 2.69177 7.96256C2.6311 7.98775 2.56605 8.00073 2.50035 8.00078C2.43466 8.00082 2.36959 7.98793 2.30888 7.96283C2.24816 7.93773 2.19299 7.90092 2.1465 7.8545C2.10001 7.80808 2.06312 7.75295 2.03794 7.69228C2.01275 7.6316 1.99977 7.56655 1.99972 7.50085C1.99968 7.43516 2.01257 7.37009 2.03767 7.30938C2.06277 7.24866 2.09958 7.19349 2.146 7.147L4.146 5.147L4.225 5.082ZM8.5 2C8.89782 2 9.27936 2.15804 9.56066 2.43934C9.84196 2.72064 10 3.10218 10 3.5C10 3.89782 9.84196 4.27936 9.56066 4.56066C9.27936 4.84196 8.89782 5 8.5 5C8.10218 5 7.72064 4.84196 7.43934 4.56066C7.15804 4.27936 7 3.89782 7 3.5C7 3.10218 7.15804 2.72064 7.43934 2.43934C7.72064 2.15804 8.10218 2 8.5 2ZM8.5 3C8.36739 3 8.24021 3.05268 8.14645 3.14645C8.05268 3.24021 8 3.36739 8 3.5C8 3.63261 8.05268 3.75979 8.14645 3.85355C8.24021 3.94732 8.36739 4 8.5 4C8.63261 4 8.75979 3.94732 8.85355 3.85355C8.94732 3.75979 9 3.63261 9 3.5C9 3.36739 8.94732 3.24021 8.85355 3.14645C8.75979 3.05268 8.63261 3 8.5 3Z" fill="currentColor"/></svg>' },
   ]
   for (const item of items) {
     const activeClass = item.kind === active ? ' is-active' : ''
     const btn = el('button', `ei-ann-filter ei-dp-fill-mode-btn${activeClass}`)
     btn.type = 'button'
     btn.title = item.label
+    btn.dataset.kind = item.kind
     btn.setAttribute('role', 'radio')
     btn.setAttribute('aria-checked', item.kind === active ? 'true' : 'false')
     btn.innerHTML = item.icon
@@ -1367,23 +1485,11 @@ function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
 
 function createPageColorGrid(colors: string[], onSelect: (color: string) => void): HTMLDivElement {
   const wrap = el('div', 'ei-dp-page-colors')
-  const title = el('button', 'ei-dp-page-colors-title') as HTMLButtonElement
-  title.type = 'button'
-  title.setAttribute(IGNORE_ATTR, 'true')
-  title.dataset.open = 'true'
-  const arrow = el('span', 'ei-dp-page-colors-title-arrow')
-  arrow.innerHTML = DOWN_ARROW_ICON
+  const title = el('div', 'ei-dp-page-colors-title')
   title.append(
-    el('span', 'ei-dp-page-colors-title-text', 'On this page'),
-    arrow,
+    el('span', 'ei-dp-page-colors-title-text', i18n.design.pageColorsSection),
   )
   const grid = el('div', 'ei-dp-page-colors-grid')
-  title.addEventListener('click', (e) => {
-    e.stopPropagation()
-    const open = title.dataset.open !== 'false'
-    title.dataset.open = open ? 'false' : 'true'
-    grid.style.display = open ? 'none' : 'grid'
-  })
 
   for (const color of colors) {
     const swatch = el('button', 'ei-dp-page-color')
@@ -1797,9 +1903,11 @@ function createFillPanel(
       const x = clamp(event.clientX - rect.left, 0, rect.width)
       const y = clamp(event.clientY - rect.top, 0, rect.height)
       hsv = { ...hsv, s: x / rect.width, v: 1 - y / rect.height }
-      handle.style.left = `${x - 8}px`
-      handle.style.top = `${y - 8}px`
-      updateEditableColor(hsvToHexColor(hsv))
+      const nextColor = hsvToHexColor(hsv)
+      handle.style.left = `${x}px`
+      handle.style.top = `${y}px`
+      handle.style.setProperty('--control-handle-fill', nextColor)
+      updateEditableColor(nextColor)
     }
 
     const onMove = (event: PointerEvent): void => updateFromPointer(event)
@@ -1822,13 +1930,22 @@ function createFillPanel(
     const updateFromPointer = (event: PointerEvent): void => {
       const rect = slider.getBoundingClientRect()
       const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
-      handle.style.left = `${ratio * rect.width - 8}px`
+      handle.style.left = `${ratio * 100}%`
       if (type === 'hue') {
         const hsv = rgbToHsvColor(hexToRgb(editableColor()))
-        updateEditableColor(hsvToHexColor({ ...hsv, h: ratio * 360 }))
+        const nextColor = hsvToHexColor({ ...hsv, h: ratio * 360 })
+        handle.style.setProperty('--control-handle-fill', nextColor)
+        updateEditableColor(nextColor)
       } else {
-        draft.opacity = Math.round(ratio * 100)
-        if (draft.kind === 'solid') applySolid()
+        const nextOpacity = Math.round(ratio * 100)
+        if (draft.kind === 'gradient') {
+          updateGradientStop(draft, draft.activeGradientStopId, { opacity: nextOpacity })
+          applyGradient()
+        } else {
+          draft.opacity = nextOpacity
+          if (draft.kind === 'solid') applySolid()
+        }
+        handle.style.setProperty('--control-handle-fill', editableColor())
       }
     }
 
@@ -1866,14 +1983,15 @@ function createFillPanel(
       : `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pickerBase})`
     const pickerHandle = el('div', 'ei-dp-color-square-handle')
     const pickerHsv = rgbToHsvColor(hexToRgb(pickerBase))
-    pickerHandle.style.left = `${pickerHsv.s * 208 - 8}px`
-    pickerHandle.style.top = `${(1 - pickerHsv.v) * 208 - 8}px`
+    pickerHandle.style.left = `${pickerHsv.s * 100}%`
+    pickerHandle.style.top = `${(1 - pickerHsv.v) * 100}%`
+    pickerHandle.style.setProperty('--control-handle-fill', pickerBase)
     pickerArea.appendChild(pickerHandle)
     bindColorPlane(pickerArea, pickerHandle)
-    const eyedropper = el('button', 'ei-dp-eyedropper') as HTMLButtonElement
+    const eyedropper = el('button', 'ei-dp-eyedropper ei-dp-gradient-icon-btn') as HTMLButtonElement
     eyedropper.type = 'button'
     eyedropper.setAttribute(IGNORE_ATTR, 'true')
-    eyedropper.innerHTML = '<svg viewBox="0 0 20 20"><path d="M13.5 3.5l3 3-8.8 8.8-3.2.7.7-3.2 8.3-8.3zM12 5l3 3"/></svg>'
+    eyedropper.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.1411 0.65752C10.5631 0.236302 11.135 -0.000187389 11.7313 1.1141e-07C12.3275 0.000187612 12.8993 0.237036 13.3211 0.65852L13.4761 0.82852C13.8025 1.22977 13.9808 1.73125 13.9808 2.24852C13.9808 2.7658 13.8025 3.26727 13.4761 3.66852L13.3221 3.84052L11.6261 5.53252C11.8516 5.79919 11.977 6.1362 11.9806 6.48542C11.9843 6.83464 11.866 7.17419 11.6461 7.44552L11.5421 7.55952C11.2796 7.82198 10.9291 7.97778 10.5584 7.99681C10.1877 8.01583 9.82305 7.89673 9.53507 7.66252L9.51507 7.64452L5.07207 12.0915C4.84814 12.3149 4.57945 12.4883 4.28368 12.6003C3.98791 12.7123 3.67177 12.7605 3.35607 12.7415L2.54207 13.5565C2.25916 13.8298 1.88026 13.9809 1.48697 13.9775C1.09367 13.9741 0.717452 13.8164 0.43934 13.5382C0.161227 13.2601 0.00347433 12.8839 5.6704e-05 12.4906C-0.00336092 12.0973 0.147831 11.7184 0.421068 11.4355L1.23707 10.6175C1.22029 10.303 1.26975 9.98841 1.38223 9.69419C1.49472 9.39997 1.66773 9.13265 1.89007 8.90952L6.33307 4.46352C6.0918 4.17614 5.967 3.80878 5.98329 3.43391C5.99958 3.05904 6.15578 2.70388 6.42107 2.43852L6.53507 2.33552C6.80559 2.11571 7.14421 1.99698 7.49276 1.99972C7.84132 2.00245 8.17803 2.12649 8.44507 2.35052L10.1411 0.65752ZM2.59707 9.61652C2.46472 9.74902 2.36384 9.90956 2.30188 10.0863C2.23991 10.263 2.21845 10.4514 2.23907 10.6375C2.26007 10.8345 2.22507 11.0435 2.08507 11.1835L1.12707 12.1435C1.03611 12.2379 0.985887 12.3643 0.987208 12.4954C0.988529 12.6265 1.04129 12.7519 1.13413 12.8444C1.22697 12.937 1.35245 12.9894 1.48356 12.9904C1.61466 12.9913 1.7409 12.9407 1.83507 12.8495L2.79007 11.8935C2.93007 11.7535 3.14207 11.7175 3.34007 11.7405C3.70407 11.7825 4.08507 11.6635 4.36507 11.3845L8.80307 6.94252L7.03607 5.17552L2.59707 9.61652ZM12.6151 1.36552C12.499 1.24941 12.3612 1.15731 12.2095 1.09447C12.0578 1.03163 11.8952 0.999287 11.7311 0.999287C11.5669 0.999287 11.4043 1.03163 11.2526 1.09447C11.101 1.15731 10.9631 1.24941 10.8471 1.36552L9.06507 3.14552L9.00007 3.20552C8.83294 3.34159 8.62125 3.41079 8.40602 3.3997C8.19079 3.38862 7.98733 3.29804 7.83507 3.14552C7.74077 3.05444 7.61447 3.00404 7.48337 3.00518C7.35227 3.00632 7.22686 3.05891 7.13416 3.15161C7.04145 3.24432 6.98887 3.36972 6.98773 3.50082C6.98659 3.63192 7.03699 3.75822 7.12807 3.85252L10.1281 6.85252C10.2094 6.93377 10.3163 6.9845 10.4307 6.99615C10.5451 7.00781 10.66 6.97969 10.7561 6.91652L10.8351 6.85252C10.9288 6.75876 10.9815 6.6316 10.9815 6.49902C10.9815 6.36644 10.9288 6.23928 10.8351 6.14552L10.8311 6.14152C10.6693 5.97746 10.5789 5.7561 10.5797 5.5257C10.5804 5.29529 10.6722 5.07452 10.8351 4.91152L12.6151 3.13352C12.7312 3.01744 12.8233 2.87963 12.8861 2.72795C12.949 2.57627 12.9813 2.4137 12.9813 2.24952C12.9813 2.08534 12.949 1.92277 12.8861 1.77109C12.8233 1.61941 12.7312 1.4816 12.6151 1.36552Z" fill="white"/></svg>'
     eyedropper.addEventListener('click', async (e) => {
       e.stopPropagation()
       const EyeDropperCtor = (window as Window & { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
@@ -1891,19 +2009,15 @@ function createFillPanel(
       body.appendChild(sliderStack)
     } else if (draft.kind === 'gradient') {
       const gradientTypeRow = el('div', 'ei-dp-gradient-type-row')
-      const typeBtn = el('button', 'ei-dp-gradient-type-btn', draft.gradientType === 'linear' ? '线性渐变' : '径向渐变') as HTMLButtonElement
-      typeBtn.type = 'button'
-      typeBtn.setAttribute(IGNORE_ATTR, 'true')
-      typeBtn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        draft.gradientType = draft.gradientType === 'linear' ? 'radial' : 'linear'
+      const typeSelect = createGradientTypeSelect(draft.gradientType, (value) => {
+        draft.gradientType = value
         applyGradient()
         render()
       })
       const swapBtn = el('button', 'ei-dp-gradient-icon-btn') as HTMLButtonElement
       swapBtn.type = 'button'
       swapBtn.setAttribute(IGNORE_ATTR, 'true')
-      swapBtn.innerHTML = '<svg viewBox="0 0 20 20"><path d="M4 6h10m0 0-3-3m3 3-3 3M16 14H6m0 0 3-3m-3 3 3 3"/></svg>'
+      swapBtn.innerHTML = '<svg width="12" height="13" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.64739 7.15264C8.74116 7.05891 8.86831 7.00625 9.00089 7.00625C9.13347 7.00625 9.26063 7.05891 9.35439 7.15264L11.8544 9.65264C11.9481 9.74641 12.0008 9.87356 12.0008 10.0061C12.0008 10.1387 11.9481 10.2659 11.8544 10.3596L9.35439 12.8596C9.26009 12.9507 9.13379 13.0011 9.00269 13C8.87159 12.9988 8.74619 12.9463 8.65348 12.8536C8.56078 12.7608 8.5082 12.6354 8.50706 12.5043C8.50592 12.3732 8.55632 12.2469 8.64739 12.1526L10.2934 10.5066H0.500393C0.367785 10.5066 0.240608 10.454 0.14684 10.3602C0.0530719 10.2664 0.000393391 10.1393 0.000393391 10.0066C0.000393391 9.87404 0.0530719 9.74686 0.14684 9.65309C0.240608 9.55932 0.367785 9.50664 0.500393 9.50664H10.2934L8.64739 7.86064C8.60083 7.8142 8.56389 7.75902 8.53868 7.69828C8.51347 7.63753 8.5005 7.57241 8.5005 7.50664C8.5005 7.44088 8.51347 7.37576 8.53868 7.31501C8.56389 7.25427 8.60083 7.19909 8.64739 7.15264ZM2.64739 0.152644C2.69352 0.104889 2.74869 0.0667979 2.80969 0.0405934C2.87069 0.0143889 2.9363 0.000595787 3.00269 1.88785e-05C3.06908 -0.00055803 3.13492 0.0120927 3.19637 0.0372332C3.25782 0.0623736 3.31364 0.0995002 3.36059 0.146447C3.40754 0.193393 3.44466 0.249219 3.4698 0.310667C3.49494 0.372115 3.5076 0.437955 3.50702 0.504345C3.50644 0.570734 3.49265 0.636344 3.46644 0.697347C3.44024 0.758349 3.40215 0.813521 3.35439 0.859644L1.70739 2.50664H11.5004C11.633 2.50664 11.7602 2.55932 11.8539 2.65309C11.9477 2.74686 12.0004 2.87404 12.0004 3.00664C12.0004 3.13925 11.9477 3.26643 11.8539 3.3602C11.7602 3.45397 11.633 3.50664 11.5004 3.50664H1.70739L3.35439 5.15264C3.44815 5.24653 3.50077 5.37382 3.50067 5.5065C3.50058 5.63918 3.44778 5.76639 3.35389 5.86014C3.30741 5.90657 3.25223 5.94338 3.19151 5.96848C3.1308 5.99357 3.06574 6.00647 3.00004 6.00642C2.86736 6.00633 2.74015 5.95353 2.64639 5.85964L0.146393 3.35964C0.0526578 3.26588 0 3.13873 0 3.00614C0 2.87356 0.0526578 2.74641 0.146393 2.65264L2.64739 0.152644Z" fill="white"/></svg>'
       swapBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         draft.gradientStops = draft.gradientStops.slice().reverse()
@@ -1914,7 +2028,7 @@ function createFillPanel(
         applyGradient()
         render()
       })
-      gradientTypeRow.append(typeBtn, swapBtn)
+      gradientTypeRow.append(typeSelect, swapBtn)
       body.appendChild(gradientTypeRow)
 
       const preview = el('div', 'ei-dp-gradient-strip')
@@ -1960,10 +2074,13 @@ function createFillPanel(
       }
       body.appendChild(preview)
 
+      const stopsSection = el('div', 'ei-dp-gradient-stops-section')
+      const stopsRows = el('div', 'ei-dp-gradient-stops-rows')
       const stopsHeader = el('div', 'ei-dp-gradient-stops-header')
       stopsHeader.append(el('span', 'ei-dp-gradient-stops-label', '断点'))
-      const addStopBtn = el('button', 'ei-dp-gradient-icon-btn', '+') as HTMLButtonElement
+      const addStopBtn = el('button', 'ei-dp-gradient-icon-btn') as HTMLButtonElement
       addStopBtn.type = 'button'
+      addStopBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M6 0C6.13261 0 6.25979 0.0526785 6.35355 0.146447C6.44732 0.240215 6.5 0.367392 6.5 0.5V5.5H11.5C11.6326 5.5 11.7598 5.55268 11.8536 5.64645C11.9473 5.74021 12 5.86739 12 6C12 6.13261 11.9473 6.25979 11.8536 6.35355C11.7598 6.44732 11.6326 6.5 11.5 6.5H6.5V11.5C6.5 11.6326 6.44732 11.7598 6.35355 11.8536C6.25979 11.9473 6.13261 12 6 12C5.86739 12 5.74021 11.9473 5.64645 11.8536C5.55268 11.7598 5.5 11.6326 5.5 11.5V6.5H0.5C0.367392 6.5 0.240215 6.44732 0.146447 6.35355C0.0526785 6.25979 0 6.13261 0 6C0 5.86739 0.0526785 5.74021 0.146447 5.64645C0.240215 5.55268 0.367392 5.5 0.5 5.5H5.5V0.5C5.5 0.367392 5.55268 0.240215 5.64645 0.146447C5.74021 0.0526785 5.86739 0 6 0Z" fill="white"/></svg>'
       addStopBtn.setAttribute(IGNORE_ATTR, 'true')
       addStopBtn.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -1972,13 +2089,21 @@ function createFillPanel(
         render()
       })
       stopsHeader.appendChild(addStopBtn)
-      body.appendChild(stopsHeader)
+      stopsSection.appendChild(stopsHeader)
 
       const createStopRow = (stop: GradientStop): HTMLDivElement => {
         const active = stop.id === draft.activeGradientStopId
         const row = el('div', 'ei-dp-gradient-stop-row')
         if (active) row.dataset.active = 'true'
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (event) => {
+          const target = event.target as HTMLElement | null
+          if (target?.closest('input, button, .ei-dp-gradient-stop-position, .ei-dp-gradient-stop-color, .ei-dp-gradient-stop-opacity')) return
+          setActiveGradientStop(draft, stop.id)
+          render()
+        })
+        row.addEventListener('pointerdown', (event) => {
+          const target = event.target as HTMLElement | null
+          if (target?.closest('input, button, .ei-dp-gradient-stop-position, .ei-dp-gradient-stop-color, .ei-dp-gradient-stop-opacity')) return
           setActiveGradientStop(draft, stop.id)
           render()
         })
@@ -1991,16 +2116,26 @@ function createFillPanel(
           onChange: (value) => {
             updateGradientStop(draft, stop.id, { position: value })
             applyGradient()
+            render()
           },
         })
         positionInput.className = 'ei-dp-gradient-stop-position-input'
+        positionWrap.addEventListener('pointerdown', (event) => {
+          event.stopPropagation()
+          setActiveGradientStop(draft, stop.id)
+        })
         positionWrap.append(positionInput, el('span', 'ei-dp-gradient-stop-position-suffix', '%'))
+
         const colorRow = el('div', 'ei-dp-gradient-stop-color')
+        colorRow.addEventListener('pointerdown', (event) => {
+          event.stopPropagation()
+          setActiveGradientStop(draft, stop.id)
+        })
         const swatchBtn = el('button', 'ei-dp-gradient-stop-swatch-btn') as HTMLButtonElement
         swatchBtn.type = 'button'
         swatchBtn.setAttribute(IGNORE_ATTR, 'true')
         const swatch = el('span', 'ei-dp-gradient-stop-swatch')
-        swatch.style.background = stop.color
+        swatch.style.background = formatColorValue(stop.color, 'css', stop.opacity)
         const picker = document.createElement('input')
         picker.type = 'color'
         picker.className = 'ei-dp-picker'
@@ -2013,17 +2148,24 @@ function createFillPanel(
           render()
         })
         swatchBtn.append(swatch, picker)
+
         const colorInput = document.createElement('input')
         colorInput.type = 'text'
         colorInput.className = 'ei-dp-gradient-stop-color-input'
-        colorInput.value = stop.color.replace('#', '')
+        colorInput.value = stop.color.replace('#', '').toUpperCase()
         colorInput.setAttribute(IGNORE_ATTR, 'true')
         colorInput.addEventListener('input', (e) => {
           e.stopPropagation()
           updateGradientStop(draft, stop.id, { color: ensureHexColor(colorInput.value.startsWith('#') ? colorInput.value : `#${colorInput.value}`, stop.color) })
           applyGradient()
+          render()
         })
+
         const opacityWrap = el('div', 'ei-dp-gradient-stop-opacity')
+        opacityWrap.addEventListener('pointerdown', (event) => {
+          event.stopPropagation()
+          setActiveGradientStop(draft, stop.id)
+        })
         const opacityInput = createNumberInput({
           value: stop.opacity,
           min: 0,
@@ -2032,14 +2174,16 @@ function createFillPanel(
           onChange: (value) => {
             updateGradientStop(draft, stop.id, { opacity: value })
             applyGradient()
+            render()
           },
         })
         opacityInput.className = 'ei-dp-gradient-stop-opacity-input'
         opacityWrap.append(opacityInput, el('span', 'ei-dp-gradient-stop-position-suffix', '%'))
-        const removeBtn = el('button', 'ei-dp-gradient-stop-remove', '−') as HTMLButtonElement
+
+        const removeBtn = el('button', 'ei-dp-gradient-stop-remove') as HTMLButtonElement
         removeBtn.type = 'button'
+        removeBtn.innerHTML = '<svg width="12" height="1" viewBox="0 0 12 1" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 0.5C0 0.367392 0.0526785 0.240214 0.146447 0.146446C0.240215 0.052678 0.367392 0 0.5 0H11.5C11.6326 0 11.7598 0.052678 11.8536 0.146446C11.9473 0.240214 12 0.367392 12 0.5C12 0.632608 11.9473 0.759786 11.8536 0.853554C11.7598 0.947322 11.6326 1 11.5 1H0.5C0.367392 1 0.240215 0.947322 0.146447 0.853554C0.0526785 0.759786 0 0.632608 0 0.5Z" fill="white"/></svg>'
         removeBtn.setAttribute(IGNORE_ATTR, 'true')
-        removeBtn.disabled = draft.gradientStops.length <= 2
         removeBtn.addEventListener('click', (e) => {
           e.stopPropagation()
           removeGradientStop(draft, stop.id)
@@ -2052,8 +2196,10 @@ function createFillPanel(
       }
 
       for (const stop of draft.gradientStops) {
-        body.appendChild(createStopRow(stop))
+        stopsRows.appendChild(createStopRow(stop))
       }
+      stopsSection.appendChild(stopsRows)
+      body.appendChild(stopsSection)
 
       if (draft.gradientType === 'linear') {
         body.appendChild(createLabeledField({
@@ -2064,6 +2210,7 @@ function createFillPanel(
           onChange: (value) => {
             draft.gradientAngle = value
             applyGradient()
+            render()
           },
         }))
       }
@@ -2090,21 +2237,24 @@ function createFillPanel(
     }
 
     const hue = el('div', 'ei-dp-color-slider ei-dp-color-slider-hue')
-    const hueHandle = el('div', 'ei-dp-color-slider-handle')
-    hueHandle.style.left = `${rgbToHsvColor(hexToRgb(editableColor())).h / 360 * 180 - 8}px`
+    const hueHandle = el('div', 'ei-dp-color-slider-handle ei-dp-color-slider-handle-hue')
+    hueHandle.style.left = `${rgbToHsvColor(hexToRgb(editableColor())).h / 360 * 100}%`
+    hueHandle.style.setProperty('--control-handle-fill', editableColor())
     hue.appendChild(hueHandle)
     bindColorSlider(hue, hueHandle, 'hue')
-    const alphaRow = el('div', 'ei-dp-color-slider-row')
-    alphaRow.appendChild(eyedropper)
     const alpha = el('div', 'ei-dp-color-slider ei-dp-color-slider-alpha')
     alpha.style.background = `linear-gradient(90deg, color-mix(in srgb, var(--text-inverse) 0%, transparent) 0%, ${editableColor()} 100%), conic-gradient(from 90deg, var(--border-hover) 0 25%, transparent 0 50%, var(--border-hover) 0 75%, transparent 0)`
     alpha.style.backgroundSize = '100% 100%, 12px 12px'
     const alphaHandle = el('div', 'ei-dp-color-slider-handle ei-dp-color-slider-handle-alpha')
-    alphaHandle.style.left = `${draft.opacity / 100 * 180 - 8}px`
+    alphaHandle.style.left = `${draft.kind === 'gradient' ? getActiveGradientStop(draft).opacity : draft.opacity}%`
+    alphaHandle.style.setProperty('--control-handle-fill', editableColor())
     alpha.appendChild(alphaHandle)
     bindColorSlider(alpha, alphaHandle, 'alpha')
-    alphaRow.appendChild(alpha)
-    sliderStack.append(hue, alphaRow)
+    const sliderGroup = el('div', 'ei-dp-color-slider-group')
+    sliderGroup.append(hue, alpha)
+    const sliderLayout = el('div', 'ei-dp-color-slider-layout')
+    sliderLayout.append(eyedropper, sliderGroup)
+    sliderStack.appendChild(sliderLayout)
 
     const valueRow = el('div', 'ei-dp-color-value-row')
     const currentFormat = (panel.dataset.colorFormat as ColorFormat | undefined) ?? 'hex'
@@ -2120,7 +2270,7 @@ function createFillPanel(
         render()
       })
     })
-    const segmentGroup = createColorSegmentGroup(currentFormat, draft, applySolid, applyImage, render)
+    const segmentGroup = createColorSegmentGroup(currentFormat, draft, applySolid, applyGradient, applyImage, render)
     valueRow.append(formatBtn, segmentGroup)
     body.appendChild(valueRow)
 
@@ -2144,6 +2294,81 @@ function createFillPanel(
 
   render()
   return panel
+}
+
+// --- Shared Selects ---
+
+type GradientTypeOption = 'linear' | 'radial'
+
+const GRADIENT_TYPE_LABELS: Record<GradientTypeOption, string> = {
+  linear: '线性渐变',
+  radial: '径向渐变',
+}
+
+function createGradientTypeSelect(value: GradientTypeOption, onChange: (value: GradientTypeOption) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-font-select')
+  wrap.setAttribute(IGNORE_ATTR, 'true')
+
+  const textEl = el('span', 'ei-dp-font-text', GRADIENT_TYPE_LABELS[value])
+  const arrowEl = el('span', 'ei-dp-font-arrow')
+  arrowEl.innerHTML = DOWN_ARROW_ICON
+
+  wrap.append(textEl, arrowEl)
+  wrap.addEventListener('click', (e) => {
+    e.stopPropagation()
+    openGradientTypeDropdown(wrap, value, (nextValue) => {
+      textEl.textContent = GRADIENT_TYPE_LABELS[nextValue]
+      onChange(nextValue)
+    })
+  })
+
+  return wrap
+}
+
+let activeGradientTypeDropdown: HTMLDivElement | null = null
+
+function closeGradientTypeDropdown(): void {
+  if (activeGradientTypeDropdown) {
+    activeGradientTypeDropdown.remove()
+    activeGradientTypeDropdown = null
+  }
+  document.removeEventListener('mousedown', handleGradientTypeDropdownOutside, true)
+}
+
+function handleGradientTypeDropdownOutside(e: MouseEvent): void {
+  if (activeGradientTypeDropdown && e.target instanceof Element && !activeGradientTypeDropdown.contains(e.target)) {
+    closeGradientTypeDropdown()
+  }
+}
+
+function openGradientTypeDropdown(
+  anchor: HTMLElement,
+  currentType: GradientTypeOption,
+  onSelect: (value: GradientTypeOption) => void,
+): void {
+  closeGradientTypeDropdown()
+
+  const dropdown = el('div', 'ei-dp-font-dropdown')
+  dropdown.setAttribute(IGNORE_ATTR, 'true')
+
+  for (const type of ['linear', 'radial'] as const) {
+    const item = el('div', 'ei-dp-font-option', GRADIENT_TYPE_LABELS[type])
+    item.setAttribute(IGNORE_ATTR, 'true')
+    if (type === currentType) item.dataset.active = 'true'
+    item.addEventListener('click', (e) => {
+      e.stopPropagation()
+      onSelect(type)
+      closeGradientTypeDropdown()
+    })
+    dropdown.appendChild(item)
+  }
+
+  mountBodyDropdown(dropdown, anchor)
+
+  activeGradientTypeDropdown = dropdown
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', handleGradientTypeDropdownOutside, true)
+  })
 }
 
 // --- Weight Select ---
@@ -4474,42 +4699,52 @@ export function getDesignStyles(): string {
 .ei-dp-fill-popover::-webkit-scrollbar-track { background: transparent; }
 .ei-dp-fill-popover::-webkit-scrollbar-thumb { background: var(--surface-hover-strong); border-radius: 999px; }
 .ei-dp-fill-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 0 12px 14px; }
-.ei-dp-fill-modebar { gap: 32px; padding: 8px 4px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
+.ei-dp-fill-modebar { justify-content: flex-start; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); margin: 0 -12px; }
 .ei-dp-fill-modebar .ei-dp-fill-mode-btn { width: 24px; min-width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .ei-dp-fill-mode-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-.ei-dp-fill-body { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
+.ei-dp-fill-mode-btn[data-kind="solid"] svg,
+.ei-dp-fill-mode-btn[data-kind="gradient"] svg,
+.ei-dp-fill-mode-btn[data-kind="image"] svg { width: 12px; height: 12px; fill: none; stroke: none; }
+.ei-dp-fill-body { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding-top: 0; }
+.ei-dp-fill-body > * { width: 100%; }
 .ei-dp-fill-row { display: flex; align-items: center; width: 100%; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); padding: 0; gap: 0; overflow: hidden; }
 .ei-dp-fill-row:hover { border-color: var(--border-default); }
 .ei-dp-fill-row:focus-within { border-color: var(--interactive-accent); }
-.ei-dp-color-square { position: relative; width: 208px; height: 208px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--border-subtle); cursor: default; }
-.ei-dp-color-square-handle { position: absolute; left: -8px; top: 62px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-inverse); box-shadow: var(--shadow-dropdown); border: 5px solid var(--text-inverse); box-sizing: border-box; }
-.ei-dp-color-sliders { width: 208px; display: flex; flex-direction: column; gap: 10px; }
-.ei-dp-color-slider-row { width: 208px; display: flex; align-items: center; gap: 8px; }
-.ei-dp-eyedropper { width: 16px; height: 16px; color: var(--text-secondary); flex-shrink: 0; border: 0; padding: 0; background: transparent; cursor: pointer; }
-.ei-dp-eyedropper svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.ei-dp-color-square { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; overflow: visible; box-shadow: inset 0 0 0 1px var(--border-subtle); cursor: default; }
+.ei-dp-color-square-handle { position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18); border: 4px solid #FFFFFF; box-sizing: border-box; transform: translate(-10px, -10px); }
+.ei-dp-color-square-handle::after { content: ''; position: absolute; inset: 1.5px; border-radius: 50%; background: var(--control-handle-fill, currentColor); }
+.ei-dp-color-sliders { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.ei-dp-color-slider-layout { width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; column-gap: 12px; }
+.ei-dp-color-slider-group { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.ei-dp-eyedropper { width: 24px; height: 24px; color: var(--text-secondary); flex-shrink: 0; border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ei-dp-eyedropper svg { width: 14px; height: 14px; display: block; fill: currentColor; stroke: none; }
 .ei-dp-eyedropper:hover { color: var(--text-primary); }
-.ei-dp-color-slider { position: relative; width: 180px; height: 12px; border-radius: 999px; overflow: visible; align-self: flex-end; cursor: default; }
+.ei-dp-color-slider { position: relative; width: 100%; height: 12px; border-radius: 999px; overflow: visible; cursor: default; box-shadow: inset 0 0 0 1px color-mix(in srgb, #FFFFFF 10%, transparent); }
 .ei-dp-color-slider-hue { background: linear-gradient(90deg, #ff2a2a 0%, #ffd600 16%, #2cff66 33%, #1ad7ff 50%, #3156ff 66%, #ff37f2 83%, #ff2a2a 100%); }
 .ei-dp-color-slider-alpha { }
-.ei-dp-color-slider-handle { position: absolute; left: 14px; top: -3px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-inverse); box-shadow: var(--shadow-dropdown); border: 3px solid var(--text-inverse); box-sizing: border-box; }
-.ei-dp-color-slider-handle::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid var(--control-handle-border); }
-.ei-dp-color-slider-handle-alpha::after { border-color: var(--text-secondary); }
-.ei-dp-color-slider-handle-alpha { left: calc(100% - 18px); }
-.ei-dp-gradient-type-row { width: 208px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ei-dp-gradient-type-btn { height: var(--input-height); min-width: 112px; border: 1px solid var(--border-hover); border-radius: var(--field-radius); background: color-mix(in srgb, var(--surface-field) 40%, transparent); color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 12px; text-align: left; cursor: pointer; }
+.ei-dp-color-slider-handle { position: absolute; left: 0; top: -4px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18); border: 4px solid #FFFFFF; box-sizing: border-box; transform: translateX(-10px); }
+.ei-dp-color-slider-handle::after { content: ''; position: absolute; inset: 1.5px; border-radius: 50%; background: var(--control-handle-fill, currentColor); }
+.ei-dp-color-slider-handle-alpha { left: 100%; }
+.ei-dp-gradient-type-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ei-dp-gradient-type-btn { height: var(--input-height); min-width: 0; flex: 1 1 auto; border: 1px solid var(--border-hover); border-radius: var(--field-radius); background: color-mix(in srgb, var(--surface-field) 40%, transparent); color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 12px; text-align: left; cursor: pointer; }
 .ei-dp-gradient-type-btn:hover { background: var(--surface-field); }
-.ei-dp-gradient-icon-btn { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.ei-dp-gradient-icon-btn { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; flex-shrink: 0; }
 .ei-dp-gradient-icon-btn:hover { background: var(--border-subtle); }
 .ei-dp-gradient-icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
-.ei-dp-gradient-strip { position: relative; width: 208px; height: 64px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.ei-dp-eyedropper.ei-dp-gradient-icon-btn svg { width: 14px; height: 14px; display: block; fill: currentColor; stroke: none; }
+.ei-dp-gradient-type-row .ei-dp-gradient-icon-btn svg,
+.ei-dp-gradient-stops-header .ei-dp-gradient-icon-btn svg { width: 12px; height: 12px; display: block; fill: currentColor; stroke: none; }
+.ei-dp-gradient-strip { position: relative; width: 100%; height: 32px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--border-subtle); }
 .ei-dp-gradient-stop { position: absolute; top: -8px; width: 20px; height: 20px; border: 0; padding: 0; background: transparent; cursor: pointer; }
 .ei-dp-gradient-stop-chip { display: block; width: 20px; height: 20px; border-radius: 6px; border: 4px solid var(--control-handle); box-shadow: var(--control-handle-shadow); box-sizing: border-box; }
 .ei-dp-gradient-stop-dark .ei-dp-gradient-stop-chip { border-color: var(--text-muted); }
 .ei-dp-gradient-stop[data-active="true"]::after { content: ''; position: absolute; left: 6px; top: 20px; width: 8px; height: 8px; border-radius: 50%; background: var(--interactive-accent); }
-.ei-dp-gradient-stops-header { width: 208px; display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
-.ei-dp-gradient-stops-label { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-.ei-dp-gradient-stop-row { width: 208px; height: 32px; display: grid; grid-template-columns: 54px 1fr 24px; gap: 8px; align-items: center; padding: 0 6px; border-radius: 8px; }
-.ei-dp-gradient-stop-row[data-active="true"] { background: var(--interactive-selection); }
+.ei-dp-gradient-stops-section { width: 100%; }
+.ei-dp-gradient-stops-rows { display: flex; flex-direction: column; gap: 8px; }
+.ei-dp-gradient-stops-header { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 4px; margin-bottom: 8px; }
+.ei-dp-gradient-stops-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.11px; }
+.ei-dp-gradient-stop-row { width: 100%; height: var(--input-height); display: grid; grid-template-columns: 54px 1fr 24px; gap: 8px; align-items: center; padding: 0; border-radius: 8px; box-sizing: border-box; }
+.ei-dp-gradient-stop-row { position: relative; }
 .ei-dp-gradient-stop-position { height: var(--input-height); display: flex; align-items: center; justify-content: center; gap: 1px; border-radius: var(--field-radius); background: var(--surface-field); }
 .ei-dp-gradient-stop-position-input { width: 26px; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; text-align: right; outline: none; }
 .ei-dp-gradient-stop-position-suffix { color: var(--text-secondary); font-size: 11px; }
@@ -4519,7 +4754,7 @@ export function getDesignStyles(): string {
 .ei-dp-gradient-stop-color-input { width: 100%; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 6px; outline: none; text-transform: uppercase; }
 .ei-dp-gradient-stop-opacity { height: 100%; display: flex; align-items: center; justify-content: center; gap: 1px; border-left: 1px solid var(--border-subtle); }
 .ei-dp-gradient-stop-opacity-input { width: 28px; height: 100%; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 11px; text-align: right; outline: none; }
-.ei-dp-gradient-stop-remove { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; cursor: pointer; }
+.ei-dp-gradient-stop-remove { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .ei-dp-gradient-stop-remove:hover { background: var(--border-subtle); }
 .ei-dp-gradient-stop-remove:disabled { opacity: 0.35; cursor: default; }
 .ei-dp-gradient-stop-remove:disabled:hover { background: transparent; }
@@ -4534,11 +4769,12 @@ export function getDesignStyles(): string {
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-position:focus-within,
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-color:focus-within { border-color: var(--interactive-accent); }
 .ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
-.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color { background: var(--border-subtle); }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-remove { background: var(--surface-field); }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { box-sizing: border-box; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { box-sizing: border-box; }
 .ei-dp-gradient-strip { overflow: visible; }
-.ei-dp-gradient-strip::before { content: ''; position: absolute; inset: 12px 0 0; border-radius: 10px; background: inherit; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.ei-dp-gradient-strip::before { content: ''; position: absolute; inset: 12px 0 0; border-radius: 5px; background: inherit; box-shadow: inset 0 0 0 1px var(--border-subtle); }
 .ei-dp-gradient-stop { z-index: 1; }
 .ei-dp-gradient-stop[data-active="true"] { z-index: 2; }
 .ei-dp-gradient-stop-row { cursor: pointer; }
@@ -4599,9 +4835,7 @@ export function getDesignStyles(): string {
 .ei-dp-gradient-type-btn:focus-visible,
 .ei-dp-gradient-icon-btn:focus-visible,
 .ei-dp-gradient-stop-remove:focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 0; }
-.ei-dp-gradient-stop-row[data-active="true"] { box-shadow: inset 0 0 0 1px var(--border-subtle); }
-.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
-.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color { border-color: var(--surface-field); }
+.ei-dp-gradient-stop-row[data-active="true"] { box-shadow: none; }
 .ei-dp-gradient-stops-header .ei-dp-gradient-icon-btn { font-size: 22px; line-height: 22px; }
 .ei-dp-gradient-type-row .ei-dp-gradient-icon-btn { color: var(--text-secondary); }
 .ei-dp-gradient-type-row .ei-dp-gradient-icon-btn:hover { color: var(--text-primary); }
@@ -4610,22 +4844,105 @@ export function getDesignStyles(): string {
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { box-sizing: border-box; }
 .ei-dp-gradient-strip .ei-dp-gradient-stop[data-active="true"] .ei-dp-gradient-stop-chip { box-shadow: var(--control-handle-shadow), 0 0 0 1px var(--interactive-accent-soft); }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn .ei-dp-picker { opacity: 0; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { overflow: hidden; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { overflow: hidden; display: flex; align-items: center; justify-content: center; min-width: var(--input-height); }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { margin-top: 4px; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { display: flex; align-items: center; justify-content: center; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { padding-right: 0; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { padding-right: 4px; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { padding-right: 4px; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input { width: 22px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { padding-right: 0; grid-template-columns: 24px 1fr 54px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { border-left: 1px solid var(--border-subtle); padding-right: 4px; min-width: 54px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { padding: 0 8px 0 7px; min-width: 54px; justify-content: flex-start; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input { width: 100%; min-width: 0; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { width: 24px; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { padding-left: 4px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { padding-left: 4px; border-right: 1px solid var(--border-subtle); letter-spacing: 0.02em; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { box-sizing: border-box; min-width: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { letter-spacing: 0.02em; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-suffix { flex-shrink: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { flex-shrink: 0; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { border-right: 1px solid var(--border-subtle); }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { grid-template-columns: 24px 1fr 54px; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { border-right: 1px solid var(--border-subtle); }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { border-left: 0; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { justify-content: flex-end; }
-.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { justify-content: flex-end; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input::placeholder { color: var(--text-muted); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input:focus,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input:focus,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input:focus { outline: none; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn:focus { outline: none; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn:focus-visible .ei-dp-gradient-stop-swatch { box-shadow: inset 0 0 0 1px var(--text-muted), 0 0 0 1px var(--interactive-accent); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { margin-left: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-summary,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-label,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-value,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-value { display: none; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn .ei-dp-picker { width: 100%; height: 100%; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { height: 100%; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { height: var(--input-height); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { height: var(--input-height); }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { position: relative; z-index: 1; }
+.ei-dp-gradient-stop-row[data-active="true"]::before,
+.ei-dp-gradient-stop-row[data-active="true"]::after { z-index: 0; }
+.ei-dp-gradient-stop-row,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-suffix { font-size: 11px !important; line-height: 1; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { margin: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { gap: 1px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { gap: 1px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { gap: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:focus-visible { outline: 1px solid var(--interactive-accent); outline-offset: 0; }
+.ei-dp-gradient-stop-row { overflow: visible; }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position:focus-within,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-remove { background: var(--surface-field); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn:hover .ei-dp-gradient-stop-swatch { box-shadow: inset 0 0 0 1px var(--text-muted); }
+.ei-dp-gradient-stop-row button { user-select: none; }
+.ei-dp-gradient-stop-row input { cursor: text; }
+.ei-dp-gradient-stop-row .ei-dp-picker { cursor: pointer; }
+.ei-dp-gradient-stop-row { user-select: none; }
+.ei-dp-gradient-stop-row { touch-action: auto; }
+.ei-dp-gradient-stop-swatch-btn { touch-action: auto; }
+.ei-dp-gradient-stop-remove { touch-action: auto; }
+.ei-dp-gradient-stop-row > * { min-width: 0; }
+.ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-color-input,
+.ei-dp-gradient-stop-opacity-input { min-width: 0; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position:hover,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color:hover { border-color: var(--border-default); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position:focus-within,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color:focus-within { border-color: var(--interactive-accent); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { box-sizing: border-box; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { box-sizing: border-box; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled { opacity: 0.35; cursor: default; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled:hover { background: transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:hover { background: var(--border-subtle); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { background: transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch { display: block; width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border-hover); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { text-transform: uppercase; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { font-size: 11px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-suffix { font-size: 11px; color: var(--text-secondary); }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { width: var(--input-height); height: var(--input-height); border-radius: var(--field-radius); display: flex; align-items: center; justify-content: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove svg { display: block; width: 12px; height: 1px; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { justify-content: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { justify-content: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-swatch-btn { background: transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { text-align: right; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { width: 100%; height: 100%; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color-input { background: transparent; border: 0; color: var(--text-primary); font: inherit; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { border-radius: var(--field-radius); background: var(--surface-field); border: 1px solid transparent; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { overflow: hidden; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { display: flex; align-items: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-position { display: flex; align-items: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-color { display: grid; align-items: center; }
+.ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { justify-content: flex-end; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity { padding-left: 0; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-position-input,
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-opacity-input { text-align: right; }
@@ -4639,9 +4956,14 @@ export function getDesignStyles(): string {
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-position,
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-color,
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove { transition: background 0.12s ease, border-color 0.12s ease; }
+.ei-dp-gradient-stop-row[data-active="true"] { background: transparent; box-shadow: none; }
+.ei-dp-gradient-stop-row[data-active="true"]::before { content: ''; position: absolute; inset: 0 -16px; background: color-mix(in srgb, var(--interactive-accent) 20%, transparent); z-index: 0; }
+.ei-dp-gradient-stop-row[data-active="true"]::after { content: none; }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-position,
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-color { border-color: transparent; }
 .ei-dp-gradient-stop-row:hover .ei-dp-gradient-stop-remove { background: var(--surface-hover); }
 .ei-dp-gradient-stop-row:hover .ei-dp-gradient-stop-remove:disabled { background: transparent; }
-.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-remove { background: var(--surface-field); }
+.ei-dp-gradient-stop-row[data-active="true"] .ei-dp-gradient-stop-remove { background: transparent; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:hover { background: var(--surface-hover-strong); }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled:hover { background: transparent; }
 .ei-dp-gradient-stop-row .ei-dp-gradient-stop-remove:disabled { color: var(--text-muted); }
@@ -4649,7 +4971,7 @@ export function getDesignStyles(): string {
 .ei-dp-text-field { width: 208px; height: 28px; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; padding: 0 8px; outline: none; }
 .ei-dp-text-field:hover { border-color: var(--border-default); }
 .ei-dp-text-field:focus { border-color: var(--interactive-accent); }
-.ei-dp-color-value-row { display: flex; align-items: center; gap: 8px; width: 208px; }
+.ei-dp-color-value-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 .ei-dp-color-format { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; font-weight: 500; cursor: pointer; padding: 0 8px; transition: border-color 0.15s ease, background 0.12s ease; }
 .ei-dp-color-format:hover { border-color: var(--border-default); background: var(--surface-hover-strong); }
 .ei-dp-color-format:focus { outline: none; border-color: var(--interactive-accent); }
@@ -4674,15 +4996,9 @@ export function getDesignStyles(): string {
 .ei-dp-color-segment-input::-webkit-outer-spin-button,
 .ei-dp-color-segment-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .ei-dp-color-segment-input { -moz-appearance: textfield; }
-.ei-dp-page-colors { width: 208px; padding-top: 0; }
-.ei-dp-page-colors-title { width: 100%; height: var(--input-height); display: flex; align-items: center; justify-content: space-between; padding: 0 8px; border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); font: inherit; font-size: 11px; font-weight: 500; letter-spacing: 0.01em; cursor: pointer; transition: border-color 0.15s ease, background 0.12s ease; }
-.ei-dp-page-colors-title:hover { border-color: var(--border-default); background: var(--border-subtle); }
-.ei-dp-page-colors-title:focus { outline: none; }
-.ei-dp-page-colors-title:focus-visible { border-color: var(--interactive-accent); }
+.ei-dp-page-colors { width: 100%; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.ei-dp-page-colors-title { width: 100%; display: flex; align-items: center; padding: 0; color: var(--text-secondary); font: inherit; font-size: 11px; font-weight: 500; letter-spacing: 0.11px; }
 .ei-dp-page-colors-title-text { pointer-events: none; }
-.ei-dp-page-colors-title-arrow { display: flex; align-items: center; color: var(--text-tertiary); transition: transform 0.12s ease; }
-.ei-dp-page-colors-title[data-open="false"] .ei-dp-page-colors-title-arrow { transform: rotate(-90deg); }
-.ei-dp-page-colors-title-arrow svg { width: 10px; height: 10px; }
 .ei-dp-page-colors-grid { display: grid; grid-template-columns: repeat(8, 18px); justify-content: space-between; gap: 8px 8px; margin-top: 10px; }
 .ei-dp-page-color { width: 18px; height: 18px; border: 0; border-radius: 4px; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px var(--border-input); }
 .ei-dp-page-color:hover { box-shadow: inset 0 0 0 1px var(--text-tertiary); }

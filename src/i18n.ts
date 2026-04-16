@@ -113,6 +113,14 @@ export const zhCN = {
   },
   design: {
     selectMatchingLayers: 'Select matching layers',
+    quickCopyToFigma: '拷贝到 Figma',
+    quickScreenshot: '截图',
+    capturingCopyToFigma: '正在拷贝到 Figma...',
+    copiedToFigma: '已复制到剪贴板，可直接粘贴到 Figma',
+    capturingScreenshot: '正在生成截图...',
+    screenshotSaved: '截图已复制到剪贴板',
+    screenshotUnsupported: '当前环境不支持截图',
+    screenshotBridgeUnavailable: '截图桥接不可用，请刷新扩展后重试',
     devMode: 'Dev Mode',
     reset: 'Reset',
     fixed: '固定',
@@ -152,6 +160,7 @@ export const zhCN = {
     commonFontsSection: '常用字体',
     searchFontsPlaceholder: '搜索字体',
     retryLocalFontsAccess: '重新访问本地字体',
+    pageColorsSection: '页面颜色',
   },
   changes: {
     count: '个变更',

@@ -220,11 +220,14 @@ pointer-events: none;
 | 背景 | `var(--surface-panel)` |
 | 边框 | `var(--border-default)` |
 | 内边距 | `var(--space-3)` |
-| 选项高度 | `var(--dropdown-option-height)` / `var(--dropdown-option-height-lg)` |
-| 选项圆角 | `var(--radius-lg)` |
+| 默认项高度 | `var(--dropdown-option-height)` |
+| Large 项高度 | `var(--menu-item-height-lg)` |
+| 默认项圆角 | `var(--radius-lg)` |
+| Large 项圆角 | `var(--menu-item-radius-lg)` |
+| 项内图标文字间距 | `var(--space-4)` |
 | 选项间距 | `var(--dropdown-menu-item-gap)` |
 
-基础菜单项模式默认使用 `var(--dropdown-option-height)`，当下拉菜单或操作列表需要更强可点按性时，使用 `var(--dropdown-option-height-lg)`。
+基础菜单项模式默认使用 `var(--dropdown-option-height)`。当下拉菜单或操作列表需要更强可点按性时，使用 large 菜单项规格：`var(--menu-item-height-lg)` / `var(--menu-item-font-size-lg)` / `var(--menu-item-radius-lg)`，并保持项内图标与文字间距为 `var(--space-4)`。该 large 规格只作用于菜单项，不等同于 `Select / Dropdown` 的通用 option large。
 
 ### 5.5 Badge / Tag
 

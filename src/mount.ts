@@ -9,6 +9,8 @@ import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
 import ICON_DESIGN from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_ICON from './assets/design-mode-figma.svg?raw'
 import DESIGN_DEV_MODE_ICON from './assets/design-dev-mode-figma.svg?raw'
+import DESIGN_QUICK_FIGMA_ICON from './assets/design-quick-figma.svg?raw'
+import DESIGN_QUICK_CAMERA_ICON from './assets/design-quick-camera.svg?raw'
 import PANEL_MINIMIZE_UI_ICON from './assets/panel-minimize-ui.svg?raw'
 import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
@@ -466,6 +468,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
   highlight.style.display = 'none'
+  const designQuickBar = el('div', 'ei-design-quick-bar')
+  designQuickBar.setAttribute(IGNORE_ATTR, 'true')
+  designQuickBar.dataset.visible = 'false'
   const designScopeOverlay = el('div', 'ei-design-scope-overlay')
   designScopeOverlay.setAttribute(IGNORE_ATTR, 'true')
   const hlMargin = el('div', 'ei-hl-margin')
@@ -663,38 +668,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changesTooltip)
   changesBtn.classList.add('ei-toolbar-extra')
   // Screenshot button with dropdown
-  const viewportGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
+  const viewportGroup = el('div', 'ei-toolbar-extra')
   viewportGroup.setAttribute(IGNORE_ATTR, 'true')
   const viewportBtn = makeToolbarBtn(ICON_VIEWPORT, i18n.toolbar.viewportTooltip)
-  const viewportDropdownBtn = el('button', 'ei-toolbar-btn ei-toolbar-dropdown-btn')
-  viewportDropdownBtn.type = 'button'
-  viewportDropdownBtn.innerHTML = ICON_CHEVRON_DOWN
-  viewportDropdownBtn.setAttribute(IGNORE_ATTR, 'true')
-  const viewportDropdownTip = el('span', 'ei-toolbar-tip', i18n.toolbar.viewportOptions)
-  viewportDropdownTip.setAttribute(IGNORE_ATTR, 'true')
-  viewportDropdownBtn.appendChild(viewportDropdownTip)
-  viewportGroup.append(viewportBtn, viewportDropdownBtn)
+  viewportGroup.append(viewportBtn)
 
-  const screenshotGroup = el('div', 'ei-toolbar-btn-group ei-toolbar-extra')
+  const screenshotGroup = el('div', 'ei-toolbar-extra')
   screenshotGroup.setAttribute(IGNORE_ATTR, 'true')
   const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, i18n.toolbar.screenshotTooltip)
-  const screenshotDropdownBtn = el('button', 'ei-toolbar-btn ei-toolbar-dropdown-btn')
-  screenshotDropdownBtn.type = 'button'
-  screenshotDropdownBtn.innerHTML = ICON_CHEVRON_DOWN
-  screenshotDropdownBtn.setAttribute(IGNORE_ATTR, 'true')
-  const screenshotDropdownTip = el('span', 'ei-toolbar-tip', i18n.toolbar.captureOptions)
-  screenshotDropdownTip.setAttribute(IGNORE_ATTR, 'true')
-  screenshotDropdownBtn.appendChild(screenshotDropdownTip)
-  screenshotGroup.append(screenshotBtn, screenshotDropdownBtn)
+  screenshotGroup.append(screenshotBtn)
 
   const viewportMenu = el('div', 'ei-capture-menu ei-viewport-menu')
   viewportMenu.setAttribute(IGNORE_ATTR, 'true')
   viewportMenu.style.display = 'none'
-
-  // Dropdown menu for capture options
-  const captureMenu = el('div', 'ei-capture-menu')
-  captureMenu.setAttribute(IGNORE_ATTR, 'true')
-  captureMenu.style.display = 'none'
 
   const moreMenu = el('div', 'ei-capture-menu ei-more-menu')
   moreMenu.setAttribute(IGNORE_ATTR, 'true')
@@ -718,12 +704,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return item
   }
 
-  const captureEntireScreenItem = makeCaptureMenuItem(ICON_CAPTURE_SCREEN, i18n.capture.entireScreen)
-  const captureWindowItem = makeCaptureMenuItem(ICON_CAPTURE_WINDOW, i18n.capture.currentWindow)
-  const selectElementItem = makeCaptureMenuItem(ICON_SELECT_ELEMENT, i18n.capture.selectElement)
-  const stateCaptureItem = makeCaptureMenuItem(ICON_STATE_CAPTURE, i18n.capture.stateCapture)
   const guidesMenuItem = makeCaptureMenuItem(ICON_GUIDES, i18n.toolbar.guides)
   const outlinesMenuItem = makeCaptureMenuItem(ICON_OUTLINES, i18n.toolbar.outlines)
+  guidesMenuItem.dataset.size = 'lg'
+  outlinesMenuItem.dataset.size = 'lg'
   guidesMenuItem.setAttribute(IGNORE_ATTR, 'true')
   outlinesMenuItem.setAttribute(IGNORE_ATTR, 'true')
 
@@ -774,7 +758,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportCustom.append(viewportCustomGrid, viewportApplyButton)
 
   viewportMenu.append(viewportMode, ...viewportPresetItems, viewportCustom)
-  captureMenu.append(captureEntireScreenItem, captureWindowItem, selectElementItem, stateCaptureItem)
   moreMenu.append(guidesMenuItem, outlinesMenuItem)
 
   const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
@@ -784,7 +767,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   exitBtn.classList.add('ei-toolbar-extra')
 
   toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, screenshotGroup, changesBtn, moreBtn, toolbarDivider, exitBtn)
-  root.append(viewportMenu, captureMenu, moreMenu, outputDetailMenu)
+  root.append(viewportMenu, moreMenu, outputDetailMenu)
 
   // Panel
   const panel = el('div', 'ei-panel')
@@ -839,7 +822,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const body = el('div', 'ei-body')
   panel.append(dragHandle, header, changesSummaryBar, body)
 
-  root.append(styleEl, highlight, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
+  root.append(styleEl, highlight, designQuickBar, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, panel, markersContainer, toolbar)
   document.body.appendChild(root)
 
   // --- Helpers ---
@@ -2842,6 +2825,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     unlockBtn.style.display = 'none'
     changesCloseBtn.style.display = 'inline-flex'
     changesCloseBtn.onclick = () => setMode('off')
+    hideDesignQuickBar()
     setPanelVisible(false)
     setHighlightVisible(false)
   }
@@ -3001,6 +2985,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
     if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info) {
       clearGapOverlay()
+      hideDesignQuickBar()
       setHighlightVisible(false)
       // Remove hover highlight class from previous element in outlines mode
       if (outlinesHoverElement) {
@@ -3150,6 +3135,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     setHighlightVisible(true)
+    updateDesignQuickBar(info)
   }
 
   function buildSection(name: 'typography' | 'box' | 'layout', active: boolean): HTMLDivElement {
@@ -3551,6 +3537,148 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     button.innerHTML = `<img src="${iconUrl}" alt="" />`
     return button
   }
+
+  function createDesignQuickBarButton(label: string, icon: string, active = false): HTMLButtonElement {
+    const button = el('button', 'ei-design-quick-bar-btn') as HTMLButtonElement
+    button.type = 'button'
+    button.title = label
+    button.setAttribute('aria-label', label)
+    button.setAttribute(IGNORE_ATTR, 'true')
+    button.innerHTML = icon
+    const tip = el('span', 'ei-toolbar-tip', label)
+    tip.setAttribute(IGNORE_ATTR, 'true')
+    button.appendChild(tip)
+    if (active) button.dataset.active = 'true'
+    return button
+  }
+
+  function hideDesignQuickBar(): void {
+    designQuickBar.dataset.visible = 'false'
+  }
+
+  function positionDesignQuickBar(info: InspectorInfo): void {
+    const barRect = designQuickBar.getBoundingClientRect()
+    const gap = 12
+    let left = info.rect.left + info.rect.width / 2 - barRect.width / 2
+    let top = info.rect.top - barRect.height - gap
+
+    if (top < 8) top = info.rect.top + info.rect.height + gap
+    if (left + barRect.width > window.innerWidth - 8) left = window.innerWidth - barRect.width - 8
+    if (left < 8) left = 8
+    if (top + barRect.height > window.innerHeight - 8) top = window.innerHeight - barRect.height - 8
+    if (top < 8) top = 8
+
+    designQuickBar.style.left = `${Math.round(left)}px`
+    designQuickBar.style.top = `${Math.round(top)}px`
+  }
+
+  function updateDesignQuickBar(info: InspectorInfo | null): void {
+    if (currentMode !== 'design' || !lockedElement || !info || lockedElement !== info.element) {
+      hideDesignQuickBar()
+      return
+    }
+    designQuickBar.dataset.visible = 'true'
+    positionDesignQuickBar(info)
+  }
+
+  function refreshDesignQuickBar(): void {
+    if (!lockedElement || currentMode !== 'design') {
+      hideDesignQuickBar()
+      return
+    }
+    updateDesignQuickBar(extractInspectorInfo(lockedElement))
+  }
+
+  function clearSelectedElementCapture(): void {
+    captureMenuMode = null
+    highlight.style.display = 'none'
+    tooltip.style.display = 'none'
+  }
+
+  async function captureElementImageBlob(target: HTMLElement): Promise<Blob> {
+    const captureVisibleTab = options.viewportController?.captureVisibleTab
+    if (!captureVisibleTab) {
+      throw new Error(i18n.design.screenshotUnsupported)
+    }
+
+    const dataUrl = await captureVisibleTab()
+    if (!dataUrl) throw new Error(i18n.design.screenshotBridgeUnavailable)
+
+    const screenshotImage = new Image()
+    screenshotImage.src = dataUrl
+    await new Promise<void>((resolve, reject) => {
+      screenshotImage.onload = () => resolve()
+      screenshotImage.onerror = () => reject(new Error(i18n.capture.unknownError))
+    })
+
+    const rect = target.getBoundingClientRect()
+    const scaleX = screenshotImage.width / window.innerWidth
+    const scaleY = screenshotImage.height / window.innerHeight
+    const cropX = Math.max(0, Math.round(rect.left * scaleX))
+    const cropY = Math.max(0, Math.round(rect.top * scaleY))
+    const cropWidth = Math.max(1, Math.min(screenshotImage.width - cropX, Math.round(rect.width * scaleX)))
+    const cropHeight = Math.max(1, Math.min(screenshotImage.height - cropY, Math.round(rect.height * scaleY)))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = cropWidth
+    canvas.height = cropHeight
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error(i18n.capture.unknownError)
+    context.drawImage(screenshotImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
+
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => {
+        if (value) resolve(value)
+        else reject(new Error(i18n.capture.unknownError))
+      }, 'image/png')
+    })
+  }
+
+  async function captureElementToFigma(target: HTMLElement): Promise<void> {
+    clearSelectedElementCapture()
+
+    try {
+      showToast(i18n.design.capturingCopyToFigma, 'info')
+      const blob = await captureElementImageBlob(target)
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ])
+      showToast(i18n.design.copiedToFigma, 'success')
+    } catch (error) {
+      console.error('[Elens] Copy to Figma failed:', error)
+      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+    }
+  }
+
+  async function captureElementScreenshot(target: HTMLElement): Promise<void> {
+    clearSelectedElementCapture()
+
+    try {
+      showToast(i18n.design.capturingScreenshot, 'info')
+      const blob = await captureElementImageBlob(target)
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ])
+      showToast(i18n.design.screenshotSaved, 'success')
+    } catch (error) {
+      console.error('[Elens] Screenshot capture failed:', error)
+      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+    }
+  }
+
+  const quickCopyToFigmaBtn = createDesignQuickBarButton(i18n.design.quickCopyToFigma, DESIGN_QUICK_FIGMA_ICON)
+  quickCopyToFigmaBtn.addEventListener('click', () => {
+    if (!lockedElement) return
+    void captureElementToFigma(lockedElement)
+  })
+
+  const quickScreenshotBtn = createDesignQuickBarButton(i18n.design.quickScreenshot, DESIGN_QUICK_CAMERA_ICON)
+  quickScreenshotBtn.addEventListener('click', () => {
+    if (!lockedElement) return
+    void captureElementScreenshot(lockedElement)
+  })
+
+  designQuickBar.append(quickCopyToFigmaBtn, quickScreenshotBtn)
 
   function createDesignModeSegmentButton(label: string, icon: string, active: boolean, iconKind: 'design' | 'code'): HTMLButtonElement {
     const button = el('button', 'ei-tab ei-design-mode-tab') as HTMLButtonElement
@@ -5259,14 +5387,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     viewportMenu.style.display = 'block'
     syncViewportMenu()
     positionViewportMenu()
-    viewportDropdownBtn.style.background = 'var(--surface-active)'
+    viewportBtn.dataset.active = 'true'
   }
 
   function closeViewportMenu(): void {
     if (!viewportMenuOpen) return
     viewportMenuOpen = false
     viewportMenu.style.display = 'none'
-    viewportDropdownBtn.style.background = ''
+    delete viewportBtn.dataset.active
   }
 
   function toggleViewportMenu(): void {
@@ -5431,6 +5559,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     finishInlineTextEdit(true)
     resetDesignTracker()
     cancelMoveDrag()
+    hideDesignQuickBar()
     lockedElement = null
     panelAnchor = null
     panelPosition = null
@@ -5449,14 +5578,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 10px 20px;
-      border-radius: 20px;
-      background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--surface-panel)'};
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: ${type === 'error' ? 'var(--danger)' : 'var(--surface-panel)'};
       color: var(--overlay-label-text);
-      font-size: 13px;
+      font-size: 11px;
       font-weight: var(--font-medium);
+      line-height: 1;
       z-index: ${theme.config.zIndex + 10};
-      border: 1px solid ${type === 'error' ? 'var(--danger-bg)' : type === 'success' ? 'var(--success-bg)' : 'var(--border-default)'};
+      border: 1px solid ${type === 'error' ? 'var(--danger-bg)' : 'var(--border-default)'};
       box-shadow: var(--shadow-dropdown);
       pointer-events: none;
       opacity: 0;
@@ -5490,6 +5623,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     finishInlineTextEdit(true)
     window.removeEventListener('resize', syncMarkersPosition)
     window.removeEventListener('scroll', syncMarkersPosition, true)
+    hideTooltip()
+    hideDesignQuickBar()
     setMode('off')
     destroyed = true
     if (rafId != null) {
@@ -5588,36 +5723,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   // --- Capture Dropdown Menu ---
-  let isCaptureMenuOpen = false
   let captureMenuMode: 'entire' | 'window' | 'element' | 'state' | null = null
   let stateCaptureElement: HTMLElement | null = null
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-
-  function positionCaptureMenu(): void {
-    const rect = screenshotGroup.getBoundingClientRect()
-    captureMenu.style.left = `${rect.left}px`
-    captureMenu.style.top = `${rect.top - captureMenu.offsetHeight - 8}px`
-  }
-
-  function openCaptureMenu(): void {
-    if (isCaptureMenuOpen) return
-    isCaptureMenuOpen = true
-    captureMenu.style.display = 'block'
-    positionCaptureMenu()
-    screenshotDropdownBtn.style.background = 'var(--surface-active)'
-  }
-
-  function closeCaptureMenu(): void {
-    if (!isCaptureMenuOpen) return
-    isCaptureMenuOpen = false
-    captureMenu.style.display = 'none'
-    screenshotDropdownBtn.style.background = ''
-  }
-
-  function toggleCaptureMenu(): void {
-    if (isCaptureMenuOpen) closeCaptureMenu()
-    else openCaptureMenu()
-  }
 
   function triggerPrimaryCapture(): void {
     if (captureMenuMode === 'element' || captureMenuMode === 'state') return
@@ -5808,9 +5916,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (viewportMenuOpen && !viewportMenu.contains(target) && !viewportGroup.contains(target)) {
       closeViewportMenu()
     }
-    if (isCaptureMenuOpen && !captureMenu.contains(target) && !screenshotDropdownBtn.contains(target)) {
-      closeCaptureMenu()
-    }
     if (moreMenuOpen && !moreMenu.contains(target) && !moreBtn.contains(target)) {
       closeMoreMenu()
     }
@@ -5822,16 +5927,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // Update window resize handler to reposition menu
   window.addEventListener('resize', () => {
     pinToolbarToBottomCenter()
+    refreshDesignQuickBar()
     if (viewportMenuOpen) positionViewportMenu()
-    if (isCaptureMenuOpen) positionCaptureMenu()
     if (moreMenuOpen) positionMoreMenu()
     if (isOutputDetailMenuOpen) closeOutputDetailMenu()
   })
 
-  viewportBtn.addEventListener('click', () => {
-    void applyDefaultViewportPreset()
-  })
-  viewportDropdownBtn.addEventListener('click', (e) => {
+  viewportBtn.addEventListener('click', (e) => {
     e.stopPropagation()
     toggleViewportMenu()
   })
@@ -5904,26 +6006,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   })
 
   screenshotBtn.addEventListener('click', () => triggerPrimaryCapture())
-  screenshotDropdownBtn.addEventListener('click', (e) => {
-    e.stopPropagation()
-    toggleCaptureMenu()
-  })
-  captureEntireScreenItem.addEventListener('click', () => {
-    closeCaptureMenu()
-    captureEntireScreen()
-  })
-  captureWindowItem.addEventListener('click', () => {
-    closeCaptureMenu()
-    captureWindow()
-  })
-  selectElementItem.addEventListener('click', () => {
-    closeCaptureMenu()
-    startSelectElementCapture()
-  })
-  stateCaptureItem.addEventListener('click', () => {
-    closeCaptureMenu()
-    startStateCapture()
-  })
   toolbar.addEventListener('mousedown', startToolbarDrag)
   copyBtn.addEventListener('click', copyCurrent)
   unlockBtn.addEventListener('click', unlockCurrent)

@@ -278,6 +278,7 @@ pointer-events: none;
 | `--duration-slow` | `150ms` | 慢速过渡 |
 | `--duration-slower` | `160ms` | 更慢过渡 |
 
+
 ### 6.2 缓动函数
 
 | Token | 值 | 用途 |

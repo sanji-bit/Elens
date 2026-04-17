@@ -1587,6 +1587,37 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return changes.find(c => c.element === element && (c.type === 'annotation' || Boolean(c.meta.note?.trim())))
   }
 
+  function canDeleteLockedElement(element: HTMLElement): boolean {
+    if (element === document.documentElement || element === document.body) return false
+    if (element === root || root.contains(element)) return false
+    if (element.closest(`[${IGNORE_ATTR}="true"]`)) return false
+    return true
+  }
+
+  function deleteLockedElement(): void {
+    if (currentMode !== 'design' || !lockedElement || !canDeleteLockedElement(lockedElement)) return
+
+    const element = lockedElement
+    const existingChange = changes.find((change) => change.type === 'delete' && change.element === element)
+
+    if (existingChange) {
+      applyChangeToAfter(existingChange)
+    } else {
+      const comment = 'remove element'
+      const changeId = addChange(element, comment, 'delete', [])
+      const createdChange = changes.find((change) => change.id === changeId)
+      if (createdChange) applyChangeToAfter(createdChange)
+    }
+
+    renderMarkers()
+
+    lockedElement = null
+    currentInfo = null
+    panelAnchor = null
+    panelPosition = null
+    renderForCurrentMode(null)
+  }
+
   function moveElementToIndex(element: HTMLElement, index: number): void {
     const container = element.parentElement
     if (!container) return
@@ -1687,6 +1718,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function hasAnyEnabledDiff(change: Change): boolean {
     if (change.patch.textDiff && isTextDiffEnabled(change.id)) return true
     if (change.patch.moveDiff && isMoveDiffEnabled(change.id)) return true
+    if (change.patch.deleteDiff) return true
     if (change.patch.styleDiffs.some((diff) => isStyleDiffEnabled(change.id, diff.property))) return true
     return false
   }
@@ -1723,6 +1755,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (change.patch.moveDiff && isMoveDiffEnabled(change.id)) {
       moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.toIndex))
     }
+    if (change.patch.deleteDiff) {
+      change.element.dataset.eiDeletedPreview = 'true'
+      change.element.style.setProperty('display', 'none')
+    }
   }
 
   function resetChangeToBefore(change: Change): void {
@@ -1733,6 +1769,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     if (change.patch.moveDiff) {
       moveElementToIndex(change.element, Math.max(0, change.patch.moveDiff.fromIndex))
+    }
+    if (change.patch.deleteDiff) {
+      delete change.element.dataset.eiDeletedPreview
+      change.element.style.removeProperty('display')
     }
   }
 
@@ -1938,7 +1978,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (result.restored === 0) clearPersistedChanges()
   }
 
-  function addChange(element: HTMLElement, comment: string, type: 'annotation' | 'design' | 'move' = 'annotation', diffs?: Change['diffs']): string {
+  function addChange(element: HTMLElement, comment: string, type: Change['type'] = 'annotation', diffs?: Change['diffs']): string {
     changeIdCounter++
     const info = extractInspectorInfo(element)
     const isoTimestamp = new Date().toISOString()
@@ -1956,7 +1996,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       beforeSnapshot: snapshot,
       afterSnapshot: snapshot,
       meta: {
-        sourceMode: type === 'move' ? 'move' : type === 'design' ? 'design' : 'inspector',
+        sourceMode: type === 'annotation'
+          ? 'inspector'
+          : type,
         status: 'confirmed',
         createdAt: isoTimestamp,
         updatedAt: isoTimestamp,
@@ -2212,8 +2254,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const currentRoute = getRoute()
 
-    const typeKey = (change: Change): 'style' | 'text' | 'move' | 'note' => {
+    const typeKey = (change: Change): 'style' | 'text' | 'move' | 'delete' | 'note' => {
       if (change.type === 'move') return 'move'
+      if (change.type === 'delete') return 'delete'
       if (change.type === 'annotation') return 'note'
       return change.patch.textDiff ? 'text' : 'style'
     }
@@ -2223,6 +2266,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       if (key === 'text') return i18n.changes.text
       if (key === 'style') return i18n.changes.style
       if (key === 'move') return i18n.changes.move
+      if (key === 'delete') return i18n.changes.delete
       return i18n.changes.note
     }
 
@@ -2230,7 +2274,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       ? i18n.toolbar.design
       : change.meta.sourceMode === 'move'
         ? i18n.toolbar.move
-        : i18n.toolbar.inspector
+        : change.meta.sourceMode === 'delete'
+          ? i18n.changes.delete
+          : i18n.toolbar.inspector
 
 
     const selectorText = (change: Change): string => change.target?.selector?.primary || change.target?.domPath || change.info.domPath
@@ -2426,6 +2472,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const formatSnapshotValue = (value: string): string => value && value !== '—' ? truncate(value, 32) : '—'
 
     const collectSnapshotRows = (change: Change): Array<{ label: string; before: string; after: string }> => {
+      if (change.patch.deleteDiff) {
+        return [{ label: i18n.changes.existence, before: i18n.changes.present, after: i18n.changes.removed }]
+      }
+
       const rows = [
         { label: i18n.changes.textLabel, before: change.beforeSnapshot.text, after: change.afterSnapshot.text },
         { label: i18n.changes.font, before: change.beforeSnapshot.typography.fontSize, after: change.afterSnapshot.typography.fontSize },
@@ -2455,6 +2505,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
       if (change.patch.moveDiff) {
         lines.push(`position: ${change.patch.moveDiff.fromIndex} → ${change.patch.moveDiff.toIndex}`)
+      }
+
+      if (change.patch.deleteDiff) {
+        lines.push('remove element')
       }
 
       const visibleStyleDiffs = getUserVisibleStyleDiffs(change)
@@ -2508,6 +2562,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           checked,
           muted: !checked,
           onToggle: (enabled) => setMoveDiffEnabled(change, enabled),
+        })
+      }
+
+      if (change.patch.deleteDiff) {
+        rows.push({
+          property: i18n.changes.existence,
+          value: i18n.changes.removed,
+          checked: !beforePreviewChangeIds.has(change.id),
+          muted: beforePreviewChangeIds.has(change.id),
+          onToggle: (enabled) => {
+            setAllDiffsEnabled(change, enabled)
+            syncChangePreviewFromEnabledState(change)
+          },
         })
       }
 
@@ -4485,6 +4552,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     if (!isInteractiveMode()) return
+
+    if (!hasModifierKey && lockedElement && (event.key === 'Delete' || event.key === 'Backspace')) {
+      if (currentMode === 'design') {
+        event.preventDefault()
+        event.stopPropagation()
+        deleteLockedElement()
+        return
+      }
+    }
 
     // H key to lock hover state in Design mode
     if (event.key === 'h' || event.key === 'H') {

@@ -156,8 +156,10 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-toolbar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--shadow-inset); pointer-events: none; }
 .ei-toolbar[data-expanded="false"] { padding: var(--space-3); gap: 0; }
 .ei-toolbar[data-expanded="false"] .ei-toolbar-extra { display: none; }
-.ei-toolbar-btn { width: var(--btn-icon-size); height: var(--btn-icon-size); border-radius: var(--radius-full); border: 0; background: transparent; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; transition: background var(--duration-slow) var(--ease-default); position: relative; }
+.ei-toolbar-btn { width: var(--btn-icon-size); height: var(--btn-icon-size); border-radius: var(--radius-full); border: 0; outline: none; background: transparent; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; transition: background var(--duration-slow) var(--ease-default); position: relative; }
 .ei-toolbar-btn:hover { background: var(--surface-hover-strong); }
+.ei-toolbar-btn:focus,
+.ei-toolbar-btn:focus-visible { outline: none; box-shadow: none; }
 .ei-toolbar-btn:hover .ei-toolbar-tip { opacity: 1; }
 .ei-toolbar-btn[data-active="true"] { background: var(--interactive-accent); color: var(--overlay-label-text); }
 .ei-toolbar-btn[data-active="true"]:hover { background: var(--interactive-accent); }

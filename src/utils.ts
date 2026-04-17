@@ -532,6 +532,11 @@ export function buildChangePatch(type: Change['type'], diffs?: StyleDiff[], comm
         toIndex: Number(moveMatch[2]),
       },
     } : {}),
+    ...(type === 'delete' ? {
+      deleteDiff: {
+        action: 'delete' as const,
+      },
+    } : {}),
   }
 }
 
@@ -616,6 +621,10 @@ function buildMarkdownSection(lines: string[], a: Change, detail: OutputDetail):
     lines.push(`- **Move**: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
   }
 
+  if (a.patch.deleteDiff) {
+    lines.push(`- **Delete**: remove this element from the source structure`)
+  }
+
   if (a.patch.styleDiffs.length > 0) {
     lines.push(`- **Style changes**:`)
     for (const d of a.patch.styleDiffs) {
@@ -623,7 +632,7 @@ function buildMarkdownSection(lines: string[], a: Change, detail: OutputDetail):
     }
   }
 
-  if (!a.patch.textDiff && !a.patch.moveDiff && a.patch.styleDiffs.length === 0) {
+  if (!a.patch.textDiff && !a.patch.moveDiff && !a.patch.deleteDiff && a.patch.styleDiffs.length === 0) {
     lines.push(`- **Size**: ${info.boxModel.width} × ${info.boxModel.height}`)
     if (detail !== 'compact') {
       lines.push(`- **Font**: ${info.typography.fontSize} / ${info.typography.fontWeight} ${info.typography.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '')}`)
@@ -705,6 +714,7 @@ function toBaseChange(entry: ExportChangeEntry, index: number) {
       })),
       ...(change.patch.textDiff ? { textDiff: change.patch.textDiff } : {}),
       ...(change.patch.moveDiff ? { moveDiff: change.patch.moveDiff } : {}),
+      ...(change.patch.deleteDiff ? { deleteDiff: change.patch.deleteDiff } : {}),
     },
   }
 }
@@ -810,7 +820,7 @@ export function buildAIPayload(changes: Change[], detail: OutputDetail = 'detail
     '- target.locatorHints: best terms to search in the codebase, text anchors, attribute anchors, component hints, and locator confidence.',
     '- target.identity/context: element identity, nearby text, parent tag, and sibling context for verification.',
     '- scope: when present, apply the change as a selector/matching rule instead of a fixed instance count. Matching peer layers can include the same child layer inside repeated parent cards.',
-    '- patch: the exact style/text/move change.',
+    '- patch: the exact style/text/move/delete change.',
     '- beforeSnapshot/afterSnapshot: high-level visual state before and after the edit.',
     '',
     'Instructions:',

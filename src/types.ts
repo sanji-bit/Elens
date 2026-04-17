@@ -142,10 +142,15 @@ export type MoveDiff = {
   toIndex: number
 }
 
+export type DeleteDiff = {
+  action: 'delete'
+}
+
 export type ChangePatch = {
   styleDiffs: StyleDiff[]
   textDiff?: TextDiff
   moveDiff?: MoveDiff
+  deleteDiff?: DeleteDiff
 }
 
 export type ChangeSnapshot = {
@@ -180,7 +185,7 @@ export type ChangeSnapshot = {
 }
 
 export type ChangeMeta = {
-  sourceMode: 'inspector' | 'design' | 'move'
+  sourceMode: 'inspector' | 'design' | 'move' | 'delete'
   status: 'confirmed'
   createdAt: string
   updatedAt: string
@@ -196,7 +201,7 @@ export type OutputDetail = 'compact' | 'standard' | 'detailed' | 'forensic'
 
 export type Change = {
   id: string
-  type: 'annotation' | 'design' | 'move'
+  type: 'annotation' | 'design' | 'move' | 'delete'
   element: HTMLElement
   info: InspectorInfo
   comment: string

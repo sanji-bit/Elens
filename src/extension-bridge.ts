@@ -1,10 +1,10 @@
-import type { ViewportController, WindowBounds } from './types'
+import type { ClipboardContent, ViewportController, WindowBounds } from './types'
 
 const REQUEST_SOURCE = 'elens'
 const RESPONSE_SOURCE = 'elens-extension'
-const REQUEST_TIMEOUT = 2000
+const REQUEST_TIMEOUT = 15000
 
-type BridgeRequestType = 'ELENS_SET_VIEWPORT_SIZE' | 'ELENS_GET_VIEWPORT_SIZE' | 'ELENS_SET_WINDOW_BOUNDS' | 'ELENS_GET_WINDOW_BOUNDS' | 'ELENS_CAPTURE_VISIBLE_TAB'
+type BridgeRequestType = 'ELENS_SET_VIEWPORT_SIZE' | 'ELENS_GET_VIEWPORT_SIZE' | 'ELENS_SET_WINDOW_BOUNDS' | 'ELENS_GET_WINDOW_BOUNDS' | 'ELENS_CAPTURE_VISIBLE_TAB' | 'ELENS_WRITE_CLIPBOARD' | 'ELENS_PAGE_CAPTURE'
 
 type BridgeResponse<T> = {
   ok: boolean
@@ -17,6 +17,9 @@ type BridgeMessage = {
   id: string
   type: BridgeRequestType
   bounds?: WindowBounds
+  clipboard?: ClipboardContent
+  selector?: string
+  scroll?: boolean
 }
 
 type BridgeResponseMessage<T> = {
@@ -33,7 +36,7 @@ function isBridgeResponse<T>(value: unknown, id: string): value is BridgeRespons
   return message.source === RESPONSE_SOURCE && message.id === id
 }
 
-function requestExtension<T>(type: BridgeRequestType, bounds?: WindowBounds): Promise<BridgeResponse<T>> {
+function requestExtension<T>(type: BridgeRequestType, options: { bounds?: WindowBounds; clipboard?: ClipboardContent; selector?: string; scroll?: boolean } = {}): Promise<BridgeResponse<T>> {
   return new Promise((resolve) => {
     const id = `elens-${Date.now()}-${Math.random().toString(16).slice(2)}`
     const timeout = window.setTimeout(() => {
@@ -49,7 +52,7 @@ function requestExtension<T>(type: BridgeRequestType, bounds?: WindowBounds): Pr
     }
 
     window.addEventListener('message', onMessage)
-    window.postMessage({ source: REQUEST_SOURCE, id, type, bounds } satisfies BridgeMessage, '*')
+    window.postMessage({ source: REQUEST_SOURCE, id, type, bounds: options.bounds, clipboard: options.clipboard, selector: options.selector, scroll: options.scroll } satisfies BridgeMessage, '*')
   })
 }
 
@@ -59,9 +62,11 @@ export function createChromeExtensionViewportController(): ViewportController {
       resizeViewport: true,
       resizeWindow: true,
       moveWindow: true,
+      writeClipboard: true,
+      captureForDesign: true,
     },
     async setViewportSize(width, height) {
-      const response = await requestExtension<{ width: number; height: number }>('ELENS_SET_VIEWPORT_SIZE', { width, height })
+      const response = await requestExtension<{ width: number; height: number }>('ELENS_SET_VIEWPORT_SIZE', { bounds: { width, height } })
       return response.ok
     },
     async getViewportSize() {
@@ -69,7 +74,7 @@ export function createChromeExtensionViewportController(): ViewportController {
       return response.ok ? response.result ?? null : null
     },
     async setWindowBounds(bounds) {
-      const response = await requestExtension<WindowBounds>('ELENS_SET_WINDOW_BOUNDS', bounds)
+      const response = await requestExtension<WindowBounds>('ELENS_SET_WINDOW_BOUNDS', { bounds })
       return response.ok
     },
     async getWindowBounds() {
@@ -82,6 +87,20 @@ export function createChromeExtensionViewportController(): ViewportController {
         throw new Error(response.error || '截图桥接不可用，请刷新扩展后重试')
       }
       return response.result ?? null
+    },
+    async writeClipboard(content) {
+      const response = await requestExtension<void>('ELENS_WRITE_CLIPBOARD', { clipboard: content })
+      if (!response.ok) {
+        throw new Error(response.error || '剪贴板桥接不可用，请刷新扩展后重试')
+      }
+      return true
+    },
+    async captureForDesign(selector, options) {
+      const response = await requestExtension<unknown>('ELENS_PAGE_CAPTURE', { selector, scroll: options?.scroll })
+      if (!response.ok) {
+        throw new Error(response.error || '页面捕获桥接不可用，请刷新扩展后重试')
+      }
+      return response.result
     },
   }
 }

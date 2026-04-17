@@ -3,7 +3,7 @@
   "name": "Elens",
   "version": "0.0.1",
   "description": "Elens inspector for Chrome pages",
-  "permissions": ["windows", "activeTab", "tabs"],
+  "permissions": ["windows", "activeTab", "tabs", "clipboardWrite", "offscreen"],
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -23,16 +23,24 @@
   "background": {
     "service_worker": "background.js"
   },
+  "offscreen_documents": [
+    {
+      "matches": ["<all_urls>"],
+      "html": "offscreen.html",
+      "reason": "CLIPBOARD",
+      "justification": "Write clipboard data for Figma capture and copy actions from the extension context"
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js", "inspector.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*"],
+      "resources": ["inspector.js", "assets/*"],
       "matches": ["<all_urls>"]
     }
   ]

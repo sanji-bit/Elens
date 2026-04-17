@@ -161,7 +161,8 @@ const CHANGES_DOWNLOAD_URL = new URL('./assets/changes-download.svg', import.met
 const DESIGN_SELECT_MATCHING_LAYERS_URL = new URL('./assets/design-select-matching-layers.svg', import.meta.url).href
 const DESIGN_DEV_MODE_URL = new URL('./assets/design-dev-mode.svg', import.meta.url).href
 const DESIGN_RESET_URL = new URL('./assets/design-reset.svg', import.meta.url).href
-const CAPTURE_SCRIPT_URL = new URL('./assets/capture.js', import.meta.url).href
+const CAPTURE_SCRIPT_FALLBACK_URL = new URL('./assets/capture.js', import.meta.url).href
+const CAPTURE_SCRIPT_REMOTE_URL = 'https://mcp.figma.com/mcp/html-to-design/capture.js'
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
 const CHANGES_HOVER_COPY_SUCCESS_ICON = `<img src="${CHANGES_HOVER_COPY_SUCCESS_URL}" alt="" />`
@@ -2780,8 +2781,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             const singleCopyBtn = iconButton(CHANGES_HOVER_COPY_ICON, i18n.actions.copyAI)
             singleCopyBtn.addEventListener('click', async (e) => {
               e.stopPropagation()
-              await navigator.clipboard.writeText(buildEntryAIPayload(entry))
-              setActionCopied(singleCopyBtn)
+              try {
+                await writeClipboardText(buildEntryAIPayload(entry))
+                setActionCopied(singleCopyBtn)
+              } catch (error) {
+                console.error('[Elens] Copy entry AI failed:', error)
+                showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+              }
             })
 
             const closeBtn = iconButton(CHANGES_HOVER_DELETE_ICON, i18n.actions.delete, 'ei-ann-action is-danger')
@@ -2848,9 +2854,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     copyAIBtn.type = 'button'
     copyAIBtn.setAttribute(IGNORE_ATTR, 'true')
     copyAIBtn.addEventListener('click', async () => {
-      await navigator.clipboard.writeText(buildAIPayload(changes, outputDetail))
-      copyAIBtn.textContent = i18n.actions.copied
-      setTimeout(() => { copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})` }, 1500)
+      try {
+        await writeClipboardText(buildAIPayload(changes, outputDetail))
+        copyAIBtn.textContent = i18n.actions.copied
+        setTimeout(() => { copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})` }, 1500)
+      } catch (error) {
+        console.error('[Elens] Copy AI failed:', error)
+        showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+      }
     })
 
     const copyJSONBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-dropdown') as HTMLButtonElement
@@ -3704,15 +3715,49 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
   }
 
+  async function blobToDataUrl(blob: Blob): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error(i18n.capture.unknownError))
+      reader.onerror = () => reject(reader.error ?? new Error(i18n.capture.unknownError))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  async function writeClipboardText(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      if (options.viewportController?.writeClipboard) {
+        await options.viewportController.writeClipboard({ text })
+        return
+      }
+      throw new Error('Clipboard write failed')
+    }
+  }
+
+  async function writeClipboardImage(blob: Blob): Promise<void> {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob }),
+      ])
+      return
+    } catch {
+      if (options.viewportController?.writeClipboard) {
+        await options.viewportController.writeClipboard({ imageDataUrl: await blobToDataUrl(blob) })
+        return
+      }
+      throw new Error('Clipboard image write failed')
+    }
+  }
+
   async function captureElementToFigma(target: HTMLElement): Promise<void> {
     clearSelectedElementCapture()
 
     try {
       showToast(i18n.design.capturingCopyToFigma, 'info')
-      const blob = await captureElementImageBlob(target)
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ])
+      await performCapture(buildDomPath(target), { scroll: false })
       showToast(i18n.design.copiedToFigma, 'success')
     } catch (error) {
       console.error('[Elens] Copy to Figma failed:', error)
@@ -3726,9 +3771,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     try {
       showToast(i18n.design.capturingScreenshot, 'info')
       const blob = await captureElementImageBlob(target)
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ])
+      await writeClipboardImage(blob)
       showToast(i18n.design.screenshotSaved, 'success')
     } catch (error) {
       console.error('[Elens] Screenshot capture failed:', error)
@@ -4657,7 +4700,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   async function copyCurrent(): Promise<void> {
     if (!currentInfo) return
     try {
-      await navigator.clipboard.writeText(buildCopyText(currentInfo))
+      await writeClipboardText(buildCopyText(currentInfo))
     } catch (error) {
       console.error('Failed to copy element inspector data', error)
     }
@@ -5969,20 +6012,34 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     state?: string
   }
 
-  async function performCapture(selector: string, options: CaptureOptions): Promise<void> {
+  async function performCapture(selector: string, captureOptions: CaptureOptions): Promise<void> {
     try {
+      if (options.viewportController?.captureForDesign) {
+        const result = await options.viewportController.captureForDesign(selector, { scroll: captureOptions.scroll })
+        console.log('[Elens] Capture result:', result)
+        showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
+        return
+      }
+
       // 1) 注入 capture.js
       if (!window.figma?.captureForDesign) {
-        const r = await fetch(CAPTURE_SCRIPT_URL)
-        const s = await r.text()
+        let scriptText = ''
+        try {
+          const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
+          if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
+          scriptText = await response.text()
+        } catch {
+          const response = await fetch(CAPTURE_SCRIPT_FALLBACK_URL)
+          scriptText = await response.text()
+        }
         const el_script = document.createElement('script')
-        el_script.textContent = s
+        el_script.textContent = scriptText
         document.head.appendChild(el_script)
         await sleep(1200)
       }
 
       // 2) 如果需要滚动，触发懒加载
-      if (options.scroll) {
+      if (captureOptions.scroll) {
         const step = Math.max(400, Math.floor(window.innerHeight * 0.8))
         for (let y = 0; y < document.body.scrollHeight; y += step) {
           window.scrollTo(0, y)
@@ -6004,11 +6061,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       if (document.fonts?.ready) await Promise.race([document.fonts.ready, sleep(3000)])
       await sleep(500)
 
-      // 4) 执行抓取
+      // 4) 复制模式抓取
       const result = await window.figma?.captureForDesign({ selector })
-
-      showToast(options.state ? `${options.state} state captured!` : i18n.capture.captured, 'success')
       console.log('[Elens] Capture result:', result)
+      showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
+      return
     } catch (error) {
       console.error('[Elens] Capture failed:', error)
       showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')

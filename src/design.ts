@@ -650,7 +650,12 @@ type SizeFieldOptions = {
   onChange: () => void
 }
 
-function createSizeField(options: SizeFieldOptions): HTMLDivElement {
+type SizeFieldHandle = {
+  container: HTMLDivElement
+  syncDisplayedSize: () => void
+}
+
+function createSizeField(options: SizeFieldOptions): SizeFieldHandle {
   const { icon, dimension, value, element, tracker, onChange } = options
 
   const wrap = el('div', 'ei-dp-size-field')
@@ -673,6 +678,12 @@ function createSizeField(options: SizeFieldOptions): HTMLDivElement {
   const modeLabel = el('span', 'ei-dp-size-mode', SIZING_LABELS[currentMode])
   modeLabel.setAttribute(IGNORE_ATTR, 'true')
 
+  const syncDisplayedSize = (): void => {
+    if (currentMode === 'fixed') return
+    const rect = element.getBoundingClientRect()
+    input.value = String(Math.round(dimension === 'width' ? rect.width : rect.height))
+  }
+
   const trigger = el('div', 'ei-dp-size-trigger')
   trigger.setAttribute(IGNORE_ATTR, 'true')
   trigger.appendChild(modeLabel)
@@ -688,17 +699,10 @@ function createSizeField(options: SizeFieldOptions): HTMLDivElement {
         input.value = String(px)
       } else if (mode === 'hug') {
         tracker.apply(dimension, 'fit-content')
-        // Update input to reflect new computed size
-        requestAnimationFrame(() => {
-          const rect = element.getBoundingClientRect()
-          input.value = String(Math.round(dimension === 'width' ? rect.width : rect.height))
-        })
+        requestAnimationFrame(syncDisplayedSize)
       } else if (mode === 'fill') {
         tracker.apply(dimension, '100%')
-        requestAnimationFrame(() => {
-          const rect = element.getBoundingClientRect()
-          input.value = String(Math.round(dimension === 'width' ? rect.width : rect.height))
-        })
+        requestAnimationFrame(syncDisplayedSize)
       }
       onChange()
     })
@@ -706,7 +710,10 @@ function createSizeField(options: SizeFieldOptions): HTMLDivElement {
 
   wrap.append(iconEl, input, trigger)
   wrap.addEventListener('click', () => input.focus())
-  return wrap
+  return {
+    container: wrap,
+    syncDisplayedSize: () => requestAnimationFrame(syncDisplayedSize),
+  }
 }
 
 let activeDropdown: HTMLDivElement | null = null
@@ -3025,45 +3032,139 @@ function createVerticalAlignButtons(value: string, onChange: (value: string) => 
 
 // --- Line Height Field ---
 
-function createLineHeightField(value: number, onChange: (value: number) => void): HTMLDivElement {
+function formatLineHeightInput(value: string, _fontSize: string): string {
+  if (!value || value === 'normal') return '100%'
+  if (value.endsWith('px')) return String(Math.round(parseFloat(value)))
+  if (value.endsWith('%')) return `${Math.round(parseFloat(value))}%`
+
+  const numeric = parseFloat(value)
+  if (Number.isFinite(numeric)) return `${Math.round(numeric * 100)}%`
+
+  return '100%'
+}
+
+function parseLineHeightInput(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  if (trimmed.endsWith('%')) {
+    const numeric = parseFloat(trimmed.slice(0, -1))
+    if (!Number.isFinite(numeric) || numeric < 0) return null
+    return `${numeric}%`
+  }
+
+  const numeric = parseFloat(trimmed)
+  if (!Number.isFinite(numeric) || numeric < 0) return null
+  return `${numeric}px`
+}
+
+function createLineHeightField(value: string, onChange: (value: string) => void): HTMLDivElement {
   const wrap = el('div', 'ei-dp-field ei-dp-field-line-height')
   const iconEl = el('div', 'ei-dp-field-icon')
   iconEl.innerHTML = FIELD_ICONS.lineHeight ?? ''
 
-  const input = createNumberInput({
-    value,
-    min: 0,
-    step: 1,
-    onChange,
-  })
+  const input = document.createElement('input')
+  input.type = 'text'
   input.className = 'ei-dp-field-input'
+  input.value = value
+  input.setAttribute(IGNORE_ATTR, 'true')
 
-  const suffix = el('div', 'ei-dp-field-suffix', '%')
+  let lastCommitted = value
 
-  wrap.append(iconEl, input, suffix)
+  function commit(raw: string): void {
+    const normalized = parseLineHeightInput(raw)
+    if (!normalized) {
+      input.value = lastCommitted
+      return
+    }
+    lastCommitted = formatLineHeightInput(normalized, '16px')
+    input.value = lastCommitted
+    onChange(normalized)
+  }
+
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit(input.value)
+      input.blur()
+    }
+  })
+
+  input.addEventListener('blur', () => {
+    commit(input.value)
+  })
+
+  wrap.append(iconEl, input)
   wrap.addEventListener('click', () => input.focus())
   return wrap
 }
 
 // --- Letter Spacing Field ---
 
-function createLetterSpacingField(value: number, onChange: (value: number) => void): HTMLDivElement {
+function formatLetterSpacingInput(value: string, fontSize: string): string {
+  if (!value || value === 'normal') return '0%'
+  if (value.endsWith('%')) return `${Math.round(parseFloat(value))}%`
+  if (value.endsWith('em')) return `${Math.round(parseFloat(value) * 100)}%`
+  if (value.endsWith('px')) {
+    const fontSizePx = parsePxValue(fontSize) || 16
+    return `${Math.round((parseFloat(value) / fontSizePx) * 100)}%`
+  }
+
+  const numeric = parseFloat(value)
+  if (Number.isFinite(numeric)) return `${Math.round(numeric * 100)}%`
+  return '0%'
+}
+
+function parseLetterSpacingInput(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.endsWith('%')) {
+    const numeric = parseFloat(trimmed.slice(0, -1))
+    if (!Number.isFinite(numeric)) return null
+    return `${numeric}%`
+  }
+  return null
+}
+
+function createLetterSpacingField(value: string, onChange: (value: string) => void): HTMLDivElement {
   const wrap = el('div', 'ei-dp-field ei-dp-field-letter-spacing')
   const iconEl = el('div', 'ei-dp-field-icon')
   iconEl.innerHTML = FIELD_ICONS.letterSpacing ?? ''
 
-  const input = createNumberInput({
-    value,
-    min: -100,
-    max: 100,
-    step: 0.01,
-    onChange,
-  })
+  const input = document.createElement('input')
+  input.type = 'text'
   input.className = 'ei-dp-field-input'
+  input.value = value
+  input.setAttribute(IGNORE_ATTR, 'true')
 
-  const suffix = el('div', 'ei-dp-field-suffix', 'em')
+  let lastCommitted = value
 
-  wrap.append(iconEl, input, suffix)
+  function commit(raw: string): void {
+    const normalized = parseLetterSpacingInput(raw)
+    if (!normalized) {
+      input.value = lastCommitted
+      return
+    }
+    lastCommitted = formatLetterSpacingInput(normalized, '16px')
+    input.value = lastCommitted
+    onChange(normalized)
+  }
+
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit(input.value)
+      input.blur()
+    }
+  })
+
+  input.addEventListener('blur', () => {
+    commit(input.value)
+  })
+
+  wrap.append(iconEl, input)
   wrap.addEventListener('click', () => input.focus())
   return wrap
 }
@@ -3867,6 +3968,17 @@ export function buildDesignPanel(
   closePosDropdown()
   closeFillPopover()
   const container = el('div', 'ei-dp')
+  const sizeFieldSyncers: Array<() => void> = []
+  const notifyStyleChange = (): void => {
+    callbacks.onStyleChange()
+    sizeFieldSyncers.forEach(sync => sync())
+  }
+  const createSizeFields = (): [HTMLDivElement, HTMLDivElement] => {
+    const widthField = createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, onChange: notifyStyleChange })
+    const heightField = createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, onChange: notifyStyleChange })
+    sizeFieldSyncers.push(widthField.syncDisplayedSize, heightField.syncDisplayedSize)
+    return [widthField.container, heightField.container]
+  }
 
   // --- Text Content Section (for text elements) ---
   const originalText = info.text || ''
@@ -3930,7 +4042,7 @@ export function buildDesignPanel(
         }
         element.textContent = newText
         callbacks.onTextChange(originalText, newText)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       } else if (isModified) {
         isModified = false
         restoreBtn.style.display = 'none'
@@ -3950,7 +4062,7 @@ export function buildDesignPanel(
       restoreBtn.style.display = 'none'
       adjustHeight()
       callbacks.onTextChange(textInput.value, originalText) // Revert to original
-      callbacks.onStyleChange()
+      notifyStyleChange()
     })
   }
 
@@ -4031,14 +4143,20 @@ export function buildDesignPanel(
         iconHtml: PADDING_ICONS.left,
         value: parsePxValue(info.boxModel.padding.left),
         min: 0,
-        onChange: (v) => tracker.apply('padding-left', `${v}px`),
+        onChange: (v) => {
+          tracker.apply('padding-left', `${v}px`)
+          notifyStyleChange()
+        },
       }),
       createLabeledField({
         icon: '',
         iconHtml: PADDING_ICONS.top,
         value: parsePxValue(info.boxModel.padding.top),
         min: 0,
-        onChange: (v) => tracker.apply('padding-top', `${v}px`),
+        onChange: (v) => {
+          tracker.apply('padding-top', `${v}px`)
+          notifyStyleChange()
+        },
       }),
     ))
     target.appendChild(grid(
@@ -4047,14 +4165,20 @@ export function buildDesignPanel(
         iconHtml: PADDING_ICONS.right,
         value: parsePxValue(info.boxModel.padding.right),
         min: 0,
-        onChange: (v) => tracker.apply('padding-right', `${v}px`),
+        onChange: (v) => {
+          tracker.apply('padding-right', `${v}px`)
+          notifyStyleChange()
+        },
       }),
       createLabeledField({
         icon: '',
         iconHtml: PADDING_ICONS.bottom,
         value: parsePxValue(info.boxModel.padding.bottom),
         min: 0,
-        onChange: (v) => tracker.apply('padding-bottom', `${v}px`),
+        onChange: (v) => {
+          tracker.apply('padding-bottom', `${v}px`)
+          notifyStyleChange()
+        },
       }),
     ))
   }
@@ -4122,10 +4246,7 @@ export function buildDesignPanel(
       layoutSec.content.appendChild(dirBtns)
     }
 
-    layoutSec.content.appendChild(grid(
-      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, onChange: callbacks.onStyleChange }),
-      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, onChange: callbacks.onStyleChange }),
-    ))
+    layoutSec.content.appendChild(grid(...createSizeFields()))
 
     if (display.includes('flex')) {
       const alignRow = el('div', 'ei-dp-align-row')
@@ -4153,7 +4274,7 @@ export function buildDesignPanel(
           rebuildGrid()
           gapIconEl.innerHTML = FIELD_ICONS.gap ?? ''
           gapTrigger.dataset.auto = 'false'
-          callbacks.onStyleChange()
+          notifyStyleChange()
         },
       })
       gapInput.className = 'ei-dp-field-input'
@@ -4189,7 +4310,7 @@ export function buildDesignPanel(
             gapIconEl.innerHTML = FIELD_ICONS.gap ?? ''
           }
           rebuildGrid()
-          callbacks.onStyleChange()
+          notifyStyleChange()
         })
       })
 
@@ -4232,7 +4353,7 @@ export function buildDesignPanel(
               tracker.apply('justify-content', j)
               tracker.apply('align-items', a)
               rebuildGrid()
-              callbacks.onStyleChange()
+              notifyStyleChange()
             })
             alignGrid.appendChild(cell)
           }
@@ -4245,7 +4366,7 @@ export function buildDesignPanel(
       layoutSec.content.appendChild(alignRow)
     } else {
       layoutSec.content.appendChild(grid(
-        createGapField({ value: parsePxValue(info.layout.gap), tracker, onChange: callbacks.onStyleChange }),
+        createGapField({ value: parsePxValue(info.layout.gap), tracker, onChange: notifyStyleChange }),
         el('div'),
       ))
     }
@@ -4257,10 +4378,7 @@ export function buildDesignPanel(
   } else {
     // === 1. Size section (non-layout) ===
     const sizeSec = createSection(i18n.design.size, { isFirst: true })
-    sizeSec.content.appendChild(grid(
-      createSizeField({ icon: 'W', dimension: 'width', value: info.rect.width, element, tracker, onChange: callbacks.onStyleChange }),
-      createSizeField({ icon: 'H', dimension: 'height', value: info.rect.height, element, tracker, onChange: callbacks.onStyleChange }),
-    ))
+    sizeSec.content.appendChild(grid(...createSizeFields()))
     container.appendChild(sizeSec.container)
 
     // === 2. Spacing section (non-layout) ===
@@ -4328,39 +4446,18 @@ export function buildDesignPanel(
     // Row 3: Line height + Letter spacing
     const row3 = el('div', 'ei-dp-typography-row')
 
-    // Parse line height (could be "normal", "24px", "1.5", etc.)
-    let lineHeightValue = 100
-    const lh = info.typography.lineHeight
-    if (lh && lh !== 'normal') {
-      if (lh.endsWith('px')) {
-        const fontSize = parsePxValue(info.typography.fontSize) || 16
-        lineHeightValue = Math.round((parseFloat(lh) / fontSize) * 100)
-      } else if (lh.endsWith('%')) {
-        lineHeightValue = parseFloat(lh)
-      } else {
-        // Unitless number (relative to font size)
-        lineHeightValue = Math.round(parseFloat(lh) * 100)
-      }
-    }
+    const lineHeightValue = formatLineHeightInput(info.typography.lineHeight, info.typography.fontSize)
 
-    row3.appendChild(createLineHeightField(lineHeightValue, (v) => {
-      tracker.apply('line-height', `${(v / 100).toFixed(2)}`)
+    row3.appendChild(createLineHeightField(lineHeightValue, (value) => {
+      tracker.apply('line-height', value)
+      notifyStyleChange()
     }))
 
-    // Parse letter spacing (could be "normal", "0.1em", "2px", etc.)
-    let letterSpacingValue = 0
-    const ls = info.typography.letterSpacing
-    if (ls && ls !== 'normal') {
-      if (ls.endsWith('em')) {
-        letterSpacingValue = parseFloat(ls)
-      } else if (ls.endsWith('px')) {
-        const fontSize = parsePxValue(info.typography.fontSize) || 16
-        letterSpacingValue = parseFloat(ls) / fontSize
-      }
-    }
+    const letterSpacingValue = formatLetterSpacingInput(info.typography.letterSpacing, info.typography.fontSize)
 
-    row3.appendChild(createLetterSpacingField(letterSpacingValue, (v) => {
-      tracker.apply('letter-spacing', `${v.toFixed(2)}em`)
+    row3.appendChild(createLetterSpacingField(letterSpacingValue, (value) => {
+      tracker.apply('letter-spacing', value)
+      notifyStyleChange()
     }))
 
     typoSec.content.appendChild(row3)
@@ -4387,7 +4484,7 @@ export function buildDesignPanel(
         openSolidColorPopover(swatch, info.typography.color, 100, textPageColors, tracker, (nextColor) => {
           info.typography.color = nextColor
           tracker.apply('color', nextColor)
-        }, callbacks.onStyleChange)
+        }, notifyStyleChange)
       },
     }))
 
@@ -4401,7 +4498,7 @@ export function buildDesignPanel(
 
   function populateFillContent(contentEl: HTMLDivElement): void {
     contentEl.innerHTML = ''
-    mountFillTrigger(contentEl, fillDraft, pageColors, tracker, callbacks.onStyleChange)
+    mountFillTrigger(contentEl, fillDraft, pageColors, tracker, notifyStyleChange)
   }
 
   function refreshFillSectionTrigger(): void {
@@ -4409,7 +4506,7 @@ export function buildDesignPanel(
   }
 
   function openFillSectionTriggerPopover(): void {
-    openFillTriggerFromContainer(fillSection.content, fillDraft, pageColors, tracker, callbacks.onStyleChange)
+    openFillTriggerFromContainer(fillSection.content, fillDraft, pageColors, tracker, notifyStyleChange)
   }
 
   fillSection = createSection(i18n.design.fill, {
@@ -4423,7 +4520,7 @@ export function buildDesignPanel(
         closeFillPopover()
         populateFillContent(fillSection.content)
         fillSection.setHasContent(true)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
       onRemove: () => {
         tracker.apply('background-color', 'transparent')
@@ -4434,7 +4531,7 @@ export function buildDesignPanel(
         closeFillPopover()
         fillSection.content.innerHTML = ''
         fillSection.setHasContent(false)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
     },
   })
@@ -4457,7 +4554,7 @@ export function buildDesignPanel(
       () => {
         // Remove via section button, not stroke panel's internal remove
       },
-      callbacks.onStyleChange,
+      notifyStyleChange,
     ))
   }
 
@@ -4471,7 +4568,7 @@ export function buildDesignPanel(
         applyStroke(tracker, defaultStroke)
         populateStrokeContent(strokeSection.content, defaultStroke)
         strokeSection.setHasContent(true)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
       onRemove: () => {
         tracker.apply('border', '')
@@ -4483,7 +4580,7 @@ export function buildDesignPanel(
         tracker.apply('box-shadow', '')
         strokeSection.content.innerHTML = ''
         strokeSection.setHasContent(false)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
     },
   })
@@ -4506,7 +4603,7 @@ export function buildDesignPanel(
     contentEl.appendChild(createEffectsPanel(
       values,
       tracker,
-      callbacks.onStyleChange,
+      notifyStyleChange,
     ))
   }
 
@@ -4525,13 +4622,13 @@ export function buildDesignPanel(
         applyShadow(tracker, defaultShadow)
         populateEffectsContent(effectsSection.content, defaultShadow)
         effectsSection.setHasContent(true)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
       onRemove: () => {
         tracker.apply('box-shadow', 'none')
         effectsSection.content.innerHTML = ''
         effectsSection.setHasContent(false)
-        callbacks.onStyleChange()
+        notifyStyleChange()
       },
     },
   })

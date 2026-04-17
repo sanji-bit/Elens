@@ -1,6 +1,20 @@
+const INSPECTOR_SCRIPT_ID = 'elens-extension-inspector-script'
+
+function ensureInspectorScript() {
+  if (document.getElementById(INSPECTOR_SCRIPT_ID)) return
+  const script = document.createElement('script')
+  script.id = INSPECTOR_SCRIPT_ID
+  script.src = chrome.runtime.getURL('inspector.js')
+  script.async = false
+  ;(document.head || document.documentElement).appendChild(script)
+}
+
+ensureInspectorScript()
+
 chrome.runtime.onMessage.addListener((message) => {
   if (!message || message.type !== 'ELENS_TOGGLE_INSPECTOR') return
 
+  ensureInspectorScript()
   window.postMessage({
     source: 'elens-extension-control',
     type: 'ELENS_TOGGLE_INSPECTOR',
@@ -16,6 +30,41 @@ function getViewportMetrics() {
   }
 }
 
+function postBridgeResponse(id, response) {
+  window.postMessage({
+    source: 'elens-extension',
+    id,
+    ok: Boolean(response?.ok),
+    result: response?.result,
+    error: response?.error,
+  }, '*')
+}
+
+function handlePageCapture(message) {
+  const handlePageResult = (event) => {
+    if (event.source !== window) return
+    const data = event.data
+    if (
+      !data
+      || data.source !== 'elens-extension-page'
+      || data.type !== 'ELENS_PAGE_CAPTURE_RESULT'
+      || data.requestId !== message.id
+    ) return
+
+    window.removeEventListener('message', handlePageResult)
+    postBridgeResponse(message.id, data)
+  }
+
+  window.addEventListener('message', handlePageResult)
+  window.postMessage({
+    source: 'elens-extension-control',
+    type: 'ELENS_PAGE_CAPTURE',
+    selector: message.selector,
+    scroll: message.scroll,
+    requestId: message.id,
+  }, '*')
+}
+
 window.addEventListener('message', (event) => {
   if (event.source !== window) return
   const message = event.data
@@ -26,20 +75,24 @@ window.addEventListener('message', (event) => {
     && message.type !== 'ELENS_SET_WINDOW_BOUNDS'
     && message.type !== 'ELENS_GET_WINDOW_BOUNDS'
     && message.type !== 'ELENS_CAPTURE_VISIBLE_TAB'
+    && message.type !== 'ELENS_WRITE_CLIPBOARD'
+    && message.type !== 'ELENS_PAGE_CAPTURE'
   ) return
+
+  if (message.type === 'ELENS_PAGE_CAPTURE') {
+    handlePageCapture(message)
+    return
+  }
 
   chrome.runtime.sendMessage({
     source: 'elens-extension-content',
     type: message.type,
     bounds: message.bounds,
+    clipboard: message.clipboard,
+    selector: message.selector,
+    scroll: message.scroll,
     viewportMetrics: getViewportMetrics(),
   }, (response) => {
-    window.postMessage({
-      source: 'elens-extension',
-      id: message.id,
-      ok: Boolean(response?.ok),
-      result: response?.result,
-      error: response?.error,
-    }, '*')
+    postBridgeResponse(message.id, response)
   })
 })

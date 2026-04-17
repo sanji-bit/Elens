@@ -428,10 +428,18 @@ export type WindowBounds = {
   top?: number
 }
 
+export type ClipboardContent = {
+  text?: string
+  html?: string
+  imageDataUrl?: string
+}
+
 export type ViewportControllerCapabilities = {
   resizeViewport?: boolean
   resizeWindow?: boolean
   moveWindow?: boolean
+  writeClipboard?: boolean
+  captureForDesign?: boolean
 }
 
 export type ViewportPreset = {
@@ -462,6 +470,8 @@ export type ViewportController = {
   setWindowBounds?: (bounds: WindowBounds) => void | boolean | Promise<void | boolean>
   getWindowBounds?: () => WindowBounds | null | Promise<WindowBounds | null>
   captureVisibleTab?: () => string | null | Promise<string | null>
+  writeClipboard?: (content: ClipboardContent) => void | boolean | Promise<void | boolean>
+  captureForDesign?: (selector: string, options?: { scroll?: boolean }) => Promise<unknown>
 }
 
 export type InspectorTheme = ThemeConfig

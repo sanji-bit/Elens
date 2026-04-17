@@ -30,14 +30,18 @@ await rm(distDir, { recursive: true, force: true })
 await mkdir(extensionDir, { recursive: true })
 await mkdir(distDir, { recursive: true })
 await run('npx', ['vite', 'build', '--config', 'vite.extension.config.ts'])
+await mkdir(resolve(extensionDir, 'assets'), { recursive: true })
+await cp(resolve(rootDir, 'src/assets/capture.js'), resolve(extensionDir, 'assets/capture.js'))
 await cp(resolve(extensionDir, 'manifest.json'), resolve(distDir, 'manifest.json'))
 await cp(resolve(extensionDir, 'content.js'), resolve(distDir, 'content.js'))
 await cp(resolve(extensionDir, 'background.js'), resolve(distDir, 'background.js'))
 await cp(resolve(extensionDir, 'inspector.js'), resolve(distDir, 'inspector.js'))
+await cp(resolve(extensionDir, 'offscreen.html'), resolve(distDir, 'offscreen.html'))
+await cp(resolve(extensionDir, 'offscreen.js'), resolve(distDir, 'offscreen.js'))
+await cp(resolve(extensionDir, 'assets'), resolve(distDir, 'assets'), { recursive: true })
 
 try {
   await access(resolve(extensionDir, 'assets'))
-  await cp(resolve(extensionDir, 'assets'), resolve(distDir, 'assets'), { recursive: true })
 } catch {
   // No emitted assets for this build.
 }

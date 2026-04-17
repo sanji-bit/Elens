@@ -400,6 +400,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let styleTracker: StyleTracker | null = null
   let activeDesignTextChangeTarget: HTMLElement | null = null
   let activeDesignTextChangeHandler: ((original: string, modified: string) => void) | null = null
+  let designOverlaysVisible = true
   let inlineTextEditSession: {
     element: HTMLElement
     originalText: string
@@ -1005,6 +1006,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderDesignScopeOverlay(elements: HTMLElement[]): void {
     clearDesignScopeOverlay()
+    if (!designOverlaysVisible) return
     elements.forEach((element) => {
       if (!document.contains(element)) return
       const rect = element.getBoundingClientRect()
@@ -3050,7 +3052,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     // Support capture selection mode (element/state) when currentMode is 'off'
     // Also support outlines mode for hover highlight
     const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
-    if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info) {
+    const designOverlayHidden = currentMode === 'design' && !designOverlaysVisible
+    if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info || designOverlayHidden) {
       clearGapOverlay()
       hideDesignQuickBar()
       setHighlightVisible(false)
@@ -3993,6 +3996,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return { declarations }
   }
 
+  function toggleDesignOverlays(): void {
+    if (currentMode !== 'design') return
+    designOverlaysVisible = !designOverlaysVisible
+    if (!designOverlaysVisible) {
+      setHighlightVisible(false)
+      hideDesignQuickBar()
+      clearGapOverlay()
+      clearDesignScopeOverlay()
+      return
+    }
+    if (lockedElement && document.contains(lockedElement)) {
+      renderDesign(extractInspectorInfo(lockedElement))
+      return
+    }
+    if (currentInfo) updateHighlight(currentInfo)
+  }
+
   function renderDesign(info: InspectorInfo | null): void {
     currentInfo = info
     annotateInput = null
@@ -4150,7 +4170,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
 
     const currentScopeElements = getCurrentDesignScopeElements(info.element)
-    if (designApplyOnceMatches) renderDesignScopeOverlay(currentScopeElements)
+    if (designApplyOnceMatches && designOverlaysVisible) renderDesignScopeOverlay(currentScopeElements)
     else clearDesignScopeOverlay()
 
     const modeControl = createDesignModeSegmentedControl(info)
@@ -4560,6 +4580,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         deleteLockedElement()
         return
       }
+    }
+
+    if (!hasModifierKey && currentMode === 'design' && (event.key === 'b' || event.key === 'B')) {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleDesignOverlays()
+      return
     }
 
     // H key to lock hover state in Design mode

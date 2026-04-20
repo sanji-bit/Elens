@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elens Install</title>
+    <style>
+      :root {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --primary: #008dff;
+        --primary-dark: #4235c9;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-700: #374151;
+        --gray-900: #111827;
+        --success: #10b981;
+        --warning: #f59e0b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--gray-900);
+        background: linear-gradient(180deg, #f6f8fb 0%, #eef2ff 100%);
+      }
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .brand-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--primary), #6366f1);
+        color: white;
+      }
+      .top-actions {
+        display: flex;
+        gap: 12px;
+      }
+      .link-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid var(--gray-200);
+        background: white;
+        color: var(--gray-900);
+      }
+      .link-btn.primary {
+        background: var(--primary-dark);
+        border-color: var(--primary-dark);
+        color: white;
+      }
+      .hero {
+        padding: 44px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        margin-bottom: 24px;
+      }
+      .hero h1 {
+        margin: 0 0 16px;
+        font-size: 46px;
+        line-height: 1.05;
+      }
+      .hero p {
+        margin: 0;
+        max-width: 760px;
+        font-size: 18px;
+        line-height: 1.7;
+        color: rgba(255,255,255,0.78);
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin: 24px 0;
+      }
+      .summary-card,
+      .host-card,
+      .steps-card {
+        background: white;
+        border: 1px solid var(--gray-100);
+        border-radius: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .summary-card {
+        padding: 22px;
+      }
+      .summary-value {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .summary-label {
+        font-size: 14px;
+        color: var(--gray-500);
+      }
+      .hosts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 24px;
+      }
+      .host-card {
+        padding: 24px;
+      }
+      .host-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        font-weight: 700;
+        background: #eef2ff;
+        color: var(--primary-dark);
+      }
+      .host-card h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+      .host-card p {
+        margin: 0 0 16px;
+        color: var(--gray-500);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      .code-block {
+        margin: 0;
+        padding: 14px 16px;
+        border-radius: 12px;
+        overflow-x: auto;
+        background: var(--gray-900);
+        color: white;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .host-list {
+        margin: 14px 0 0;
+        padding-left: 18px;
+        color: var(--gray-700);
+        font-size: 13px;
+      }
+      .host-list li + li { margin-top: 8px; }
+      .steps-wrap {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 20px;
+      }
+      .steps-card {
+        padding: 24px;
+      }
+      .steps-card h3 {
+        margin: 0 0 16px;
+        font-size: 18px;
+      }
+      .steps-list {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--gray-700);
+      }
+      .steps-list li + li { margin-top: 10px; }
+      .status-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: var(--gray-50);
+      }
+      .status-label {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .status-pill.ready {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .status-pill.progress {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .footer-note {
+        margin-top: 24px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: white;
+        border: 1px solid var(--gray-100);
+        color: var(--gray-500);
+        font-size: 13px;
+      }
+      @media (max-width: 1024px) {
+        .summary-grid,
+        .hosts-grid,
+        .steps-wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon">◈</div>
+          Elens Install
+        </div>
+        <div class="top-actions">
+          <a class="link-btn" href="./index.html">Demo</a>
+          <a class="link-btn primary" href="./design-system-preview.html">Design Workbench</a>
+        </div>
+      </div>
+
+      <section class="hero">
+        <h1>统一安装入口</h1>
+        <p>Elens 现在按 Web、Extension、Desktop 三类宿主公开官方入口。对外是清晰的安装方式，对内仍然复用同一份 inspector core，并把 viewport、clipboard、capture 等宿主能力收口到 adapter/runtime 层。</p>
+      </section>
+
+      <section class="summary-grid">
+        <article class="summary-card">
+          <div class="summary-value">3</div>
+          <div class="summary-label">官方宿主入口</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-value">1</div>
+          <div class="summary-label">共享 inspector core</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-value">4</div>
+          <div class="summary-label">当前 exports</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-value">Phase 1</div>
+          <div class="summary-label">宿主能力已收口</div>
+        </article>
+      </section>
+
+      <section class="hosts-grid">
+        <article class="host-card">
+          <div class="host-badge">Web</div>
+          <h2>站点 / Demo / SDK 挂载</h2>
+          <p>直接通过 `elens/web` 获取 `mountElementInspector`，适合普通站点、嵌入式调试页和 demo 环境。</p>
+          <pre class="code-block">import { mountElementInspector } from 'elens/web'
+
+mountElementInspector({ enabled: true })</pre>
+          <ul class="host-list">
+            <li>默认入口最轻量</li>
+            <li>可按需接 viewport controller</li>
+            <li>当前 demo 已实际走这条路径</li>
+          </ul>
+        </article>
+
+        <article class="host-card">
+          <div class="host-badge">Extension</div>
+          <h2>Chrome 扩展接入</h2>
+          <p>通过 `elens/extension` 暴露 bridge controller 和 content script 薄入口，让窗口控制与截图能力留在宿主适配层。</p>
+          <pre class="code-block">import {
+  createChromeExtensionViewportController,
+  mountChromeExtensionInspector,
+} from 'elens/extension'</pre>
+          <ul class="host-list">
+            <li>构建链继续复用现有 extension build</li>
+            <li>content script 只负责消息装配</li>
+            <li>更适合后续统一安装页直接指向扩展版本</li>
+          </ul>
+        </article>
+
+        <article class="host-card">
+          <div class="host-badge">Desktop</div>
+          <h2>Electron / Tauri 骨架</h2>
+          <p>通过 `elens/desktop` 暴露 desktop controller stub，先把真实桌面宿主的接线方式固定下来，再逐步补完整桥接。</p>
+          <pre class="code-block">import {
+  createDesktopViewportController,
+  mountElementInspector,
+} from 'elens/desktop'</pre>
+          <ul class="host-list">
+            <li>这轮是可接入骨架，不是完整桌面分发</li>
+            <li>已补最小 Electron 示例文件</li>
+            <li>后续重点是 window bounds / clipboard / capture</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="steps-wrap">
+        <article class="steps-card">
+          <h3>接下来怎么继续</h3>
+          <ol class="steps-list">
+            <li>统一安装入口页继续保留三种官方路径，不再把 Chrome extension 当唯一产品面。</li>
+            <li>Web 入口保持最简挂载体验，作为默认 SDK 使用方式。</li>
+            <li>Extension 入口继续承接浏览器能力桥接，并维持当前构建链。</li>
+            <li>Desktop 入口下一阶段补 Electron/Tauri 真桥接，而不是继续散落在 `mount.ts` 里写条件分支。</li>
+          </ol>
+        </article>
+
+        <article class="steps-card">
+          <h3>当前状态</h3>
+          <div class="status-list">
+            <div class="status-row">
+              <span class="status-label">Web 入口</span>
+              <span class="status-pill ready">Ready</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Extension 入口</span>
+              <span class="status-pill ready">Ready</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Desktop 入口</span>
+              <span class="status-pill progress">Stub</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">安装页形态</span>
+              <span class="status-pill progress">Draft</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div class="footer-note">
+        这个页面是安装入口草稿页，不新增 Elens 运行时组件体系；它只是把已经实现的 Web / Extension / Desktop 多入口结构显式展示出来。
+      </div>
+    </div>
+  </body>
+</html>

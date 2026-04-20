@@ -16,6 +16,8 @@ export type {
   ViewportTarget,
   WindowBounds,
 } from './types'
+export { createDesktopViewportController } from './host-runtime'
 export { createChromeExtensionViewportController } from './extension-bridge'
+export { mountChromeExtensionInspector } from './extension-entry'
 export { mountElementInspector } from './mount'
 export { createInspectorStyles, createRuntimeStyles } from './runtime-styles'

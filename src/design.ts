@@ -4318,6 +4318,12 @@ export type DesignPanelCallbacks = {
   onTextChange: (original: string, modified: string) => void
   onNoteChange: (note: string) => void
   getInitialNote: () => string
+  getTextDraft?: () => string | null
+  getNoteDraft?: () => string | null
+  onTextDraftChange?: (value: string) => void
+  onNoteDraftChange?: (value: string) => void
+  onTextEditStart?: () => void
+  onTextEditEnd?: () => void
 }
 
 export type MultiSelectionTypographyCallbacks = {
@@ -4487,47 +4493,46 @@ export function buildDesignPanel(
     const textInput = document.createElement('textarea')
     textInput.className = 'ei-dp-text-input'
     textInput.setAttribute(IGNORE_ATTR, 'true')
-    textInput.value = originalText
-    textInput.rows = 1
-
-    // Auto-resize textarea (max 5 lines)
-    const MAX_LINES = 5
-    const LINE_HEIGHT = 16
-    const MAX_HEIGHT = LINE_HEIGHT * MAX_LINES
-    const adjustHeight = () => {
-      textInput.style.height = 'auto'
-      const scrollHeight = textInput.scrollHeight
-      textInput.style.height = Math.min(scrollHeight, MAX_HEIGHT) + 'px'
-    }
+    textInput.value = callbacks.getTextDraft?.() ?? originalText
+    textInput.rows = 4
 
     inputWrap.appendChild(textInput)
     textSection.append(header, inputWrap)
     container.appendChild(textSection)
 
-    // Initial height adjustment
-    requestAnimationFrame(adjustHeight)
-
     // Track if text has been modified
     let isModified = false
 
-    textInput.addEventListener('input', () => {
-      adjustHeight()
+    const syncTextPreview = () => {
       const newText = textInput.value
+      callbacks.onTextDraftChange?.(newText)
       if (newText !== originalText) {
         if (!isModified) {
           isModified = true
           restoreBtn.style.display = 'flex'
         }
         element.textContent = newText
-        callbacks.onTextChange(originalText, newText)
-        notifyStyleChange()
       } else if (isModified) {
         isModified = false
         restoreBtn.style.display = 'none'
-        callbacks.onTextChange(newText, originalText) // Revert change
+        element.textContent = originalText
       }
-    })
+    }
 
+    textInput.addEventListener('input', syncTextPreview)
+
+    if (textInput.value !== originalText) {
+      syncTextPreview()
+    }
+
+    textInput.addEventListener('focus', () => {
+      callbacks.onTextEditStart?.()
+    })
+    textInput.addEventListener('blur', () => {
+      callbacks.onTextChange(originalText, textInput.value)
+      callbacks.onTextDraftChange?.('')
+      callbacks.onTextEditEnd?.()
+    })
     textInput.addEventListener('keydown', (e) => {
       e.stopPropagation()
     })
@@ -4538,9 +4543,8 @@ export function buildDesignPanel(
       element.textContent = originalText
       isModified = false
       restoreBtn.style.display = 'none'
-      adjustHeight()
-      callbacks.onTextChange(textInput.value, originalText) // Revert to original
-      notifyStyleChange()
+      callbacks.onTextDraftChange?.('')
+      callbacks.onTextChange(originalText, originalText)
     })
   }
 
@@ -5147,10 +5151,18 @@ export function buildDesignPanel(
     textarea.className = 'ei-annotate-input'
     textarea.setAttribute(IGNORE_ATTR, 'true')
     textarea.placeholder = i18n.design.notePlaceholder
-    textarea.value = callbacks.getInitialNote()
-    textarea.rows = 3
-    textarea.addEventListener('input', () => {
+    textarea.value = callbacks.getNoteDraft?.() ?? callbacks.getInitialNote()
+    textarea.rows = 4
+    textarea.addEventListener('focus', () => {
+      callbacks.onTextEditStart?.()
+    })
+    textarea.addEventListener('blur', () => {
       callbacks.onNoteChange(textarea.value)
+      callbacks.onNoteDraftChange?.('')
+      callbacks.onTextEditEnd?.()
+    })
+    textarea.addEventListener('input', () => {
+      callbacks.onNoteDraftChange?.(textarea.value)
     })
     textarea.addEventListener('keydown', (event) => {
       event.stopPropagation()
@@ -5696,15 +5708,15 @@ export function getDesignStyles(): string {
 .ei-dp-text-restore:hover { color: var(--text-secondary); }
 .ei-dp-text-restore:focus { outline: none; }
 .ei-dp-text-restore svg { display: block; }
-.ei-dp-text-input-wrap { display: flex; align-items: center; background: var(--surface-field); border: 1px solid transparent; border-radius: var(--field-radius); padding: 4px 8px; margin-bottom: 16px; transition: border-color 0.15s ease; }
+.ei-dp-text-input-wrap { display: flex; align-items: stretch; background: var(--surface-field); border: 1px solid transparent; border-radius: var(--field-radius); padding: 6px 8px; margin-bottom: 16px; transition: border-color 0.15s ease; overflow: visible; }
 .ei-dp-text-input-wrap:hover { border-color: var(--border-default); }
 .ei-dp-text-input-wrap:focus-within { border-color: var(--interactive-accent); }
-.ei-dp-text-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; line-height: 16px; padding: 0; resize: none; outline: none; letter-spacing: 0.055px; max-height: 80px; overflow-y: auto; }
+.ei-dp-text-input { flex: 1; min-width: 0; min-height: 80px; border: 0; background: transparent; color: var(--text-primary); font-size: 11px; font-family: inherit; line-height: 16px; padding: 0; resize: vertical; outline: none; letter-spacing: 0.055px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 .ei-dp-text-input::placeholder { color: var(--text-muted); }
-.ei-dp-text-input::-webkit-scrollbar { width: 4px; }
+.ei-dp-text-input::-webkit-scrollbar { width: 8px; height: 8px; }
 .ei-dp-text-input::-webkit-scrollbar-track { background: transparent; }
-.ei-dp-text-input::-webkit-scrollbar-thumb { background: var(--surface-active); border-radius: 2px; }
-.ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: var(--surface-hover-strong); }
+.ei-dp-text-input::-webkit-scrollbar-thumb { background: var(--surface-active); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+.ei-dp-text-input::-webkit-scrollbar-thumb:hover { background: var(--surface-hover-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 .ei-dp-effects-panel { }
 .ei-dp-effects-row1 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 8px; }
 .ei-dp-effects-row1 > * { min-width: 0; width: 100%; }

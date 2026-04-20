@@ -158,6 +158,67 @@
       }
       .hero-btn.secondary:hover { background: rgba(255,255,255,0.15); }
 
+      .install-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 32px;
+      }
+      .install-card {
+        padding: 24px;
+        border-radius: 16px;
+        background: white;
+        border: 1px solid var(--gray-100);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .install-card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        color: var(--gray-900);
+      }
+      .install-card p {
+        margin: 0 0 16px;
+        font-size: 14px;
+        color: var(--gray-500);
+      }
+      .install-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        background: #EEF2FF;
+        color: #4235C9;
+      }
+      .install-code {
+        margin: 0;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: var(--gray-900);
+        color: white;
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-x: auto;
+      }
+      .install-list {
+        margin: 14px 0 0;
+        padding-left: 18px;
+        color: var(--gray-600);
+        font-size: 13px;
+      }
+      .install-list li + li { margin-top: 8px; }
+      .host-status {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.16);
+        font-size: 13px;
+        color: rgba(255,255,255,0.78);
+      }
+
       /* Stats Bar */
       .stats-bar {
         display: grid;
@@ -546,95 +607,57 @@
       <div class="header-inner">
         <div class="logo">
           <div class="logo-icon">◈</div>
-          Elens SDK
+          Elens Install
         </div>
         <nav class="nav">
           <div class="nav-item">
-            <button class="nav-btn">示例</button>
+            <button class="nav-btn">入口</button>
             <div class="dropdown">
-              <div class="dropdown-section">交互演示</div>
-              <a href="#" class="dropdown-item" onclick="alert('检查模式：悬停即可检查元素')">
-                <div class="dropdown-icon blue">🔍</div>
+              <div class="dropdown-section">官方入口</div>
+              <a href="#install-web" class="dropdown-item">
+                <div class="dropdown-icon blue">W</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">检查模式</div>
-                  <div class="dropdown-desc">悬停即可检查任意元素</div>
+                  <div class="dropdown-title">Web</div>
+                  <div class="dropdown-desc">通过 ./web 入口挂载 inspector</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('设计模式：点击元素即可编辑样式')">
-                <div class="dropdown-icon purple">🎨</div>
+              <a href="#install-extension" class="dropdown-item">
+                <div class="dropdown-icon purple">E</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">设计模式</div>
-                  <div class="dropdown-desc">实时编辑样式</div>
+                  <div class="dropdown-title">Extension</div>
+                  <div class="dropdown-desc">通过 ./extension 入口组装浏览器扩展</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('移动模式：拖动即可调整元素顺序')">
-                <div class="dropdown-icon green">↔️</div>
+              <a href="#install-desktop" class="dropdown-item">
+                <div class="dropdown-icon green">D</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">移动模式</div>
-                  <div class="dropdown-desc">拖动调整元素顺序</div>
-                </div>
-              </a>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-section">测试场景</div>
-              <a href="#" class="dropdown-item" onclick="alert('复杂布局：测试 grid 和 flexbox')">
-                <div class="dropdown-icon orange">📐</div>
-                <div class="dropdown-content">
-                  <div class="dropdown-title">复杂布局</div>
-                  <div class="dropdown-desc">Grid、flexbox 与响应式布局</div>
-                </div>
-              </a>
-              <a href="#" class="dropdown-item" onclick="alert('文字测试：多种字体样式')">
-                <div class="dropdown-icon red">📝</div>
-                <div class="dropdown-content">
-                  <div class="dropdown-title">文字测试</div>
-                  <div class="dropdown-desc">多种字体和字号</div>
+                  <div class="dropdown-title">Desktop</div>
+                  <div class="dropdown-desc">通过 ./desktop 入口预留 Electron 接入</div>
                 </div>
               </a>
             </div>
           </div>
           <div class="nav-item">
-            <button class="nav-btn">文档</button>
+            <button class="nav-btn">示例</button>
             <div class="dropdown">
-              <div class="dropdown-section">快速开始</div>
-              <a href="#" class="dropdown-item" onclick="alert('安装：npm install elens')">
-                <div class="dropdown-icon blue">📦</div>
+              <div class="dropdown-section">运行方式</div>
+              <a href="#demo-hosts" class="dropdown-item">
+                <div class="dropdown-icon orange">↔</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">安装</div>
-                  <div class="dropdown-desc">npm install elens</div>
+                  <div class="dropdown-title">多宿主装配</div>
+                  <div class="dropdown-desc">同一份 core，按宿主组装</div>
                 </div>
               </a>
-              <a href="#" class="dropdown-item" onclick="alert('快速开始：初始化 inspector')">
-                <div class="dropdown-icon green">🚀</div>
+              <a href="#demo-preview" class="dropdown-item">
+                <div class="dropdown-icon red">◎</div>
                 <div class="dropdown-content">
-                  <div class="dropdown-title">快速开始</div>
-                  <div class="dropdown-desc">初始化 inspector</div>
-                </div>
-              </a>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-section">API 参考</div>
-              <a href="#" class="dropdown-item" onclick="alert('方法：setMode、destroy、getChanges')">
-                <div class="dropdown-icon purple">⚙️</div>
-                <div class="dropdown-content">
-                  <div class="dropdown-title">方法</div>
-                  <div class="dropdown-desc">setMode、destroy、getChanges</div>
-                </div>
-              </a>
-              <a href="#" class="dropdown-item" onclick="alert('事件：onInspect、onChangeAdd')">
-                <div class="dropdown-icon orange">📡</div>
-                <div class="dropdown-content">
-                  <div class="dropdown-title">事件</div>
-                  <div class="dropdown-desc">onInspect、onChangeAdd</div>
-                </div>
-              </a>
-              <a href="#" class="dropdown-item" onclick="alert('类型：InspectorInfo、Change、StyleDiff')">
-                <div class="dropdown-icon red">📘</div>
-                <div class="dropdown-content">
-                  <div class="dropdown-title">类型定义</div>
-                  <div class="dropdown-desc">InspectorInfo、Change 类型</div>
+                  <div class="dropdown-title">当前 Demo</div>
+                  <div class="dropdown-desc">Web 入口 + extension controller</div>
                 </div>
               </a>
             </div>
           </div>
+          <a class="nav-btn" href="./install.html" style="text-decoration:none">Install</a>
           <a class="nav-btn primary" href="./design-system-preview.html" style="text-decoration:none">Design Workbench</a>
         </nav>
       </div>
@@ -642,38 +665,85 @@
 
     <div class="page">
       <!-- Hero -->
-      <section class="hero">
+      <section class="hero" id="demo-preview">
         <div class="hero-content">
-          <h1>检查任意元素</h1>
-          <p>强大的 DOM 元素检查 SDK。只需一次悬停，即可获取字体、颜色、间距、布局和可访问性信息。</p>
+          <h1>一个安装入口，三个官方宿主</h1>
+          <p>Elens 现在按 Web、Extension、Desktop 三个入口组织。统一保留同一份 inspector core，再按宿主差异装配 viewport、clipboard 和 capture 能力。</p>
           <div class="hero-btns">
-            <button class="hero-btn primary">试用检查器</button>
+            <a class="hero-btn primary" href="./install.html">打开安装入口</a>
             <a class="hero-btn secondary" href="./design-system-preview.html">打开 Design Workbench</a>
           </div>
+          <div class="host-status" data-elens-host-status>正在加载当前 Demo 宿主状态…</div>
         </div>
+      </section>
+
+      <section class="install-grid" id="demo-hosts">
+        <article class="install-card" id="install-web">
+          <div class="install-badge">Web</div>
+          <h3>SDK 挂载入口</h3>
+          <p>适合站点、内嵌 demo 或调试页面，直接通过 `./web` 暴露的 `mountElementInspector` 挂载。</p>
+          <pre class="install-code">import { mountElementInspector } from 'elens/web'
+
+mountElementInspector({ enabled: true })</pre>
+          <ul class="install-list">
+            <li>复用默认 inspector core</li>
+            <li>可选接入宿主 viewport controller</li>
+            <li>当前 demo 已改为走这个入口</li>
+          </ul>
+        </article>
+
+        <article class="install-card" id="install-extension">
+          <div class="install-badge">Extension</div>
+          <h3>浏览器扩展入口</h3>
+          <p>适合 Chrome extension content script。通过 `./extension` 获取 bridge controller 和薄装配入口。</p>
+          <pre class="install-code">import {
+  createChromeExtensionViewportController,
+  mountChromeExtensionInspector,
+} from 'elens/extension'</pre>
+          <ul class="install-list">
+            <li>把窗口控制、截图、剪贴板能力放在 adapter 层</li>
+            <li>content script 入口只负责 toggle 和消息转发</li>
+            <li>保留现有 extension build 流程</li>
+          </ul>
+        </article>
+
+        <article class="install-card" id="install-desktop">
+          <div class="install-badge">Desktop</div>
+          <h3>桌面宿主骨架</h3>
+          <p>适合 Electron / Tauri。先通过 `./desktop` 暴露 desktop controller stub，验证宿主接口装配方式。</p>
+          <pre class="install-code">import {
+  createDesktopViewportController,
+  mountElementInspector,
+} from 'elens/desktop'</pre>
+          <ul class="install-list">
+            <li>这轮是可接入骨架，不是完整 Electron 产品壳</li>
+            <li>可逐步补 window bounds、capture、clipboard 桥接</li>
+            <li>不影响已有 web / extension 使用方式</li>
+          </ul>
+        </article>
       </section>
 
       <!-- Stats -->
       <div class="stats-bar">
         <div class="stat-card">
-          <div class="stat-value">12.5k</div>
-          <div class="stat-label">下载量</div>
-          <div class="stat-change up">↑ 23%</div>
+          <div class="stat-value">3</div>
+          <div class="stat-label">官方入口</div>
+          <div class="stat-change up">Web / Extension / Desktop</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">89</div>
-          <div class="stat-label">GitHub Stars</div>
-          <div class="stat-change up">↑ 12%</div>
+          <div class="stat-value">1</div>
+          <div class="stat-label">共享 Core</div>
+          <div class="stat-change up">mountElementInspector</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">2.1kb</div>
-          <div class="stat-label">包体积</div>
-          <div class="stat-change down">↓ 8%</div>
+          <div class="stat-value">4</div>
+          <div class="stat-label">公开导出</div>
+          <div class="stat-change down">. / web / extension / desktop</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">v1.2</div>
-          <div class="stat-label">最新版本</div>
-          <div class="stat-change up">最新</div>
+          <div class="stat-value">Phase 1</div>
+          <div class="stat-label">当前阶段</div>
+          <div class="stat-change up">宿主能力已收口</div>
         </div>
       </div>
 
@@ -882,32 +952,32 @@
           <div class="card-body">
             <div class="chart-container">
               <div class="chart-bar">
-                <span class="chart-label">检查</span>
+                <span class="chart-label">Web</span>
                 <div class="chart-track">
-                  <div class="chart-fill" style="width: 78%; background: linear-gradient(90deg, #008DFF, #6366F1);"></div>
+                  <div class="chart-fill" style="width: 100%; background: linear-gradient(90deg, #008DFF, #6366F1);"></div>
                 </div>
-                <span class="chart-value">78%</span>
+                <span class="chart-value">Ready</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">设计</span>
+                <span class="chart-label">Extension</span>
                 <div class="chart-track">
-                  <div class="chart-fill" style="width: 65%; background: linear-gradient(90deg, #10B981, #34D399);"></div>
+                  <div class="chart-fill" style="width: 84%; background: linear-gradient(90deg, #10B981, #34D399);"></div>
                 </div>
-                <span class="chart-value">65%</span>
+                <span class="chart-value">Build</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">变更</span>
+                <span class="chart-label">Desktop</span>
                 <div class="chart-track">
-                  <div class="chart-fill" style="width: 42%; background: linear-gradient(90deg, #F59E0B, #FBBF24);"></div>
+                  <div class="chart-fill" style="width: 58%; background: linear-gradient(90deg, #F59E0B, #FBBF24);"></div>
                 </div>
-                <span class="chart-value">42%</span>
+                <span class="chart-value">Stub</span>
               </div>
               <div class="chart-bar">
-                <span class="chart-label">移动</span>
+                <span class="chart-label">Install</span>
                 <div class="chart-track">
-                  <div class="chart-fill" style="width: 28%; background: linear-gradient(90deg, #EF4444, #F87171);"></div>
+                  <div class="chart-fill" style="width: 72%; background: linear-gradient(90deg, #EF4444, #F87171);"></div>
                 </div>
-                <span class="chart-value">28%</span>
+                <span class="chart-value">Next</span>
               </div>
             </div>
           </div>
@@ -917,8 +987,8 @@
       <!-- Footer -->
       <footer class="footer">
         <div>
-          <div class="footer-brand">◈ Elens SDK</div>
-          <div class="footer-desc">面向现代 Web 开发的强大 DOM 元素检查器。基于 TypeScript 构建，零依赖。</div>
+          <div class="footer-brand">◈ Elens Install</div>
+          <div class="footer-desc">统一安装入口现在直接映射到 Web、Extension、Desktop 三种官方接入方式，底层仍复用同一份 inspector core。</div>
         </div>
         <div>
           <div class="footer-title">产品</div>

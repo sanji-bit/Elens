@@ -25,6 +25,7 @@ import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
 import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
+import { applyViewportSize as applyHostViewportSize, applyWindowBounds as applyHostWindowBounds, canResizeViewport as canHostResizeViewport, canResizeWindow as canHostResizeWindow, captureElementImageBlob as captureHostElementImageBlob, performCaptureForDesign, resolveInitialViewportState, resolveViewportCapabilities, writeClipboardImage as writeHostClipboardImage, writeClipboardText as writeHostClipboardText } from './host-runtime'
 import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, getInspectableElementFromPoint, getRoute, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
@@ -47,6 +48,9 @@ const DEFAULT_VIEWPORT_PRESETS: ViewportPreset[] = [
   { id: 'mobile-375x812', label: '375 × 812', width: 375, height: 812, category: 'mobile' },
   { id: 'mobile-360x800', label: '360 × 800', width: 360, height: 800, category: 'mobile' },
 ]
+
+const AUTO_COPY_DEBOUNCE_MS = 400
+
 
 function loadPersistedViewportPresetId(): string | null {
   try {
@@ -162,8 +166,6 @@ const DESIGN_SELECT_MATCHING_LAYERS_URL = new URL('./assets/design-select-matchi
 const DESIGN_DEV_MODE_URL = new URL('./assets/design-dev-mode.svg', import.meta.url).href
 const ICON_DESIGN_LAYERS_PANEL = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13 5H18C18.2652 5 18.5196 5.10536 18.7071 5.29289C18.8946 5.48043 19 5.73478 19 6V18C19 18.2652 18.8946 18.5196 18.7071 18.7071C18.5196 18.8946 18.2652 19 18 19H6C5.73478 19 5.48043 18.8946 5.29289 18.7071C5.10536 18.5196 5 18.2652 5 18V10H12C12.2652 10 12.5196 9.89464 12.7071 9.70711C12.8946 9.51957 13 9.26522 13 9V5ZM12 5H6C5.73478 5 5.48043 5.10536 5.29289 5.29289C5.10536 5.48043 5 5.73478 5 6V9H12V5ZM12 4H18C18.5304 4 19.0391 4.21071 19.4142 4.58579C19.7893 4.96086 20 5.46957 20 6V18C20 18.5304 19.7893 19.0391 19.4142 19.4142C19.0391 19.7893 18.5304 20 18 20H6C5.46957 20 4.96086 19.7893 4.58579 19.4142C4.21071 19.0391 4 18.5304 4 18V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H12Z" fill="currentColor"/></svg>'
 const DESIGN_RESET_URL = new URL('./assets/design-reset.svg', import.meta.url).href
-const CAPTURE_SCRIPT_FALLBACK_URL = new URL('./assets/capture.js', import.meta.url).href
-const CAPTURE_SCRIPT_REMOTE_URL = 'https://mcp.figma.com/mcp/html-to-design/capture.js'
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
 const CHANGES_HOVER_COPY_SUCCESS_ICON = `<img src="${CHANGES_HOVER_COPY_SUCCESS_URL}" alt="" />`
@@ -433,6 +435,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let annotateInput: HTMLTextAreaElement | null = null
   let changesFilter: 'all' | 'style' | 'text' | 'move' | 'note' = 'all'
   let outputDetail: OutputDetail = 'standard'
+  let pendingAutoCopyTimeout: number | null = null
+  let lastAutoCopiedPayload: string | null = null
+  let activeTextEditCount = 0
+  let activeAnnotationDraft = ''
   let activeChangeId: string | null = null
   let beforePreviewChangeIds = new Set<string>()
   let disabledStyleDiffsByChangeId = new Map<string, Set<string>>()
@@ -454,6 +460,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let styleTracker: StyleTracker | null = null
   let activeDesignTextChangeTarget: HTMLElement | null = null
   let activeDesignTextChangeHandler: ((original: string, modified: string) => void) | null = null
+  let activeDesignTextDraft = ''
+  let activeDesignNoteDraft = ''
   let designOverlaysVisible = true
   let inlineTextEditSession: {
     element: HTMLElement
@@ -932,13 +940,48 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function isEditableTarget(target: EventTarget | null): boolean {
-    return target instanceof HTMLElement && (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      target.isContentEditable
-    )
+    if (!(target instanceof HTMLElement)) return false
+    if (
+      target instanceof HTMLInputElement
+      || target instanceof HTMLTextAreaElement
+      || target instanceof HTMLSelectElement
+      || target.isContentEditable
+    ) {
+      return true
+    }
+    return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'))
   }
+
+  function hasEditableFocus(target: EventTarget | null): boolean {
+    return isEditableTarget(target) || isEditableTarget(document.activeElement)
+  }
+
+  function beginTextEditing(): void {
+    activeTextEditCount += 1
+  }
+
+  function endTextEditing(): void {
+    activeTextEditCount = Math.max(0, activeTextEditCount - 1)
+  }
+
+  function isTextEditingActive(): boolean {
+    return activeTextEditCount > 0
+  }
+
+  function bindTextEditingLifecycle(target: HTMLInputElement | HTMLTextAreaElement): void {
+    let editing = false
+    target.addEventListener('focus', () => {
+      if (editing) return
+      editing = true
+      beginTextEditing()
+    })
+    target.addEventListener('blur', () => {
+      if (!editing) return
+      editing = false
+      endTextEditing()
+    })
+  }
+
 
   function getPanelCollapsedHeight(): number {
     return header.offsetHeight || 49
@@ -1903,10 +1946,48 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
-  function clearAllChanges(): void {
+  function clearPendingAutoCopy(): void {
+    if (pendingAutoCopyTimeout === null) return
+    window.clearTimeout(pendingAutoCopyTimeout)
+    pendingAutoCopyTimeout = null
+  }
+
+  function writeAutoCopyPayload(payload: string): void {
+    if (payload === lastAutoCopiedPayload) return
+    void writeClipboardText(payload)
+      .then(() => {
+        lastAutoCopiedPayload = payload
+      })
+      .catch((error) => {
+        console.error('[Elens] Auto copy AI failed:', error)
+      })
+  }
+
+  function scheduleAutoCopy(options?: { immediate?: boolean }): void {
+    if (isTextEditingActive()) return
+
+    const payload = buildAIPayload(changes, outputDetail)
+    clearPendingAutoCopy()
+
+    if (payload === lastAutoCopiedPayload) return
+
+    if (options?.immediate) {
+      writeAutoCopyPayload(payload)
+      return
+    }
+
+    pendingAutoCopyTimeout = window.setTimeout(() => {
+      pendingAutoCopyTimeout = null
+      if (isTextEditingActive()) return
+      writeAutoCopyPayload(buildAIPayload(changes, outputDetail))
+    }, AUTO_COPY_DEBOUNCE_MS)
+  }
+
+  function clearAllChanges(options?: { skipAutoCopy?: boolean }): void {
     changes.forEach(resetChangeToBefore)
     changes = []
     changeIdCounter = 0
+    clearPendingAutoCopy()
     clearPersistedChanges()
     activeChangeId = null
     beforePreviewChangeIds.clear()
@@ -1918,10 +1999,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderMarkers()
     if (currentMode === 'changes') renderChangesList()
     closeOutputDetailMenu()
+    if (!options?.skipAutoCopy) scheduleAutoCopy({ immediate: true })
   }
 
   function persistChangesState(): void {
     persistChanges(changes)
+  }
+
+  function markAutoCopyRestored(): void {
+    clearPendingAutoCopy()
+    lastAutoCopiedPayload = buildAIPayload(changes, outputDetail)
   }
 
   function buildChangesArchive(): ChangesArchive {
@@ -2004,9 +2091,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function importChangesArchive(value: string): { restored: number; skipped: number } {
     const persistedChanges = parseChangesArchive(value)
-    clearAllChanges()
+    clearAllChanges({ skipAutoCopy: true })
     const result = restoreChangesFromPersistedData(persistedChanges)
     persistChangesState()
+    scheduleAutoCopy({ immediate: true })
     if (currentMode === 'changes') renderChangesList()
     return result
   }
@@ -2103,6 +2191,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const result = restoreChangesFromPersistedData(persistedChanges)
     if (result.restored === 0) clearPersistedChanges()
+    else markAutoCopyRestored()
   }
 
   function addChange(element: HTMLElement, comment: string, type: Change['type'] = 'annotation', diffs?: Change['diffs']): string {
@@ -2134,6 +2223,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     changes.push(change)
     persistChangesState()
+    scheduleAutoCopy()
     options.onChangeAdd?.(change)
     renderMarkers()
     return change.id
@@ -2166,6 +2256,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     change.meta.updatedAt = new Date().toISOString()
     change.meta.route = getRoute()
     persistChangesState()
+    scheduleAutoCopy()
     options.onChangeAdd?.(change)
     renderMarkers()
   }
@@ -2189,6 +2280,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     change.meta.updatedAt = new Date().toISOString()
     change.meta.route = getRoute()
     persistChangesState()
+    scheduleAutoCopy()
     options.onChangeAdd?.(change)
     renderMarkers()
   }
@@ -2214,6 +2306,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     disabledMoveDiffByChangeId.delete(id)
     disabledNoteByChangeId.delete(id)
     persistChangesState()
+    scheduleAutoCopy()
     options.onChangeRemove?.(id)
     renderMarkers()
   }
@@ -2262,10 +2355,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     textarea.placeholder = i18n.design.notePlaceholder
     textarea.setAttribute(IGNORE_ATTR, 'true')
     const existing = findNoteChangeForElement(element)
-    if (existing) textarea.value = getChangeNoteText(existing)
+    textarea.value = activeAnnotationDraft || (existing ? getChangeNoteText(existing) : '')
     annotateInput = textarea
+    bindTextEditingLifecycle(textarea)
 
+    const clearAnnotationPanel = (): void => {
+      activeAnnotationDraft = ''
+      lockedElement = null
+      panelAnchor = null
+      panelPosition = null
+      annotateInput = null
+      renderInfo(null)
+    }
+
+    textarea.addEventListener('input', () => {
+      activeAnnotationDraft = textarea.value
+    })
     textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        clearAnnotationPanel()
+        return
+      }
       e.stopPropagation()
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
@@ -2278,11 +2390,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     cancelBtn.type = 'button'
     cancelBtn.setAttribute(IGNORE_ATTR, 'true')
     cancelBtn.addEventListener('click', () => {
-      lockedElement = null
-      panelAnchor = null
-      panelPosition = null
-      annotateInput = null
-      renderInfo(null)
+      clearAnnotationPanel()
     })
     const submitBtn = el('button', 'ei-button ei-button-primary', existing ? i18n.actions.update : i18n.actions.add)
     submitBtn.type = 'button'
@@ -2306,6 +2414,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const existing = findNoteChangeForElement(element)
     if (existing) updateChangeNote(existing, trimmed)
     else createNoteChange(element, trimmed)
+    activeAnnotationDraft = ''
     lockedElement = null
     panelAnchor = null
     panelPosition = null
@@ -4031,79 +4140,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   async function captureElementImageBlob(target: HTMLElement): Promise<Blob> {
-    const captureVisibleTab = options.viewportController?.captureVisibleTab
-    if (!captureVisibleTab) {
-      throw new Error(i18n.design.screenshotUnsupported)
-    }
-
-    const dataUrl = await captureVisibleTab()
-    if (!dataUrl) throw new Error(i18n.design.screenshotBridgeUnavailable)
-
-    const screenshotImage = new Image()
-    screenshotImage.src = dataUrl
-    await new Promise<void>((resolve, reject) => {
-      screenshotImage.onload = () => resolve()
-      screenshotImage.onerror = () => reject(new Error(i18n.capture.unknownError))
-    })
-
-    const rect = target.getBoundingClientRect()
-    const scaleX = screenshotImage.width / window.innerWidth
-    const scaleY = screenshotImage.height / window.innerHeight
-    const cropX = Math.max(0, Math.round(rect.left * scaleX))
-    const cropY = Math.max(0, Math.round(rect.top * scaleY))
-    const cropWidth = Math.max(1, Math.min(screenshotImage.width - cropX, Math.round(rect.width * scaleX)))
-    const cropHeight = Math.max(1, Math.min(screenshotImage.height - cropY, Math.round(rect.height * scaleY)))
-
-    const canvas = document.createElement('canvas')
-    canvas.width = cropWidth
-    canvas.height = cropHeight
-    const context = canvas.getContext('2d')
-    if (!context) throw new Error(i18n.capture.unknownError)
-    context.drawImage(screenshotImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
-
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((value) => {
-        if (value) resolve(value)
-        else reject(new Error(i18n.capture.unknownError))
-      }, 'image/png')
-    })
-  }
-
-  async function blobToDataUrl(blob: Blob): Promise<string> {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error(i18n.capture.unknownError))
-      reader.onerror = () => reject(reader.error ?? new Error(i18n.capture.unknownError))
-      reader.readAsDataURL(blob)
+    return await captureHostElementImageBlob(target, options.viewportController?.captureVisibleTab, {
+      unsupported: i18n.design.screenshotUnsupported,
+      unavailable: i18n.design.screenshotBridgeUnavailable,
+      unknownError: i18n.capture.unknownError,
     })
   }
 
   async function writeClipboardText(text: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(text)
-      return
-    } catch {
-      if (options.viewportController?.writeClipboard) {
-        await options.viewportController.writeClipboard({ text })
-        return
-      }
-      throw new Error('Clipboard write failed')
-    }
+    await writeHostClipboardText(text, { write: options.viewportController?.writeClipboard })
   }
 
   async function writeClipboardImage(blob: Blob): Promise<void> {
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ])
-      return
-    } catch {
-      if (options.viewportController?.writeClipboard) {
-        await options.viewportController.writeClipboard({ imageDataUrl: await blobToDataUrl(blob) })
-        return
-      }
-      throw new Error('Clipboard image write failed')
-    }
+    await writeHostClipboardImage(blob, { write: options.viewportController?.writeClipboard }, i18n.capture.unknownError)
   }
 
   async function captureElementToFigma(target: HTMLElement): Promise<void> {
@@ -4516,12 +4565,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const applyTextChange = (original: string, modified: string) => {
+      activeDesignTextDraft = ''
       if (modified !== original) {
         currentTextDiff = { property: 'textContent', original, modified }
       } else {
         currentTextDiff = null
       }
       saveToChanges()
+      scheduleAutoCopy({ immediate: true })
     }
 
     const syncDesignNote = (note: string) => {
@@ -4552,6 +4603,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
       persistChangesState()
       renderMarkers()
+      scheduleAutoCopy({ immediate: true })
     }
 
     const isMultiSelection = selectedElements.length > 1
@@ -4780,9 +4832,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       },
       onTextChange: applyTextChange,
       onNoteChange: (note) => {
+        activeDesignNoteDraft = ''
         syncDesignNote(note)
       },
       getInitialNote: () => getExistingDesignNote(),
+      getTextDraft: () => activeDesignTextDraft || null,
+      getNoteDraft: () => activeDesignNoteDraft || null,
+      onTextDraftChange: (value) => {
+        activeDesignTextDraft = value
+      },
+      onNoteDraftChange: (value) => {
+        activeDesignNoteDraft = value
+      },
+      onTextEditStart: beginTextEditing,
+      onTextEditEnd: endTextEditing,
     })
     body.appendChild(designPanel)
 
@@ -4867,7 +4930,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
   }
 
-  function refreshLocked(): void {
+  function refreshLocked(event?: Event): void {
+    const target = event?.target
+    if (target instanceof Node && (panel.contains(target) || layersPanel.contains(target))) {
+      return
+    }
     if (outlinesEnabled) return // Outlines mode: no refresh
     renderMarkers()
     if (!lockedElement) {
@@ -4923,7 +4990,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function onMouseDown(event: MouseEvent): void {
-    if (!isInteractiveMode() || isPanelEvent(event)) return
+    if (!isInteractiveMode() || isPanelEvent(event) || isEditableTarget(event.target)) return
     if (currentMode !== 'move' || event.button !== 0) return
     const handleEntry = getMoveHandleEntryFromTarget(event.target)
     if (!handleEntry) return
@@ -4939,9 +5006,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function blockMouse(event: Event): void {
     if (outlinesEnabled) return // Outlines mode: allow normal interaction
-    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event) || isEditableTarget(event.target)) return
     if (event.type === 'wheel') return
-    if (isEditableTarget(event.target)) return
     if (currentMode === 'move' && (event.type === 'mousedown' || event.type === 'mouseup')) return
     event.preventDefault()
     event.stopPropagation()
@@ -4954,9 +5020,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
     if (outlinesEnabled) return // Outlines mode: no interaction
-    if (!isInteractiveMode() || isIgnoredEvent(event)) return
-    if (isPanelEvent(event)) return
-    if (inlineTextEditSession && isEditableTarget(event.target)) return
+    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event) || isEditableTarget(event.target)) return
     event.preventDefault()
     event.stopPropagation()
     hideTooltip()
@@ -5036,7 +5100,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (isIgnoredEvent(event)) return
+    if (isIgnoredEvent(event) || hasEditableFocus(event.target)) return
 
     const hasModifierKey = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
 
@@ -5046,8 +5110,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       finishInlineTextEdit(false)
       return
     }
-
-    if (isEditableTarget(event.target)) return
 
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -5257,34 +5319,26 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Event binding ---
 
   function bindEvents(): void {
-    const wheelOptions: AddEventListenerOptions = { capture: true, passive: false }
     const captureOptions: AddEventListenerOptions = { capture: true }
     window.addEventListener('mousemove', onMouseMove, captureOptions)
     window.addEventListener('mousedown', onMouseDown, captureOptions)
-    window.addEventListener('mousedown', blockMouse, captureOptions)
     window.addEventListener('mouseup', onMouseUp, captureOptions)
-    window.addEventListener('mouseup', blockMouse, captureOptions)
     window.addEventListener('dblclick', blockMouse, captureOptions)
     window.addEventListener('contextmenu', blockMouse, captureOptions)
     window.addEventListener('click', onClick, captureOptions)
-    window.addEventListener('wheel', blockMouse, wheelOptions)
     window.addEventListener('keydown', onKeyDown, captureOptions)
     window.addEventListener('resize', refreshLocked)
     window.addEventListener('scroll', refreshLocked, true)
   }
 
   function unbindEvents(): void {
-    const wheelOptions: AddEventListenerOptions = { capture: true }
     const captureOptions: AddEventListenerOptions = { capture: true }
     window.removeEventListener('mousemove', onMouseMove, captureOptions)
     window.removeEventListener('mousedown', onMouseDown, captureOptions)
-    window.removeEventListener('mousedown', blockMouse, captureOptions)
     window.removeEventListener('mouseup', onMouseUp, captureOptions)
-    window.removeEventListener('mouseup', blockMouse, captureOptions)
     window.removeEventListener('dblclick', blockMouse, captureOptions)
     window.removeEventListener('contextmenu', blockMouse, captureOptions)
     window.removeEventListener('click', onClick, captureOptions)
-    window.removeEventListener('wheel', blockMouse, wheelOptions)
     window.removeEventListener('keydown', onKeyDown, captureOptions)
     window.removeEventListener('resize', refreshLocked)
     window.removeEventListener('scroll', refreshLocked, true)
@@ -6114,11 +6168,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function canResizeWindow(): boolean {
-    return Boolean(options.viewportController?.setWindowBounds && viewportCapabilities.resizeWindow !== false)
+    return canHostResizeWindow(options.viewportController, viewportCapabilities)
   }
 
   function canResizeViewport(): boolean {
-    return Boolean(options.viewportController?.setViewportSize && viewportCapabilities.resizeViewport !== false)
+    return canHostResizeViewport(options.viewportController, viewportCapabilities)
   }
 
   function syncViewportModeUi(): void {
@@ -6146,14 +6200,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   syncViewportModeUi()
 
   async function applyWindowBounds(bounds: WindowBounds): Promise<boolean> {
-    if (!options.viewportController?.setWindowBounds || viewportCapabilities.resizeWindow === false) {
-      showToast(i18n.viewport.unsupported, 'info')
-      return false
-    }
-
     try {
-      const result = await options.viewportController.setWindowBounds(bounds)
-      if (result === false) {
+      const result = await applyHostWindowBounds(options.viewportController, viewportCapabilities, bounds)
+      if (result === 'unsupported') {
         showToast(i18n.viewport.unsupported, 'info')
         return false
       }
@@ -6166,14 +6215,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   async function applyViewportSize(width: number, height: number): Promise<boolean> {
-    if (!options.viewportController?.setViewportSize || viewportCapabilities.resizeViewport === false) {
-      showToast(i18n.viewport.unsupported, 'info')
-      return false
-    }
-
     try {
-      const result = await options.viewportController.setViewportSize(width, height)
-      if (result === false) {
+      const result = await applyHostViewportSize(options.viewportController, viewportCapabilities, width, height)
+      if (result === 'unsupported') {
         showToast(i18n.viewport.unsupported, 'info')
         return false
       }
@@ -6575,55 +6619,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   async function performCapture(selector: string, captureOptions: CaptureOptions): Promise<void> {
     try {
-      if (options.viewportController?.captureForDesign) {
-        const result = await options.viewportController.captureForDesign(selector, { scroll: captureOptions.scroll })
-        console.log('[Elens] Capture result:', result)
-        showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
-        return
-      }
-
-      // 1) 注入 capture.js
-      if (!window.figma?.captureForDesign) {
-        let scriptText = ''
-        try {
-          const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
-          if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
-          scriptText = await response.text()
-        } catch {
-          const response = await fetch(CAPTURE_SCRIPT_FALLBACK_URL)
-          scriptText = await response.text()
-        }
-        const el_script = document.createElement('script')
-        el_script.textContent = scriptText
-        document.head.appendChild(el_script)
-        await sleep(1200)
-      }
-
-      // 2) 如果需要滚动，触发懒加载
-      if (captureOptions.scroll) {
-        const step = Math.max(400, Math.floor(window.innerHeight * 0.8))
-        for (let y = 0; y < document.body.scrollHeight; y += step) {
-          window.scrollTo(0, y)
-          await sleep(180)
-        }
-        await sleep(600)
-        window.scrollTo(0, 0)
-      }
-
-      // 3) 等图片与字体
-      const imgs = Array.from(document.images || [])
-      await Promise.allSettled(
-        imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
-          img.addEventListener('load', res, { once: true })
-          img.addEventListener('error', res, { once: true })
-          setTimeout(res, 4000)
-        }))
-      )
-      if (document.fonts?.ready) await Promise.race([document.fonts.ready, sleep(3000)])
-      await sleep(500)
-
-      // 4) 复制模式抓取
-      const result = await window.figma?.captureForDesign({ selector })
+      const result = await performCaptureForDesign(selector, { scroll: captureOptions.scroll }, options.viewportController?.captureForDesign)
       console.log('[Elens] Capture result:', result)
       showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
       return
@@ -6743,47 +6739,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   restorePersistedChanges()
   syncViewportMenu()
 
-  if (options.viewportController?.getCapabilities) {
-    void Promise.resolve(options.viewportController.getCapabilities())
-      .then((capabilities) => {
-        viewportCapabilities = capabilities
-      })
-      .catch(() => {
-        // Ignore viewport capability read failures.
-      })
-  }
+  void resolveViewportCapabilities(options.viewportController)
+    .then((capabilities) => {
+      if (!capabilities) return
+      viewportCapabilities = capabilities
+    })
+    .catch(() => {
+      // Ignore viewport capability read failures.
+    })
 
-  if (options.viewportController?.getWindowBounds) {
-    void Promise.resolve(options.viewportController.getWindowBounds())
-      .then((bounds) => {
-        if (!bounds) return
-        currentViewportState = {
-          presetId: currentViewportPreset?.id,
-          width: bounds.width,
-          height: bounds.height,
-          left: bounds.left,
-          top: bounds.top,
-          target: 'window',
-        }
-      })
-      .catch(() => {
-        // Ignore window bounds read failures.
-      })
-  } else if (options.viewportController?.getViewportSize) {
-    void Promise.resolve(options.viewportController.getViewportSize())
-      .then((size) => {
-        if (!size) return
-        currentViewportState = {
-          presetId: currentViewportPreset?.id,
-          width: size.width,
-          height: size.height,
-          target: 'viewport',
-        }
-      })
-      .catch(() => {
-        // Ignore viewport size read failures.
-      })
-  }
+  void resolveInitialViewportState(options.viewportController, currentViewportPreset)
+    .then((state) => {
+      if (!state) return
+      currentViewportState = state
+    })
+    .catch(() => {
+      // Ignore initial viewport state read failures.
+    })
 
   // Initial state
   if (options.enabled) {

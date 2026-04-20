@@ -15,7 +15,10 @@
     "check:design-system": "node scripts/check-design-system.mjs"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./web": "./src/web.ts",
+    "./extension": "./src/extension.ts",
+    "./desktop": "./src/desktop.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.2",

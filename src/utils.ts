@@ -1,4 +1,4 @@
-import type { BoxEdges, Change, ChangeContext, ChangeIdentity, ChangeLocatorHints, ChangePatch, ChangeSelector, ChangeSnapshot, ChangeSourceContext, ChangeTarget, InspectorInfo, OutputDetail, StyleDiff } from './types'
+import type { BoxEdges, Change, ChangeContext, ChangeIdentity, ChangeLocatorHints, ChangePatch, ChangeSelector, ChangeSnapshot, ChangeSourceContext, ChangeTarget, InspectableElement, InspectorInfo, LayersTreeBuildResult, LayersTreeNode, OutputDetail, StyleDiff } from './types'
 
 export function truncate(value: string, max = 140): string {
   const trimmed = value.replace(/\s+/g, ' ').trim()
@@ -28,13 +28,13 @@ export function pickEdgeBox(style: CSSStyleDeclaration, prefix: 'margin' | 'padd
   }
 }
 
-export function buildDomPath(element: HTMLElement): string {
+export function buildDomPath(element: InspectableElement): string {
   const parts: string[] = []
-  let current: HTMLElement | null = element
+  let current: Element | null = element
 
   while (current && current.tagName.toLowerCase() !== 'body') {
     const tag = current.tagName.toLowerCase()
-    const id = current.id ? `#${current.id}` : ''
+    const id = 'id' in current && typeof current.id === 'string' && current.id ? `#${current.id}` : ''
     const classNames = Array.from(current.classList)
       .slice(0, 2)
       .map(cls => `.${cls}`)
@@ -43,8 +43,9 @@ export function buildDomPath(element: HTMLElement): string {
     let selector = `${tag}${id}${classNames}`
 
     if (!id && current.parentElement) {
+      const currentTagName = current.tagName
       const siblings = Array.from(current.parentElement.children).filter(
-        child => child.tagName === current!.tagName,
+        child => child.tagName === currentTagName,
       )
       if (siblings.length > 1) {
         selector += `:nth-of-type(${siblings.indexOf(current) + 1})`
@@ -58,14 +59,23 @@ export function buildDomPath(element: HTMLElement): string {
   return ['body', ...parts].join(' > ')
 }
 
-export function getInspectableElementFromPoint(x: number, y: number, ignoreAttribute: string): HTMLElement | null {
+function getRootSvgElement(element: SVGElement): SVGSVGElement | null {
+  return element instanceof SVGSVGElement ? element : element.ownerSVGElement ?? element.closest('svg')
+}
+
+export function getInspectableElementFromPoint(x: number, y: number, ignoreAttribute: string): InspectableElement | null {
   const elements = document.elementsFromPoint(x, y)
 
   for (const element of elements) {
-    if (!(element instanceof HTMLElement)) continue
-    if (element.closest(`[${ignoreAttribute}="true"]`)) continue
-    if (element === document.documentElement || element === document.body) continue
-    return element
+    const candidate = element instanceof SVGElement
+      ? getRootSvgElement(element)
+      : element instanceof HTMLElement
+        ? element
+        : null
+    if (!candidate) continue
+    if (candidate.closest(`[${ignoreAttribute}="true"]`)) continue
+    if (candidate === document.documentElement || candidate === document.body) continue
+    return candidate
   }
 
   return null
@@ -123,16 +133,31 @@ function isKeyboardFocusable(element: HTMLElement): boolean {
   return false
 }
 
-export function extractInspectorInfo(element: HTMLElement): InspectorInfo {
+export function extractInspectorInfo(element: InspectableElement): InspectorInfo {
   const style = window.getComputedStyle(element)
   const rect = element.getBoundingClientRect()
+  const text = element instanceof HTMLElement
+    ? (element.innerText || element.textContent || '—')
+    : (element.textContent || '—')
+
+  const accessibility = element instanceof HTMLElement
+    ? {
+        name: getAccessibleName(element),
+        role: getAccessibleRole(element),
+        keyboardFocusable: isKeyboardFocusable(element),
+      }
+    : {
+        name: '',
+        role: 'graphics-symbol',
+        keyboardFocusable: false,
+      }
 
   return {
     element,
     tagName: element.tagName.toLowerCase(),
     id: element.id || '—',
     className: element.className?.toString().trim() || '—',
-    text: truncate(element.innerText || element.textContent || '—', 160),
+    text: truncate(text, 160),
     domPath: buildDomPath(element),
     rect: {
       left: rect.left,
@@ -185,11 +210,7 @@ export function extractInspectorInfo(element: HTMLElement): InspectorInfo {
       opacity: style.opacity,
       overflow: style.overflow,
     },
-    accessibility: {
-      name: getAccessibleName(element),
-      role: getAccessibleRole(element),
-      keyboardFocusable: isKeyboardFocusable(element),
-    },
+    accessibility,
   }
 }
 
@@ -287,11 +308,110 @@ export function buildCopyText(info: InspectorInfo): string {
   ].join('\n')
 }
 
+function hasMeaningfulText(element: HTMLElement): boolean {
+  return truncate(element.innerText || element.textContent || '', 60).length > 0
+}
+
+function getTreeNodeSiblingIndex(element: HTMLElement): number {
+  const parent = element.parentElement
+  if (!parent) return 0
+  const siblings = Array.from(parent.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === element.tagName)
+  return Math.max(0, siblings.indexOf(element))
+}
+
+export function buildTreeNodeId(element: HTMLElement): string {
+  return `${buildDomPath(element)}|${getTreeNodeSiblingIndex(element)}`
+}
+
+export function getLayerNodeLabel(element: HTMLElement): string {
+  const tag = element.tagName.toLowerCase()
+  const id = element.id ? `#${element.id}` : ''
+  const className = Array.from(element.classList).filter(Boolean).slice(0, 1).map(name => `.${name}`).join('')
+  return `${tag}${id}${className}`
+}
+
+export function getLayerNodeSecondaryLabel(element: HTMLElement): string {
+  const ariaLabel = element.getAttribute('aria-label')?.trim()
+  if (ariaLabel) return truncate(ariaLabel, 60)
+  if (element.id) return `id="${element.id}"`
+  const className = element.className?.toString().trim()
+  if (className) return truncate(`class="${className}"`, 60)
+  const text = truncate(element.innerText || element.textContent || '', 60)
+  return text
+}
+
+export function shouldIncludeInLayersTree(element: HTMLElement, ignoreAttribute: string): boolean {
+  if (element.hasAttribute(ignoreAttribute) || element.closest(`[${ignoreAttribute}="true"]`)) return false
+  if (element.classList.contains('ei-root') || Array.from(element.classList).some(name => name.startsWith('ei-'))) return false
+  const style = window.getComputedStyle(element)
+  if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false
+  const rect = element.getBoundingClientRect()
+  const hasSize = rect.width > 0 || rect.height > 0
+  if (!hasSize && !hasMeaningfulText(element) && element.children.length === 0) return false
+  return true
+}
+
+export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttribute: string; maxNodes?: number } ): LayersTreeBuildResult | null {
+  const maxNodes = options.maxNodes ?? 600
+  let nodeCount = 0
+  let truncated = false
+
+  function walk(element: HTMLElement, depth: number, parentId: string | null): LayersTreeNode | null {
+    if (nodeCount >= maxNodes) {
+      truncated = true
+      return null
+    }
+    if (!shouldIncludeInLayersTree(element, options.ignoreAttribute)) return null
+
+    nodeCount += 1
+    const id = buildTreeNodeId(element)
+    const label = getLayerNodeLabel(element)
+    const secondaryLabel = getLayerNodeSecondaryLabel(element)
+    const children: LayersTreeNode[] = []
+
+    for (const child of Array.from(element.children)) {
+      if (!(child instanceof HTMLElement)) continue
+      const nextNode = walk(child, depth + 1, id)
+      if (nextNode) children.push(nextNode)
+      if (truncated && nodeCount >= maxNodes) break
+    }
+
+    return {
+      id,
+      element,
+      parentId,
+      depth,
+      label,
+      secondaryLabel,
+      searchText: `${label} ${secondaryLabel} ${buildDomPath(element)}`.toLowerCase(),
+      children,
+    }
+  }
+
+  const tree = walk(root, 0, null)
+  if (!tree) return null
+  return { root: tree, truncated, nodeCount }
+}
+
+export function filterLayersTree(node: LayersTreeNode, query: string): LayersTreeNode | null {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return node
+  const matchedChildren = node.children
+    .map(child => filterLayersTree(child, normalized))
+    .filter((child): child is LayersTreeNode => Boolean(child))
+  const matchedSelf = node.searchText.includes(normalized)
+  if (!matchedSelf && matchedChildren.length === 0) return null
+  return {
+    ...node,
+    children: matchedChildren,
+  }
+}
+
 function formatEdges(edges: BoxEdges): string {
   return `${edges.top} ${edges.right} ${edges.bottom} ${edges.left}`
 }
 
-function buildSelectorCandidates(element: HTMLElement, info: InspectorInfo): ChangeSelector {
+function buildSelectorCandidates(element: InspectableElement, info: InspectorInfo): ChangeSelector {
   const candidates: string[] = []
   const testing: string[] = []
   const semantic: string[] = []
@@ -349,7 +469,7 @@ function buildSelectorCandidates(element: HTMLElement, info: InspectorInfo): Cha
   }
 }
 
-function getDataAttributes(element: HTMLElement): Record<string, string> {
+function getDataAttributes(element: Element): Record<string, string> {
   return Array.from(element.attributes).reduce<Record<string, string>>((acc, attr) => {
     if (attr.name.startsWith('data-')) acc[attr.name] = attr.value
     return acc
@@ -361,7 +481,7 @@ function getSiblingText(element: Element | null): string {
   return truncate((element.innerText || element.textContent || '').trim(), 80)
 }
 
-export function buildChangeIdentity(element: HTMLElement, info: InspectorInfo): ChangeIdentity {
+export function buildChangeIdentity(element: InspectableElement, info: InspectorInfo): ChangeIdentity {
   return {
     id: info.id === '—' ? '' : info.id,
     className: info.className === '—' ? '' : info.className,
@@ -371,7 +491,7 @@ export function buildChangeIdentity(element: HTMLElement, info: InspectorInfo): 
   }
 }
 
-export function buildChangeContext(element: HTMLElement): ChangeContext {
+export function buildChangeContext(element: InspectableElement): ChangeContext {
   return {
     parentTag: element.parentElement?.tagName.toLowerCase() ?? '',
     previousSiblingText: getSiblingText(element.previousElementSibling),
@@ -410,7 +530,15 @@ function getSourceFileFromFiber(fiber: unknown): string {
   return `${source.fileName}${suffix}`
 }
 
-function buildSourceContext(element: HTMLElement): ChangeSourceContext {
+function buildSourceContext(element: InspectableElement): ChangeSourceContext {
+  if (!(element instanceof HTMLElement)) {
+    return {
+      framework: 'unknown',
+      componentNames: [],
+      componentTree: [],
+      sourceFilePaths: [],
+    }
+  }
   const componentNames: string[] = []
   const sourceFilePaths: string[] = []
   let framework: ChangeSourceContext['framework'] = 'unknown'
@@ -445,7 +573,7 @@ function buildSourceContext(element: HTMLElement): ChangeSourceContext {
   }
 }
 
-function buildLocatorHints(element: HTMLElement, info: InspectorInfo, selector: ChangeSelector, sourceContext: ChangeSourceContext): ChangeLocatorHints {
+function buildLocatorHints(element: InspectableElement, info: InspectorInfo, selector: ChangeSelector, sourceContext: ChangeSourceContext): ChangeLocatorHints {
   const terms: string[] = []
   const textAnchors: string[] = []
   const attributeAnchors: string[] = []
@@ -491,7 +619,7 @@ function buildLocatorHints(element: HTMLElement, info: InspectorInfo, selector: 
   }
 }
 
-export function buildChangeTarget(element: HTMLElement, info: InspectorInfo): ChangeTarget {
+export function buildChangeTarget(element: InspectableElement, info: InspectorInfo): ChangeTarget {
   const selector = buildSelectorCandidates(element, info)
   const sourceContext = buildSourceContext(element)
 

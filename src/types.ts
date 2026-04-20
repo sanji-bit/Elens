@@ -5,8 +5,10 @@ export type BoxEdges = {
   left: string
 }
 
+export type InspectableElement = HTMLElement | SVGSVGElement
+
 export type InspectorInfo = {
-  element: HTMLElement
+  element: InspectableElement
   tagName: string
   id: string
   className: string
@@ -184,6 +186,23 @@ export type ChangeSnapshot = {
   }
 }
 
+export type LayersTreeNode = {
+  id: string
+  element: HTMLElement
+  parentId: string | null
+  depth: number
+  label: string
+  secondaryLabel: string
+  searchText: string
+  children: LayersTreeNode[]
+}
+
+export type LayersTreeBuildResult = {
+  root: LayersTreeNode
+  truncated: boolean
+  nodeCount: number
+}
+
 export type ChangeMeta = {
   sourceMode: 'inspector' | 'design' | 'move' | 'delete'
   status: 'confirmed'
@@ -202,7 +221,7 @@ export type OutputDetail = 'compact' | 'standard' | 'detailed' | 'forensic'
 export type Change = {
   id: string
   type: 'annotation' | 'design' | 'move' | 'delete'
-  element: HTMLElement
+  element: InspectableElement
   info: InspectorInfo
   comment: string
   diffs?: StyleDiff[]

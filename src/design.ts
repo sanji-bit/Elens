@@ -1,7 +1,35 @@
 import CHANGES_PANEL_CLOSE_ICON from './assets/changes-panel-close.svg?raw'
-import type { InspectorInfo, StyleDiff } from './types'
+import type { InspectableElement, InspectorInfo, StyleDiff } from './types'
 import { i18n } from './i18n'
 import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
+
+export type MultiSelectionTypographyState = {
+  count: number
+  fontFamily: string | null
+  fontSize: string | null
+  fontWeight: string | null
+  lineHeight: string | null
+  letterSpacing: string | null
+  textAlign: string | null
+  color: string | null
+}
+
+export type MultiSelectionContainerState = {
+  count: number
+  paddingLeft: string | null
+  paddingTop: string | null
+  paddingRight: string | null
+  paddingBottom: string | null
+  gap: string | null
+  borderRadius: string | null
+  borderTopLeftRadius: string | null
+  borderTopRightRadius: string | null
+  borderBottomRightRadius: string | null
+  borderBottomLeftRadius: string | null
+  backgroundColor: string | null
+  borderWidth: string | null
+  borderColor: string | null
+}
 
 const IGNORE_ATTR = 'data-elens-ignore'
 
@@ -38,7 +66,7 @@ export type StyleTracker = {
   hasChanges: () => boolean
 }
 
-export function createStyleTracker(element: HTMLElement, onChange?: () => void): StyleTracker {
+export function createStyleTracker(element: InspectableElement, onChange?: () => void): StyleTracker {
   const originals = new Map<string, string>()
   const applied = new Map<string, string>()
 
@@ -275,27 +303,34 @@ const SIZING_FULL_LABELS: Record<string, Record<SizingMode, string>> = {
   height: { fixed: i18n.design.fixedHeight, hug: i18n.design.hugContents, fill: i18n.design.fillContainer },
 }
 
-function detectSizingMode(element: HTMLElement, dimension: 'width' | 'height'): SizingMode {
-  const style = window.getComputedStyle(element)
+function detectSizingMode(element: InspectableElement, dimension: 'width' | 'height'): SizingMode {
   const inlineVal = element.style.getPropertyValue(dimension)
+  if (element instanceof SVGSVGElement) return inlineVal && inlineVal !== 'auto' ? 'fixed' : 'fixed'
+  const style = window.getComputedStyle(element)
   if (inlineVal === 'fit-content' || inlineVal === 'auto') return 'hug'
   if (inlineVal === '100%') return 'fill'
   if (inlineVal && inlineVal !== 'auto') return 'fixed'
-  // Check computed: if parent is flex/grid and element stretches
   const parentDisplay = element.parentElement ? window.getComputedStyle(element.parentElement).display : ''
   const isParentLayout = parentDisplay.includes('flex') || parentDisplay.includes('grid')
   if (isParentLayout) {
-    const val = style.getPropertyValue(dimension)
-    // If no explicit size set, check if it's stretching or hugging
     if (!element.style.getPropertyValue(dimension)) return 'fixed'
   }
   return 'fixed'
 }
 
-function canFillContainer(element: HTMLElement): boolean {
+function canFillContainer(element: InspectableElement): boolean {
+  if (element instanceof SVGSVGElement) return false
   if (!element.parentElement) return false
   const parentDisplay = window.getComputedStyle(element.parentElement).display
   return parentDisplay.includes('flex') || parentDisplay.includes('grid')
+}
+
+function supportsFlexibleSizing(element: InspectableElement): boolean {
+  return !(element instanceof SVGSVGElement)
+}
+
+function isSvgElement(element: InspectableElement): element is SVGSVGElement {
+  return element instanceof SVGSVGElement
 }
 
 const GAP_DROPDOWN_ICON = `<svg width="23" height="24" viewBox="0 0 23 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.24404 11.1816C9.28855 11.137 9.34143 11.1016 9.39965 11.0774C9.45786 11.0533 9.52027 11.0408 9.58329 11.0408C9.64632 11.0408 9.70873 11.0533 9.76694 11.0774C9.82516 11.1016 9.87803 11.137 9.92254 11.1816L11.5 12.76L13.0774 11.1816C13.1219 11.1371 13.1748 11.1017 13.233 11.0776C13.2912 11.0535 13.3536 11.0411 13.4166 11.0411C13.4796 11.0411 13.542 11.0535 13.6002 11.0776C13.6584 11.1017 13.7113 11.1371 13.7559 11.1816C13.8004 11.2262 13.8358 11.279 13.8599 11.3373C13.884 11.3955 13.8964 11.4579 13.8964 11.5209C13.8964 11.5839 13.884 11.6462 13.8599 11.7045C13.8358 11.7627 13.8004 11.8156 13.7559 11.8601L11.8392 13.7768C11.7947 13.8214 11.7418 13.8568 11.6836 13.881C11.6254 13.9051 11.563 13.9175 11.5 13.9175C11.4369 13.9175 11.3745 13.9051 11.3163 13.881C11.2581 13.8568 11.2052 13.8214 11.1607 13.7768L9.24404 11.8601C9.19942 11.8156 9.16402 11.7627 9.13986 11.7045C9.11571 11.6463 9.10327 11.5839 9.10327 11.5209C9.10327 11.4578 9.11571 11.3954 9.13986 11.3372C9.16402 11.279 9.19942 11.2261 9.24404 11.1816Z" fill="currentColor"/></svg>`
@@ -645,7 +680,7 @@ type SizeFieldOptions = {
   icon: string
   dimension: 'width' | 'height'
   value: number
-  element: HTMLElement
+  element: InspectableElement
   tracker: StyleTracker
   onChange: () => void
 }
@@ -669,6 +704,9 @@ function createSizeField(options: SizeFieldOptions): SizeFieldHandle {
       tracker.apply(dimension, `${v}px`)
       modeLabel.textContent = SIZING_LABELS.fixed
       currentMode = 'fixed'
+      if (isSvgElement(element)) {
+        syncDisplayedSize()
+      }
       onChange()
     },
   })
@@ -689,6 +727,7 @@ function createSizeField(options: SizeFieldOptions): SizeFieldHandle {
   trigger.appendChild(modeLabel)
   trigger.addEventListener('click', (e) => {
     e.stopPropagation()
+    if (!supportsFlexibleSizing(element)) return
     openSizingDropdown(trigger, currentMode, dimension, element, (mode) => {
       currentMode = mode
       modeLabel.textContent = SIZING_LABELS[mode]
@@ -707,6 +746,11 @@ function createSizeField(options: SizeFieldOptions): SizeFieldHandle {
       onChange()
     })
   })
+
+  if (!supportsFlexibleSizing(element)) {
+    trigger.style.pointerEvents = 'none'
+    trigger.style.opacity = '0.5'
+  }
 
   wrap.append(iconEl, input, trigger)
   wrap.addEventListener('click', () => input.focus())
@@ -741,7 +785,7 @@ function openSizingDropdown(
   anchor: HTMLElement,
   currentMode: SizingMode,
   dimension: 'width' | 'height',
-  element: HTMLElement,
+  element: InspectableElement,
   onSelect: (mode: SizingMode) => void,
 ): void {
   closeSizingDropdown()
@@ -814,6 +858,8 @@ type FillRowOptions = {
   value: string
   opacity?: number
   className?: string
+  textValue?: string
+  placeholder?: string
   onChange: (value: string) => void
   onOpacityChange?: (opacity: number, currentHex: string) => void
   onSwatchClick?: (swatch: HTMLDivElement) => void
@@ -1034,7 +1080,7 @@ function createFillDraft(element: HTMLElement, info: InspectorInfo): FillDraft {
 }
 
 function createFillRow(options: FillRowOptions): HTMLDivElement {
-  const { value, opacity = 100, className = '', onChange, onOpacityChange, onSwatchClick } = options
+  const { value, opacity = 100, className = '', textValue, placeholder, onChange, onOpacityChange, onSwatchClick } = options
   const wrap = el('div', `ei-dp-fill-row${className ? ` ${className}` : ''}`)
   let currentHex = ensureHexColor(value)
 
@@ -1055,7 +1101,8 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   hexInput.type = 'text'
   hexInput.className = 'ei-dp-hex'
   hexInput.setAttribute(IGNORE_ATTR, 'true')
-  hexInput.value = currentHex.replace('#', '')
+  hexInput.value = textValue ?? currentHex.replace('#', '')
+  if (placeholder) hexInput.placeholder = placeholder
 
   const opacityInput = createNumberInput({
     value: opacity,
@@ -3100,6 +3147,432 @@ function createLineHeightField(value: string, onChange: (value: string) => void)
   return wrap
 }
 
+function createTextValueField(iconHtml: string, value: string, onCommit: (value: string) => void): HTMLDivElement {
+  const wrap = el('div', 'ei-dp-field')
+  const iconEl = el('div', 'ei-dp-field-icon')
+  iconEl.innerHTML = iconHtml
+
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'ei-dp-field-input'
+  input.value = value
+  input.setAttribute(IGNORE_ATTR, 'true')
+
+  let lastCommitted = value
+
+  const commit = (raw: string): void => {
+    const trimmed = raw.trim()
+    if (!trimmed) {
+      input.value = lastCommitted
+      return
+    }
+    lastCommitted = trimmed
+    input.value = trimmed
+    onCommit(trimmed)
+  }
+
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation()
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commit(input.value)
+      input.blur()
+    }
+  })
+
+  input.addEventListener('blur', () => {
+    commit(input.value)
+  })
+
+  wrap.append(iconEl, input)
+  wrap.addEventListener('click', () => input.focus())
+  return wrap
+}
+
+function resolveMixedValue(values: string[]): string | null {
+  if (!values.length) return null
+  const normalized = values.map(value => value.trim())
+  return normalized.every(value => value === normalized[0]) ? normalized[0]! : null
+}
+
+export function buildMultiSelectionContainerPanel(
+  state: MultiSelectionContainerState,
+  tracker: StyleTracker,
+  callbacks: MultiSelectionTypographyCallbacks,
+): HTMLDivElement {
+  closeSizingDropdown()
+  closeFillPopover()
+  closePosDropdown()
+
+  const container = el('div', 'ei-dp')
+  const mixedLabel = i18n.design.mixedValue
+
+  const spacingSec = el('div', 'ei-dp-section')
+  spacingSec.classList.add('ei-dp-multi-section')
+  const spacingHeader = el('div', 'ei-dp-section-header')
+  spacingHeader.appendChild(el('div', 'ei-dp-section-label', i18n.design.spacing))
+  spacingSec.appendChild(spacingHeader)
+
+  const spacingContent = el('div', 'ei-dp-section-content')
+  spacingContent.dataset.visible = 'true'
+
+  const paddingLabel = el('div', 'ei-dp-sublabel')
+  paddingLabel.textContent = i18n.design.padding
+  spacingContent.appendChild(paddingLabel)
+  spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
+    state.paddingLeft == null
+      ? createTextValueField(PADDING_ICONS.left ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('padding-left', `${numeric}px`)
+        callbacks.onStyleChange()
+      })
+      : createLabeledField({
+        icon: '',
+        iconHtml: PADDING_ICONS.left,
+        value: parsePxValue(state.paddingLeft),
+        min: 0,
+        onChange: (value) => {
+          tracker.apply('padding-left', `${value}px`)
+          callbacks.onStyleChange()
+        },
+      }),
+    state.paddingTop == null
+      ? createTextValueField(PADDING_ICONS.top ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('padding-top', `${numeric}px`)
+        callbacks.onStyleChange()
+      })
+      : createLabeledField({
+        icon: '',
+        iconHtml: PADDING_ICONS.top,
+        value: parsePxValue(state.paddingTop),
+        min: 0,
+        onChange: (value) => {
+          tracker.apply('padding-top', `${value}px`)
+          callbacks.onStyleChange()
+        },
+      }),
+  )
+  spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
+    state.paddingRight == null
+      ? createTextValueField(PADDING_ICONS.right ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('padding-right', `${numeric}px`)
+        callbacks.onStyleChange()
+      })
+      : createLabeledField({
+        icon: '',
+        iconHtml: PADDING_ICONS.right,
+        value: parsePxValue(state.paddingRight),
+        min: 0,
+        onChange: (value) => {
+          tracker.apply('padding-right', `${value}px`)
+          callbacks.onStyleChange()
+        },
+      }),
+    state.paddingBottom == null
+      ? createTextValueField(PADDING_ICONS.bottom ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('padding-bottom', `${numeric}px`)
+        callbacks.onStyleChange()
+      })
+      : createLabeledField({
+        icon: '',
+        iconHtml: PADDING_ICONS.bottom,
+        value: parsePxValue(state.paddingBottom),
+        min: 0,
+        onChange: (value) => {
+          tracker.apply('padding-bottom', `${value}px`)
+          callbacks.onStyleChange()
+        },
+      }),
+  )
+
+  spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
+    state.gap == null
+      ? createTextValueField(FIELD_ICONS.gap ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('gap', `${numeric}px`)
+        callbacks.onStyleChange()
+      })
+      : createGapField({
+        value: parsePxValue(state.gap),
+        tracker,
+        onChange: callbacks.onStyleChange,
+      }),
+    el('div'),
+  )
+
+  spacingSec.appendChild(spacingContent)
+  container.appendChild(spacingSec)
+
+  const appearanceSec = el('div', 'ei-dp-section')
+  const appearanceHeader = el('div', 'ei-dp-section-header')
+  appearanceHeader.appendChild(el('div', 'ei-dp-section-label', i18n.design.appearance))
+  appearanceSec.appendChild(appearanceHeader)
+
+  const appearanceContent = el('div', 'ei-dp-section-content')
+  appearanceContent.dataset.visible = 'true'
+
+  const radiusDisplayValue = state.borderRadius == null ? mixedLabel : String(parsePxValue(state.borderRadius))
+  const radiusField = createRadiusField({
+    icon: '',
+    iconHtml: FIELD_ICONS.radius,
+    value: state.borderRadius == null ? 0 : parsePxValue(state.borderRadius),
+    min: 0,
+    onChange: (value) => {
+      tracker.apply('border-radius', `${value}px`)
+      callbacks.onStyleChange()
+    },
+    onOpenSettings: (anchor) => {
+      const radiusInput = radiusField.querySelector('input') as HTMLInputElement | null
+      openRadiusDropdown(anchor as HTMLButtonElement, () => {
+        if (
+          state.borderTopLeftRadius == null
+          || state.borderTopRightRadius == null
+          || state.borderBottomRightRadius == null
+          || state.borderBottomLeftRadius == null
+        ) {
+          return '0px 0px 0px 0px'
+        }
+        return formatBorderRadiusCss(
+          state.borderTopLeftRadius,
+          state.borderTopRightRadius,
+          state.borderBottomRightRadius,
+          state.borderBottomLeftRadius,
+        )
+      }, (value) => {
+        tracker.apply('border-radius', value)
+        callbacks.onStyleChange()
+      }, (displayValue) => {
+        if (radiusInput) radiusInput.value = displayValue
+      })
+    },
+  })
+  const radiusInput = radiusField.querySelector('input') as HTMLInputElement | null
+  if (radiusInput) {
+    radiusInput.type = 'text'
+    radiusInput.value = radiusDisplayValue
+    radiusInput.addEventListener('focus', () => {
+      if (radiusInput.value === mixedLabel) radiusInput.select()
+    })
+    radiusInput.addEventListener('keydown', (event) => {
+      event.stopPropagation()
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        const numeric = Number.parseFloat(radiusInput.value)
+        if (!Number.isFinite(numeric) || numeric < 0) {
+          radiusInput.value = radiusDisplayValue
+          radiusInput.blur()
+          return
+        }
+        tracker.apply('border-radius', `${numeric}px`)
+        callbacks.onStyleChange()
+        radiusInput.blur()
+      }
+    })
+    radiusInput.addEventListener('blur', () => {
+      const numeric = Number.parseFloat(radiusInput.value)
+      if (!Number.isFinite(numeric) || numeric < 0) {
+        radiusInput.value = radiusDisplayValue
+        return
+      }
+      radiusInput.value = String(numeric)
+      tracker.apply('border-radius', `${numeric}px`)
+      callbacks.onStyleChange()
+    })
+  }
+
+  appearanceContent.appendChild(el('div', 'ei-dp-grid')).append(
+    radiusField,
+    createFillRow({
+      value: state.backgroundColor ?? '#FFFFFF',
+      textValue: state.backgroundColor == null ? mixedLabel : undefined,
+      placeholder: state.backgroundColor == null ? mixedLabel : undefined,
+      onChange: (value) => {
+        tracker.apply('background-color', value)
+        callbacks.onStyleChange()
+      },
+      onSwatchClick: (swatch) => {
+        openSolidColorPopover(swatch, state.backgroundColor ?? '#FFFFFF', 100, collectPageColors(document), tracker, (nextColor) => {
+          tracker.apply('background-color', nextColor)
+          callbacks.onStyleChange()
+        }, callbacks.onStyleChange)
+      },
+    }),
+  )
+
+  appearanceSec.appendChild(appearanceContent)
+  container.appendChild(appearanceSec)
+
+  const strokeSec = el('div', 'ei-dp-section')
+  const strokeHeader = el('div', 'ei-dp-section-header')
+  strokeHeader.appendChild(el('div', 'ei-dp-section-label', i18n.design.stroke))
+  strokeSec.appendChild(strokeHeader)
+
+  const strokeContent = el('div', 'ei-dp-section-content')
+  strokeContent.dataset.visible = 'true'
+  strokeContent.appendChild(el('div', 'ei-dp-grid')).append(
+    state.borderWidth == null
+      ? createTextValueField(FIELD_ICONS.strokeWeight ?? '', mixedLabel, (value) => {
+        const numeric = Number.parseFloat(value)
+        if (!Number.isFinite(numeric) || numeric < 0) return
+        tracker.apply('border-width', `${numeric}px`)
+        tracker.apply('border-style', numeric > 0 ? 'solid' : '')
+        callbacks.onStyleChange()
+      })
+      : createLabeledField({
+        icon: '',
+        iconHtml: FIELD_ICONS.strokeWeight,
+        value: parsePxValue(state.borderWidth),
+        min: 0,
+        onChange: (value) => {
+          tracker.apply('border-width', `${value}px`)
+          tracker.apply('border-style', value > 0 ? 'solid' : '')
+          callbacks.onStyleChange()
+        },
+      }),
+    createFillRow({
+      value: state.borderColor ?? '#000000',
+      textValue: state.borderColor == null ? mixedLabel : undefined,
+      placeholder: state.borderColor == null ? mixedLabel : undefined,
+      onChange: (value) => {
+        tracker.apply('border-color', value)
+        if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
+        callbacks.onStyleChange()
+      },
+      onSwatchClick: (swatch) => {
+        openSolidColorPopover(swatch, state.borderColor ?? '#000000', 100, collectPageColors(document), tracker, (nextColor) => {
+          tracker.apply('border-color', nextColor)
+          if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
+          callbacks.onStyleChange()
+        }, callbacks.onStyleChange)
+      },
+    }),
+  )
+  strokeSec.appendChild(strokeContent)
+  container.appendChild(strokeSec)
+
+  return container
+}
+
+export function buildMultiSelectionTypographyPanel(
+  state: MultiSelectionTypographyState,
+  tracker: StyleTracker,
+  callbacks: MultiSelectionTypographyCallbacks,
+): HTMLDivElement {
+  closeWeightDropdown()
+  closeFontDropdown()
+  closeFillPopover()
+
+  const container = el('div', 'ei-dp')
+  const createSectionTitle = (text: string): HTMLDivElement => {
+    const header = el('div', 'ei-dp-multi-header')
+    header.textContent = text
+    return header
+  }
+  const mixedLabel = i18n.design.mixedValue
+
+  const typoSec = el('div', 'ei-dp-section')
+  typoSec.classList.add('ei-dp-multi-section')
+  const typoHeader = el('div', 'ei-dp-section-header')
+  typoHeader.appendChild(el('div', 'ei-dp-section-label', i18n.design.typography))
+  typoSec.appendChild(typoHeader)
+
+  const content = el('div', 'ei-dp-section-content')
+  content.dataset.visible = 'true'
+
+  content.appendChild(createFontSelect(
+    state.fontFamily ?? mixedLabel,
+    (v) => {
+      tracker.apply('font-family', v)
+      callbacks.onStyleChange()
+    },
+  ))
+
+  const sizeWeightGrid = el('div', 'ei-dp-grid')
+  const fontSizeField = state.fontSize == null
+    ? createTextValueField('Aa', mixedLabel, (value) => {
+      const numeric = Number.parseFloat(value)
+      if (!Number.isFinite(numeric) || numeric < 0) return
+      tracker.apply('font-size', `${numeric}px`)
+      callbacks.onStyleChange()
+    })
+    : createLabeledField({
+      icon: 'Aa',
+      value: parsePxValue(state.fontSize),
+      min: 0,
+      onChange: (v) => {
+        tracker.apply('font-size', `${v}px`)
+        callbacks.onStyleChange()
+      },
+    })
+  sizeWeightGrid.append(
+    fontSizeField,
+    createWeightSelect(state.fontWeight ?? mixedLabel, (v) => {
+      tracker.apply('font-weight', v)
+      callbacks.onStyleChange()
+    }),
+  )
+  content.appendChild(sizeWeightGrid)
+
+  const row3 = el('div', 'ei-dp-typography-row')
+  row3.appendChild(createLineHeightField(
+    state.lineHeight ? formatLineHeightInput(state.lineHeight, state.fontSize ?? '16px') : mixedLabel,
+    (value) => {
+      tracker.apply('line-height', value)
+      callbacks.onStyleChange()
+    },
+  ))
+  row3.appendChild(
+    state.letterSpacing == null
+      ? createTextValueField(FIELD_ICONS.letterSpacing ?? '', mixedLabel, (value) => {
+        tracker.apply('letter-spacing', value)
+        callbacks.onStyleChange()
+      })
+      : createLetterSpacingField(formatLetterSpacingInput(state.letterSpacing, state.fontSize ?? '16px'), (value) => {
+        tracker.apply('letter-spacing', value)
+        callbacks.onStyleChange()
+      }),
+  )
+  content.appendChild(row3)
+
+  const row4 = el('div', 'ei-dp-typography-row')
+  row4.appendChild(createAlignButtons(
+    state.textAlign ?? 'left',
+    (value) => {
+      tracker.apply('text-align', value)
+      callbacks.onStyleChange()
+    },
+  ))
+  content.appendChild(row4)
+
+  content.appendChild(createFillRow({
+    value: state.color ?? '#999999',
+    textValue: state.color == null ? mixedLabel : undefined,
+    placeholder: state.color == null ? mixedLabel : undefined,
+    onChange: (v) => {
+      tracker.apply('color', v)
+      callbacks.onStyleChange()
+    },
+    onSwatchClick: (swatch) => {
+      openSolidColorPopover(swatch, state.color ?? '#999999', 100, collectPageColors(document), tracker, (nextColor) => {
+        tracker.apply('color', nextColor)
+        callbacks.onStyleChange()
+      }, callbacks.onStyleChange)
+    },
+  }))
+
+  typoSec.appendChild(content)
+  container.appendChild(typoSec)
+  return container
+}
+
 // --- Letter Spacing Field ---
 
 function formatLetterSpacingInput(value: string, fontSize: string): string {
@@ -3847,6 +4320,10 @@ export type DesignPanelCallbacks = {
   getInitialNote: () => string
 }
 
+export type MultiSelectionTypographyCallbacks = {
+  onStyleChange: () => void
+}
+
 export type DesignDevEditorCallbacks = {
   onInput: (value: string, setError: (message: string, line?: number) => void) => void
 }
@@ -3955,7 +4432,7 @@ export function buildDesignDevEditor(initialValue: string, callbacks: DesignDevE
 }
 
 export function buildDesignPanel(
-  element: HTMLElement,
+  element: InspectableElement,
   info: InspectorInfo,
   tracker: StyleTracker,
   callbacks: DesignPanelCallbacks,
@@ -3983,11 +4460,12 @@ export function buildDesignPanel(
   // --- Text Content Section (for text elements) ---
   const originalText = info.text || ''
   const hasTextContent = originalText.length > 0 && originalText.trim().length > 0
-  // A text element has text but no block-level children (leaf text node)
-  const isTextElement = hasTextContent && !Array.from(element.children).some((child) => {
+  const isTextElement = element instanceof HTMLElement && hasTextContent && !Array.from(element.children).some((child) => {
     const d = window.getComputedStyle(child).display
     return d === 'block' || d === 'flex' || d === 'grid' || d === 'table' || d === 'list-item'
   })
+
+  const supportsSvgSizeEditing = isSvgElement(element)
 
   if (isTextElement) {
     const textSection = el('div', 'ei-dp-text-section')
@@ -4219,11 +4697,15 @@ export function buildDesignPanel(
   }
 
   const display = info.layout.display
-  const isLayoutElement = display.includes('flex') || display.includes('grid')
+  const isLayoutElement = !supportsSvgSizeEditing && (display.includes('flex') || display.includes('grid'))
 
   const showTypography = isTextElement && !!(info.typography.fontSize && info.typography.fontSize !== '0px')
 
-  if (isLayoutElement) {
+  if (supportsSvgSizeEditing) {
+    const sizeSec = createSection(i18n.design.size, { isFirst: true })
+    sizeSec.content.appendChild(grid(...createSizeFields()))
+    container.appendChild(sizeSec.container)
+  } else if (isLayoutElement) {
     // === 1. Auto layout section ===
     const layoutSec = createSection(i18n.design.autoLayout, { isFirst: true })
 
@@ -4492,7 +4974,12 @@ export function buildDesignPanel(
   }
 
   // === 5. Fill ===
-  const fillDraft = createFillDraft(element, info)
+  if (supportsSvgSizeEditing) {
+    return container
+  }
+
+  const htmlElement = element as HTMLElement
+  const fillDraft = createFillDraft(htmlElement, info)
   const hasFill = fillDraft.kind !== 'solid' || info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
   const pageColors = collectPageColors(document).filter(color => color !== fillDraft.color)
 
@@ -4740,6 +5227,8 @@ export function getDesignStyles(): string {
 .ei-dp-section-border { border-top: 0.5px solid var(--border-subtle); }
 .ei-dp-section-header { display: flex; align-items: center; justify-content: space-between; height: 40px; }
 .ei-dp-section-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.11px; }
+.ei-dp-multi-section { padding-top: 0; }
+.ei-dp-multi-header + .ei-dp-multi-hint { margin-top: -2px; }
 .ei-dp-section-btn { display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--field-radius); transition: color 0.12s ease; }
 .ei-dp-section-btn:hover { color: var(--text-secondary); }
 .ei-dp-section-btn:focus { outline: none; }

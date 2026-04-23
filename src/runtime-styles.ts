@@ -236,6 +236,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-design-actions-left, .ei-design-actions-right { display: inline-flex; align-items: center; }
 .ei-design-actions-left { gap: var(--space-4); }
 .ei-design-actions-right { gap: 0; }
+.ei-design-action-btn-group { display: inline-flex; align-items: center; gap: var(--space-1); }
 .ei-design-action-btn { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); border: 0; border-radius: var(--space-3); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default), box-shadow var(--duration-slow) var(--ease-default); }
 .ei-design-action-btn img,
 .ei-design-action-btn svg { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); display: block; }

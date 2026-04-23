@@ -4641,6 +4641,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     else clearDesignScopeOverlay()
 
     const modeControl = createDesignModeSegmentedControl(info)
+    const layerActionGroup = el('div', 'ei-design-action-btn-group')
+    layerActionGroup.append(matchBtn, layersToggleBtn)
 
     const resetBtn = createDesignActionIconButton(i18n.design.reset, DESIGN_RESET_URL)
     resetBtn.disabled = !hasDesignScopedChanges(info.element)
@@ -4648,7 +4650,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       resetDesignSelectionChanges(info.element)
     })
 
-    actionsLeft.append(modeControl, matchBtn, layersToggleBtn)
+    actionsLeft.append(modeControl, layerActionGroup)
     actionsRight.append(resetBtn)
     designActions.append(actionsLeft, actionsRight)
     panel.insertBefore(designActions, body)

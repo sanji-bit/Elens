@@ -1,24 +1,44 @@
 const INSPECTOR_SCRIPT_ID = 'elens-extension-inspector-script'
 
-function ensureInspectorScript() {
+let inspectorScriptReady = false
+let inspectorScriptCallbacks = []
+
+function flushInspectorScriptCallbacks() {
+  inspectorScriptReady = true
+  const callbacks = inspectorScriptCallbacks
+  inspectorScriptCallbacks = []
+  callbacks.forEach((callback) => callback())
+}
+
+function ensureInspectorScript(callback) {
+  if (inspectorScriptReady) {
+    callback()
+    return
+  }
+
+  inspectorScriptCallbacks.push(callback)
   if (document.getElementById(INSPECTOR_SCRIPT_ID)) return
+
   const script = document.createElement('script')
   script.id = INSPECTOR_SCRIPT_ID
   script.src = chrome.runtime.getURL('inspector.js')
   script.async = false
+  script.addEventListener('load', flushInspectorScriptCallbacks, { once: true })
+  script.addEventListener('error', () => {
+    inspectorScriptCallbacks = []
+  }, { once: true })
   ;(document.head || document.documentElement).appendChild(script)
 }
-
-ensureInspectorScript()
 
 chrome.runtime.onMessage.addListener((message) => {
   if (!message || message.type !== 'ELENS_TOGGLE_INSPECTOR') return
 
-  ensureInspectorScript()
-  window.postMessage({
-    source: 'elens-extension-control',
-    type: 'ELENS_TOGGLE_INSPECTOR',
-  }, '*')
+  ensureInspectorScript(() => {
+    window.postMessage({
+      source: 'elens-extension-control',
+      type: 'ELENS_TOGGLE_INSPECTOR',
+    }, '*')
+  })
 })
 
 function getViewportMetrics() {
@@ -52,6 +72,22 @@ function handlePageCapture(message) {
     ) return
 
     window.removeEventListener('message', handlePageResult)
+
+    if (data.ok && data.result?.clipboard) {
+      chrome.runtime.sendMessage({
+        source: 'elens-extension-content',
+        type: 'ELENS_WRITE_CLIPBOARD',
+        clipboard: data.result.clipboard,
+      }, (response) => {
+        if (!response?.ok) {
+          postBridgeResponse(message.id, { ok: false, error: response?.error || '扩展剪贴板写入失败' })
+          return
+        }
+        postBridgeResponse(message.id, { ok: true, result: data.result.result })
+      })
+      return
+    }
+
     postBridgeResponse(message.id, data)
   }
 

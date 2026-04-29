@@ -76,25 +76,33 @@ export type StyleTracker = {
   hasChanges: () => boolean
 }
 
-export function createStyleTracker(element: InspectableElement, onChange?: () => void): StyleTracker {
+type StyleTrackerAdapter = {
+  getOriginal?: (property: string) => string
+  apply?: (property: string, value: string) => void
+  reset?: (property: string) => void
+}
+
+export function createStyleTracker(element: InspectableElement, onChange?: () => void, adapter?: StyleTrackerAdapter): StyleTracker {
   const originals = new Map<string, string>()
   const applied = new Map<string, string>()
 
   return {
     apply(property: string, value: string): void {
       if (!originals.has(property)) {
-        originals.set(property, window.getComputedStyle(element).getPropertyValue(property))
+        originals.set(property, adapter?.getOriginal?.(property) ?? window.getComputedStyle(element).getPropertyValue(property))
       }
       const original = originals.get(property) ?? ''
       if (value === original) applied.delete(property)
       else applied.set(property, value)
-      element.style.setProperty(property, value)
+      if (adapter?.apply) adapter.apply(property, value)
+      else element.style.setProperty(property, value)
       onChange?.()
     },
 
     reset(): void {
       for (const [prop] of originals) {
-        element.style.removeProperty(prop)
+        if (adapter?.reset) adapter.reset(prop)
+        else element.style.removeProperty(prop)
       }
       originals.clear()
       applied.clear()

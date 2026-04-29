@@ -1,6 +1,6 @@
+import captureScriptText from './assets/capture.js?raw'
 import type { ViewportController, ViewportControllerCapabilities, ViewportPreset, ViewportState, WindowBounds } from './types'
 
-const CAPTURE_SCRIPT_FALLBACK_URL = new URL('./assets/capture.js', import.meta.url).href
 const CAPTURE_SCRIPT_REMOTE_URL = 'https://mcp.figma.com/mcp/html-to-design/capture.js'
 
 export type CaptureForDesignOptions = {
@@ -98,8 +98,7 @@ async function ensureCaptureScript(): Promise<void> {
     if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
     scriptText = await response.text()
   } catch {
-    const response = await fetch(CAPTURE_SCRIPT_FALLBACK_URL)
-    scriptText = await response.text()
+    scriptText = captureScriptText
   }
   const script = document.createElement('script')
   script.textContent = scriptText

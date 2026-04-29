@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "bunx vite --host 127.0.0.1 --port 4317",
     "build:demo": "bunx vite build --outDir demo-dist",
+    "build:desktop": "node scripts/build-desktop.mjs",
     "build:extension": "node scripts/build-extension.mjs",
     "dev:extension": "npx vite build --config vite.extension.config.ts --watch",
     "sync-tokens": "bun run scripts/sync-tokens.ts",

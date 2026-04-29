@@ -9,6 +9,7 @@ import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
 import ICON_DESIGN from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_ICON from './assets/design-mode-figma.svg?raw'
 import DESIGN_DEV_MODE_ICON from './assets/design-dev-mode-figma.svg?raw'
+import DESIGN_SELECT_MATCHING_LAYERS_ICON from './assets/design-select-matching-layers.svg?raw'
 import PANEL_MINIMIZE_UI_ICON from './assets/panel-minimize-ui.svg?raw'
 import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
@@ -160,7 +161,6 @@ const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', impo
 const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
 const CHANGES_UPLOAD_URL = new URL('./assets/changes-upload.svg', import.meta.url).href
 const CHANGES_DOWNLOAD_URL = new URL('./assets/changes-download.svg', import.meta.url).href
-const DESIGN_SELECT_MATCHING_LAYERS_URL = new URL('./assets/design-select-matching-layers.svg', import.meta.url).href
 const DESIGN_DEV_MODE_URL = new URL('./assets/design-dev-mode.svg', import.meta.url).href
 const ICON_DESIGN_LAYERS_PANEL = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13 5H18C18.2652 5 18.5196 5.10536 18.7071 5.29289C18.8946 5.48043 19 5.73478 19 6V18C19 18.2652 18.8946 18.5196 18.7071 18.7071C18.5196 18.8946 18.2652 19 18 19H6C5.73478 19 5.48043 18.8946 5.29289 18.7071C5.10536 18.5196 5 18.2652 5 18V10H12C12.2652 10 12.5196 9.89464 12.7071 9.70711C12.8946 9.51957 13 9.26522 13 9V5ZM12 5H6C5.73478 5 5.48043 5.10536 5.29289 5.29289C5.10536 5.48043 5 5.73478 5 6V9H12V5ZM12 4H18C18.5304 4 19.0391 4.21071 19.4142 4.58579C19.7893 4.96086 20 5.46957 20 6V18C20 18.5304 19.7893 19.0391 19.4142 19.4142C19.0391 19.7893 18.5304 20 18 20H6C5.46957 20 4.96086 19.7893 4.58579 19.4142C4.21071 19.0391 4 18.5304 4 18V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H12Z" fill="currentColor"/></svg>'
 const DESIGN_RESET_URL = new URL('./assets/design-reset.svg', import.meta.url).href
@@ -184,7 +184,6 @@ preloadImage(CHANGES_PANEL_CLOSE_URL)
 preloadImage(CHANGES_PANEL_CHEVRON_URL)
 preloadImage(CHANGES_UPLOAD_URL)
 preloadImage(CHANGES_DOWNLOAD_URL)
-preloadImage(DESIGN_SELECT_MATCHING_LAYERS_URL)
 preloadImage(DESIGN_DEV_MODE_URL)
 preloadImage(DESIGN_RESET_URL)
 
@@ -470,8 +469,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     inputHandler: () => void
     blurHandler: () => void
   } | null = null
-  let designApplyOnceMatches = false
-  let designScopeUserToggled = false
+  let designApplyToElementOnly = false
   let designPanelView: 'visual' | 'dev' = 'visual'
   let panelCollapsed = false
   let panelExpandedHeight = 0
@@ -1111,6 +1109,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return [m.top, m.right, m.bottom, m.left].every(v => formatBoxNumber(v) === '0')
   }
 
+  function hasVisibleRadius(value: string): boolean {
+    return value.split(/\s+/).some(part => formatBoxNumber(part) !== '0')
+  }
+
   function cleanupPanelExtras(): void {
     panel.querySelectorAll('.ei-annotate, .ei-ann-export, .ei-design-actions, .ei-design-selection-summary').forEach(n => n.remove())
     panel.classList.remove('is-changes')
@@ -1581,6 +1583,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         el('span', 'ei-tt-val', `${p.top} ${p.right} ${p.bottom} ${p.left}`),
       )
       tooltip.appendChild(paddingRow)
+    }
+
+    if (hasVisibleRadius(info.boxModel.borderRadius)) {
+      const radiusRow = el('div', 'ei-tt-row')
+      radiusRow.append(
+        el('span', 'ei-tt-label', 'border-radius'),
+        el('span', 'ei-tt-val', info.boxModel.borderRadius),
+      )
+      tooltip.appendChild(radiusRow)
     }
 
     const a11y = info.accessibility
@@ -3823,8 +3834,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     styleTracker = null
     activeDesignTextChangeTarget = null
     activeDesignTextChangeHandler = null
-    designApplyOnceMatches = false
-    designScopeUserToggled = false
+    designApplyToElementOnly = false
     designPanelView = 'visual'
     designDevDraft = ''
     designDevError = ''
@@ -3961,6 +3971,81 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return getElementSignature(element) === signature
   }
 
+  function getEditableMatchedStyleRule(element: HTMLElement, property: string): CSSStyleRule | null {
+    const matches = (element as Element & { matches(selector: string): boolean }).matches.bind(element)
+    const classNames = Array.from(element.classList)
+    const candidates: Array<{ rule: CSSStyleRule; score: number }> = []
+
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList
+      try {
+        rules = sheet.cssRules
+      } catch {
+        continue
+      }
+
+      for (const rule of Array.from(rules)) {
+        if (!(rule instanceof CSSStyleRule)) continue
+        const selectors = rule.selectorText.split(',').map(selector => selector.trim()).filter(Boolean)
+        const matchingSelectors = selectors.filter((selector) => {
+          try {
+            return matches(selector)
+          } catch {
+            return false
+          }
+        })
+        if (!matchingSelectors.length) continue
+
+        let score = rule.style.getPropertyValue(property) ? 1000 : 0
+        score += matchingSelectors.some(selector => classNames.some(className => selector.includes(`.${CSS.escape(className)}`))) ? 300 : 0
+        score += matchingSelectors.some(selector => selector.includes(`#${CSS.escape(element.id)}`)) && element.id ? 400 : 0
+        score += matchingSelectors.some(selector => selector === '*' || selector === ':root' || selector === 'html' || selector === 'body') ? -1000 : 0
+        score += matchingSelectors.reduce((total, selector) => total + (selector.match(/[.#[:]/g)?.length ?? 0), 0)
+        candidates.push({ rule, score })
+      }
+    }
+
+    return candidates
+      .filter(candidate => candidate.score > 0)
+      .sort((a, b) => a.score - b.score)
+      .at(-1)?.rule ?? null
+  }
+
+  function createDesignStyleTrackerAdapter(element: HTMLElement) {
+    if (designApplyToElementOnly) return undefined
+    const rules = new Map<string, CSSStyleRule>()
+    const originals = new Map<string, string>()
+
+    return {
+      getOriginal(property: string): string {
+        const rule = getEditableMatchedStyleRule(element, property)
+        if (!rule) return window.getComputedStyle(element).getPropertyValue(property)
+        rules.set(property, rule)
+        if (!originals.has(property)) originals.set(property, rule.style.getPropertyValue(property) || window.getComputedStyle(element).getPropertyValue(property))
+        return originals.get(property) ?? ''
+      },
+      apply(property: string, value: string): void {
+        const rule = rules.get(property) ?? getEditableMatchedStyleRule(element, property)
+        if (rule) {
+          rule.style.setProperty(property, value)
+          element.style.removeProperty(property)
+          return
+        }
+        element.style.setProperty(property, value)
+      },
+      reset(property: string): void {
+        const rule = rules.get(property)
+        if (!rule) {
+          element.style.removeProperty(property)
+          return
+        }
+        const original = originals.get(property) ?? ''
+        if (original) rule.style.setProperty(property, original)
+        else rule.style.removeProperty(property)
+      },
+    }
+  }
+
   function getSelectionElementKey(element: HTMLElement): string {
     const parent = element.parentElement
     const children = parent ? Array.from(parent.children) : []
@@ -3977,7 +4062,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (selectedElements.length > 1) {
       return selectedElements.filter(candidate => document.contains(candidate))
     }
-    return designApplyOnceMatches ? getMatchingLayerElements(element) : [element]
+    return [element]
   }
 
   function getDesignChangeGroupKey(element: HTMLElement): string {
@@ -4425,9 +4510,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       renderEmpty()
       return
     }
-    if (info.element instanceof HTMLElement && !designScopeUserToggled && !designApplyOnceMatches && hasExistingMatchingLayerGroup(info.element)) {
-      designApplyOnceMatches = true
-    }
     setPanelVisible(true)
     positionPanel(panelAnchor, info)
 
@@ -4560,13 +4642,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const actionsLeft = el('div', 'ei-design-actions-left')
     const actionsRight = el('div', 'ei-design-actions-right')
 
-    const matchBtn = createDesignActionIconButton(i18n.design.selectMatchingLayers, DESIGN_SELECT_MATCHING_LAYERS_URL)
-    if (designApplyOnceMatches) matchBtn.dataset.active = 'true'
+    const matchBtn = createDesignActionIconButton(i18n.design.selectMatchingLayers, DESIGN_SELECT_MATCHING_LAYERS_ICON)
+    matchBtn.classList.add('ei-design-action-btn-element-only')
+    if (designApplyToElementOnly) matchBtn.dataset.active = 'true'
     matchBtn.disabled = !(info.element instanceof HTMLElement) || isMultiSelection
     matchBtn.addEventListener('click', () => {
       if (!(info.element instanceof HTMLElement) || isMultiSelection) return
-      designScopeUserToggled = true
-      designApplyOnceMatches = matchBtn.dataset.active !== 'true'
+      designApplyToElementOnly = matchBtn.dataset.active !== 'true'
       renderDesign(extractInspectorInfo(info.element))
     })
 
@@ -4611,7 +4693,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       panel.insertBefore(selectionSummary, body)
     }
     const primaryElement = (scopeElements[0] ?? info.element) as InspectableElement
-    styleTracker = createStyleTracker(primaryElement, designPanelView === 'dev' ? undefined : saveToChanges)
+    styleTracker = createStyleTracker(
+      primaryElement,
+      designPanelView === 'dev' ? undefined : saveToChanges,
+      primaryElement instanceof HTMLElement ? createDesignStyleTrackerAdapter(primaryElement) : undefined,
+    )
 
     const scopedInspectorInfos = isMultiSelection ? scopeElements.map(element => extractInspectorInfo(element)) : []
     const scopedComputedStyles = isMultiSelection ? scopeElements.map(element => window.getComputedStyle(element)) : []

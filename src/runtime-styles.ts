@@ -236,6 +236,8 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-design-action-btn { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); border: 0; border-radius: var(--space-3); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default), box-shadow var(--duration-slow) var(--ease-default); }
 .ei-design-action-btn img,
 .ei-design-action-btn svg { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); display: block; }
+.ei-design-action-btn-element-only img,
+.ei-design-action-btn-element-only svg { width: var(--icon-size-sm); height: var(--icon-size-sm); }
 .ei-design-action-btn img { filter: brightness(0) saturate(100%) invert(80%) sepia(8%) saturate(453%) hue-rotate(179deg) brightness(86%) contrast(85%); }
 .ei-design-action-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
 .ei-design-action-btn:hover img { filter: brightness(0) saturate(100%) invert(94%) sepia(3%) saturate(289%) hue-rotate(186deg) brightness(93%) contrast(92%); }

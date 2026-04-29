@@ -1,14 +1,33 @@
 export const CAPTURE_SCRIPT_REMOTE_URL = 'https://mcp.figma.com/mcp/html-to-design/capture.js'
 
+const EXTENSION_CAPTURE_SCRIPT_URL = (() => {
+  const runtime = (globalThis as { chrome?: { runtime?: { getURL?: (path: string) => string } } }).chrome?.runtime
+  if (runtime?.getURL) return runtime.getURL('assets/capture.js')
+
+  const currentScript = document.currentScript as HTMLScriptElement | null
+  if (!currentScript?.src?.startsWith('chrome-extension://')) return null
+  return new URL('assets/capture.js', currentScript.src).href
+})()
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
 async function ensureCaptureScript(): Promise<void> {
   if (window.figma?.captureForDesign) return
-  const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
-  if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
-  const scriptText = await response.text()
+
+  let scriptText = ''
+  try {
+    const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
+    if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
+    scriptText = await response.text()
+  } catch {
+    if (!EXTENSION_CAPTURE_SCRIPT_URL) throw new Error('Failed to fetch remote capture.js')
+    const response = await fetch(EXTENSION_CAPTURE_SCRIPT_URL)
+    if (!response.ok) throw new Error(`Failed to fetch local capture.js: ${response.status}`)
+    scriptText = await response.text()
+  }
+
   const script = document.createElement('script')
   script.textContent = scriptText
   document.head.appendChild(script)
@@ -39,5 +58,5 @@ export async function runPageCapture(selector: string, options?: { scroll?: bool
   if (document.fonts?.ready) await Promise.race([document.fonts.ready, sleep(3000)])
   await sleep(500)
 
-  return await window.figma?.captureForDesign({ selector })
+  return await window.figma?.captureForDesign({ selector: selector || 'body' })
 }

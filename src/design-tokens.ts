@@ -565,7 +565,14 @@ export function generateCSSVariables(theme: ThemeBuildResult): string {
   const { semantic, components, config } = theme
   const { shadows, radius, spacing, typography, animation } = tokens
 
-  return `:root {
+  return `.ei-root,
+.ei-capture-menu,
+.ei-tooltip,
+.ei-output-detail-menu,
+.ei-dp-size-dropdown,
+.ei-dp-fill-popover,
+.ei-dp-font-dropdown,
+.ei-dp-color-format-dropdown {
   /* Surface Colors */
   --surface-canvas: ${semantic.surface.canvas};
   --surface-panel: ${semantic.surface.panel};

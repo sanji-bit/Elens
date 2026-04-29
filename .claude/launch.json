@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4317"
+      ],
+      "port": 4317
+    },
+    {
+      "name": "dev-extension",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "build",
+        "--config",
+        "vite.extension.config.ts",
+        "--watch"
+      ],
+      "port": 0
+    }
+  ]
+}

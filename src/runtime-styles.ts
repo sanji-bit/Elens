@@ -69,17 +69,6 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-hl-margin-edge { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--overlay-margin) 16%, transparent), color-mix(in srgb, var(--overlay-margin) 16%, transparent) 2px, transparent 2px, transparent 4px); }
 .ei-hl-gap-band { position: absolute; display: none; pointer-events: none; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--purple) 32%, transparent), color-mix(in srgb, var(--purple) 32%, transparent) 2px, color-mix(in srgb, var(--purple) 12%, transparent) 2px, color-mix(in srgb, var(--purple) 12%, transparent) 5px); border: 1px dashed var(--purple); }
 .ei-hl-gap-badge { position: absolute; display: none; transform: translate(-50%, -50%); background: var(--purple); color: var(--overlay-label-text); font-size: var(--text-xs); font-weight: var(--font-medium); padding: 1px 4px; border-radius: 3px; white-space: nowrap; font-family: var(--font-family); z-index: 2; }
-.ei-design-quick-bar { position: fixed; display: none; align-items: center; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-2xl); background: var(--surface-panel); box-shadow: var(--shadow-toolbar); pointer-events: auto; z-index: 3; }
-.ei-design-quick-bar[data-visible="true"] { display: inline-flex; }
-.ei-design-quick-bar-btn { width: 24px; height: 24px; border: 0; border-radius: var(--radius-lg); background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background var(--duration-slow) var(--ease-default), color var(--duration-slow) var(--ease-default); }
-.ei-design-quick-bar-btn[data-active="true"] { background: var(--surface-active); color: var(--text-primary); }
-.ei-design-quick-bar-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
-.ei-design-quick-bar-btn:hover .ei-toolbar-tip { opacity: 1; }
-.ei-design-quick-bar-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--interactive-accent); }
-.ei-design-quick-bar-btn svg, .ei-design-quick-bar-btn img { width: 16px; height: 16px; min-width: 16px; min-height: 16px; display: block; flex: 0 0 16px; object-fit: contain; }
-.ei-design-quick-bar-btn svg { overflow: visible; }
-.ei-design-quick-bar-btn [fill*="var(--fill-0, white)"] { fill: currentColor; }
-.ei-design-quick-bar-btn [stroke="currentColor"] { vector-effect: non-scaling-stroke; }
 .ei-highlight[data-design="true"] .ei-hl-margin-badge,
 .ei-highlight[data-design="true"] .ei-hl-margin-line,
 .ei-highlight[data-design="true"] .ei-hl-margin-edge { display: block; }
@@ -203,7 +192,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-layers-title { font-size: var(--text-lg); line-height: var(--leading-none); font-weight: var(--font-bold); color: var(--text-primary); }
 .ei-layers-actions { display: inline-flex; align-items: center; gap: var(--space-2); }
 .ei-layers-window-btn { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); border: none; border-radius: var(--radius-lg); background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; color: var(--text-secondary); }
-.ei-layers-window-btn svg { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); display: block; }
+.ei-layers-window-btn svg, .ei-layers-window-btn img { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); display: block; }
 .ei-layers-window-btn [fill*="var(--fill-0, white)"],
 .ei-layers-window-btn [fill="currentColor"] { color: inherit; fill: currentColor; }
 .ei-layers-window-btn [stroke="currentColor"] { color: inherit; stroke: currentColor; }

@@ -194,6 +194,7 @@ export type LayersTreeNode = {
   label: string
   secondaryLabel: string
   searchText: string
+  icon?: string
   children: LayersTreeNode[]
 }
 

@@ -9,8 +9,6 @@ import ICON_CHANGES from './assets/toolbar-changes.svg?raw'
 import ICON_DESIGN from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_ICON from './assets/design-mode-figma.svg?raw'
 import DESIGN_DEV_MODE_ICON from './assets/design-dev-mode-figma.svg?raw'
-import DESIGN_QUICK_FIGMA_ICON from './assets/design-quick-figma.svg?raw'
-import DESIGN_QUICK_CAMERA_ICON from './assets/design-quick-camera.svg?raw'
 import PANEL_MINIMIZE_UI_ICON from './assets/panel-minimize-ui.svg?raw'
 import ICON_EXIT from './assets/toolbar-exit.svg?raw'
 import ICON_GUIDES from './assets/toolbar-guides.svg?raw'
@@ -203,7 +201,6 @@ const ICON_LAYER_AUTO_LAYOUT = '<svg width="16" height="16" viewBox="0 0 16 16" 
 const ICON_LAYER_IMAGE = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.9993 2.66666C12.7356 2.66666 13.3331 3.26343 13.3333 3.99966V11.9997L13.3265 12.1364C13.2627 12.7639 12.7635 13.2631 12.136 13.3268L11.9993 13.3336H3.99933L3.86359 13.3268C3.19126 13.2585 2.66632 12.69 2.66632 11.9997V3.99966C2.6665 3.26365 3.26336 2.66701 3.99933 2.66666H11.9993ZM3.66632 10.3932V11.9997C3.66632 12.1835 3.81553 12.3333 3.99933 12.3336H10.3333L6.00226 8.04068L3.66632 10.3932ZM3.99933 3.66666C3.81564 3.66701 3.6665 3.81594 3.66632 3.99966V8.97427L5.64484 6.98111L5.72296 6.91666C5.9164 6.78794 6.18037 6.80832 6.35187 6.97818L11.7542 12.3336H11.9993C12.1834 12.3336 12.3333 12.1838 12.3333 11.9997V3.99966C12.3331 3.81572 12.1833 3.66666 11.9993 3.66666H3.99933ZM9.83722 4.67545C10.6775 4.76089 11.3333 5.47078 11.3333 6.33365L11.3255 6.50357C11.2403 7.34388 10.53 7.99932 9.6673 7.99966L9.4964 7.99185C8.71202 7.91214 8.0887 7.28798 8.00909 6.50357L8.00031 6.33365C8.00031 5.41318 8.74683 4.66666 9.6673 4.66666L9.83722 4.67545ZM9.6673 5.66666C9.29911 5.66666 9.00031 5.96546 9.00031 6.33365C9.00048 6.70169 9.29922 6.99966 9.6673 6.99966C10.0351 6.9993 10.3331 6.70147 10.3333 6.33365C10.3333 5.96569 10.0352 5.66702 9.6673 5.66666Z" fill="currentColor" fill-opacity="0.9"/></svg>'
 const ICON_LAYER_COLLAPSE = PANEL_MINIMIZE_UI_ICON
 const ICON_LAYER_EXPAND = PANEL_MINIMIZE_UI_ICON
-const ICON_LAYER_CLOSE = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L14 14M14 6L6 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 function codeRow(property: string, value: string, swatch?: string): HTMLDivElement {
   const row = el('div', 'ei-typography-code-line')
   row.appendChild(el('span', 'ei-typography-code-prop', property))
@@ -426,6 +423,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
   let inspectorDetailsExpanded = false
   let rafId: number | null = null
+  let layersRenderRaf: number | null = null
   let latestPoint: { x: number; y: number } | null = null
   let panelAnchor: { x: number; y: number } | null = null
   let panelPosition: { left: number; top: number } | null = null
@@ -437,6 +435,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let outputDetail: OutputDetail = 'standard'
   let pendingAutoCopyTimeout: number | null = null
   let lastAutoCopiedPayload: string | null = null
+  let lastAutoCopyFailedPayload: string | null = null
   let activeTextEditCount = 0
   let activeAnnotationDraft = ''
   let activeChangeId: string | null = null
@@ -531,9 +530,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
   highlight.style.display = 'none'
-  const designQuickBar = el('div', 'ei-design-quick-bar')
-  designQuickBar.setAttribute(IGNORE_ATTR, 'true')
-  designQuickBar.dataset.visible = 'false'
   const designScopeOverlay = el('div', 'ei-design-scope-overlay')
   designScopeOverlay.setAttribute(IGNORE_ATTR, 'true')
   const hlMargin = el('div', 'ei-hl-margin')
@@ -850,7 +846,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   layersCloseBtn.setAttribute(IGNORE_ATTR, 'true')
   layersCloseBtn.title = i18n.panel.closeLayers
   layersCloseBtn.setAttribute('aria-label', i18n.panel.closeLayers)
-  layersCloseBtn.innerHTML = ICON_LAYER_CLOSE
+  layersCloseBtn.innerHTML = CHANGES_PANEL_CLOSE_ICON
   layersActions.append(layersCollapseBtn, layersCloseBtn)
   layersHeader.append(layersTitle, layersActions)
 
@@ -918,7 +914,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const body = el('div', 'ei-body')
   panel.append(dragHandle, header, changesSummaryBar, body)
 
-  root.append(styleEl, highlight, designQuickBar, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, layersPanel, panel, markersContainer, toolbar)
+  root.append(styleEl, highlight, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, layersPanel, panel, markersContainer, toolbar)
   document.body.appendChild(root)
 
   // --- Helpers ---
@@ -1953,12 +1949,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function writeAutoCopyPayload(payload: string): void {
-    if (payload === lastAutoCopiedPayload) return
+    if (payload === lastAutoCopiedPayload || payload === lastAutoCopyFailedPayload) return
     void writeClipboardText(payload)
       .then(() => {
         lastAutoCopiedPayload = payload
+        lastAutoCopyFailedPayload = null
       })
       .catch((error) => {
+        lastAutoCopyFailedPayload = payload
         console.error('[Elens] Auto copy AI failed:', error)
       })
   }
@@ -1969,7 +1967,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const payload = buildAIPayload(changes, outputDetail)
     clearPendingAutoCopy()
 
-    if (payload === lastAutoCopiedPayload) return
+    if (payload === lastAutoCopiedPayload || payload === lastAutoCopyFailedPayload) return
 
     if (options?.immediate) {
       writeAutoCopyPayload(payload)
@@ -2313,6 +2311,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function renderMarkers(): void {
     markersContainer.innerHTML = ''
+    if (currentMode === 'off' || (currentMode === 'design' && !designOverlaysVisible)) return
     const seenGroupKeys = new Set<string>()
     let visibleMarkerIndex = 0
 
@@ -3145,8 +3144,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     layersExpandedIds.add(tree.id)
   }
 
+  function annotateLayersTreeIcons(node: LayersTreeNode | null): void {
+    if (!node) return
+    node.icon = getLayerNodeIcon(node.element)
+    node.children.forEach(annotateLayersTreeIcons)
+  }
+
   function rebuildLayersTree(): void {
     layersTreeBuildResult = buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, maxNodes: 700 })
+    annotateLayersTreeIcons(layersTreeBuildResult?.root ?? null)
     const selectedId = lockedElement instanceof HTMLElement ? buildTreeNodeId(lockedElement) : null
     layersSelectedId = selectedId
     if (layersTreeBuildResult?.root) {
@@ -3227,7 +3233,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (isExpanded) disclosure.dataset.expanded = 'true'
 
     const icon = el('span', 'ei-layer-icon')
-    icon.innerHTML = getLayerNodeIcon(node.element)
+    icon.innerHTML = node.icon ?? getLayerNodeIcon(node.element)
     const label = el('span', 'ei-layer-label', node.label)
     label.title = node.label
     const secondary = el('span', 'ei-layer-secondary', node.secondaryLabel)
@@ -3280,6 +3286,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
+  function requestRenderLayersPanel(): void {
+    if (!layersOpen || layersRenderRaf != null) return
+    layersRenderRaf = window.requestAnimationFrame(() => {
+      layersRenderRaf = null
+      renderLayersPanel()
+    })
+  }
+
   function renderLayersPanel(): void {
     syncLayersPanelVisibility()
     if (!layersOpen) return
@@ -3325,7 +3339,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     unlockBtn.style.display = 'none'
     changesCloseBtn.style.display = 'inline-flex'
     changesCloseBtn.onclick = () => setMode('off')
-    hideDesignQuickBar()
     setPanelVisible(false)
     setHighlightVisible(false)
     renderLayersPanel()
@@ -3487,7 +3500,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const designOverlayHidden = currentMode === 'design' && !designOverlaysVisible
     if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info || designOverlayHidden) {
       clearGapOverlay()
-      hideDesignQuickBar()
       setHighlightVisible(false)
       // Remove hover highlight class from previous element in outlines mode
       if (outlinesHoverElement) {
@@ -3637,7 +3649,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     setHighlightVisible(true)
-    updateDesignQuickBar(info)
   }
 
   function buildSection(name: 'typography' | 'box' | 'layout', active: boolean): HTMLDivElement {
@@ -4082,57 +4093,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return button
   }
 
-  function createDesignQuickBarButton(label: string, icon: string, active = false): HTMLButtonElement {
-    const button = el('button', 'ei-design-quick-bar-btn') as HTMLButtonElement
-    button.type = 'button'
-    button.title = label
-    button.setAttribute('aria-label', label)
-    button.setAttribute(IGNORE_ATTR, 'true')
-    button.innerHTML = icon
-    const tip = el('span', 'ei-toolbar-tip', label)
-    tip.setAttribute(IGNORE_ATTR, 'true')
-    button.appendChild(tip)
-    if (active) button.dataset.active = 'true'
-    return button
-  }
-
-  function hideDesignQuickBar(): void {
-    designQuickBar.dataset.visible = 'false'
-  }
-
-  function positionDesignQuickBar(info: InspectorInfo): void {
-    const barRect = designQuickBar.getBoundingClientRect()
-    const gap = 12
-    let left = info.rect.left + info.rect.width / 2 - barRect.width / 2
-    let top = info.rect.top - barRect.height - gap
-
-    if (top < 8) top = info.rect.top + info.rect.height + gap
-    if (left + barRect.width > window.innerWidth - 8) left = window.innerWidth - barRect.width - 8
-    if (left < 8) left = 8
-    if (top + barRect.height > window.innerHeight - 8) top = window.innerHeight - barRect.height - 8
-    if (top < 8) top = 8
-
-    designQuickBar.style.left = `${Math.round(left)}px`
-    designQuickBar.style.top = `${Math.round(top)}px`
-  }
-
-  function updateDesignQuickBar(info: InspectorInfo | null): void {
-    if (currentMode !== 'design' || !lockedElement || !info || lockedElement !== info.element) {
-      hideDesignQuickBar()
-      return
-    }
-    designQuickBar.dataset.visible = 'true'
-    positionDesignQuickBar(info)
-  }
-
-  function refreshDesignQuickBar(): void {
-    if (!lockedElement || currentMode !== 'design') {
-      hideDesignQuickBar()
-      return
-    }
-    updateDesignQuickBar(extractInspectorInfo(lockedElement))
-  }
-
   function clearSelectedElementCapture(): void {
     captureMenuMode = null
     highlight.style.display = 'none'
@@ -4182,19 +4142,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
-  const quickCopyToFigmaBtn = createDesignQuickBarButton(i18n.design.quickCopyToFigma, DESIGN_QUICK_FIGMA_ICON)
-  quickCopyToFigmaBtn.addEventListener('click', () => {
-    if (!(lockedElement instanceof HTMLElement)) return
-    void captureElementToFigma(lockedElement)
-  })
-
-  const quickScreenshotBtn = createDesignQuickBarButton(i18n.design.quickScreenshot, DESIGN_QUICK_CAMERA_ICON)
-  quickScreenshotBtn.addEventListener('click', () => {
-    if (!(lockedElement instanceof HTMLElement)) return
-    void captureElementScreenshot(lockedElement)
-  })
-
-  designQuickBar.append(quickCopyToFigmaBtn, quickScreenshotBtn)
 
   function createDesignModeSegmentButton(label: string, icon: string, active: boolean, iconKind: 'design' | 'code'): HTMLButtonElement {
     const button = el('button', 'ei-tab ei-design-mode-tab') as HTMLButtonElement
@@ -4447,11 +4394,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designOverlaysVisible = !designOverlaysVisible
     if (!designOverlaysVisible) {
       setHighlightVisible(false)
-      hideDesignQuickBar()
       clearGapOverlay()
       clearDesignScopeOverlay()
+      renderMarkers()
       return
     }
+    renderMarkers()
     if (lockedElement && document.contains(lockedElement)) {
       renderDesign(extractInspectorInfo(lockedElement))
       return
@@ -4665,19 +4613,23 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const primaryElement = (scopeElements[0] ?? info.element) as InspectableElement
     styleTracker = createStyleTracker(primaryElement, designPanelView === 'dev' ? undefined : saveToChanges)
 
+    const scopedInspectorInfos = isMultiSelection ? scopeElements.map(element => extractInspectorInfo(element)) : []
+    const scopedComputedStyles = isMultiSelection ? scopeElements.map(element => window.getComputedStyle(element)) : []
+    const getScopedStyle = (element: HTMLElement): CSSStyleDeclaration => scopedComputedStyles[scopeElements.indexOf(element)] ?? window.getComputedStyle(element)
     const getMultiSelectionProfile = (): 'text' | 'container' | 'unsupported' => {
       if (scopeElements.length <= 1) return 'unsupported'
-      const isTextSelection = scopeElements.every((element) => {
-        const elementInfo = extractInspectorInfo(element)
+      const isTextSelection = scopeElements.every((element, index) => {
+        const elementInfo = scopedInspectorInfos[index]
+        if (!elementInfo) return false
         const hasTextContent = elementInfo.text.length > 0 && elementInfo.text.trim().length > 0
         return hasTextContent && !Array.from(element.children).some((child) => {
-          const display = window.getComputedStyle(child).display
+          const display = child instanceof HTMLElement ? window.getComputedStyle(child).display : ''
           return display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item'
         }) && !!(elementInfo.typography.fontSize && elementInfo.typography.fontSize !== '0px')
       })
       if (isTextSelection) return 'text'
       const isContainerSelection = scopeElements.every((element) => {
-        const style = window.getComputedStyle(element)
+        const style = getScopedStyle(element)
         if (style.display === 'inline') return false
         return !(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement || element instanceof HTMLButtonElement || element instanceof HTMLImageElement || element instanceof HTMLCanvasElement || element instanceof HTMLVideoElement || element instanceof HTMLIFrameElement)
       })
@@ -4746,7 +4698,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const unsupported = el('div', 'ei-ann-empty', i18n.design.batchSelectionUnsupported)
         body.appendChild(unsupported)
         updateHighlight(info)
-        renderLayersPanel()
+        requestRenderLayersPanel()
         return
       }
 
@@ -4754,19 +4706,19 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const resolveMixed = (values: string[]): string | null => values.every(value => value === values[0]) ? values[0] ?? null : null
         const containerState: MultiSelectionContainerState = {
           count: scopeElements.length,
-          paddingLeft: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).paddingLeft)),
-          paddingTop: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).paddingTop)),
-          paddingRight: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).paddingRight)),
-          paddingBottom: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).paddingBottom)),
-          gap: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).gap)),
-          borderRadius: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderRadius)),
-          borderTopLeftRadius: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderTopLeftRadius)),
-          borderTopRightRadius: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderTopRightRadius)),
-          borderBottomRightRadius: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderBottomRightRadius)),
-          borderBottomLeftRadius: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderBottomLeftRadius)),
-          backgroundColor: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).backgroundColor)),
-          borderWidth: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderWidth)),
-          borderColor: resolveMixed(scopeElements.map(element => window.getComputedStyle(element).borderColor)),
+          paddingLeft: resolveMixed(scopeElements.map(element => getScopedStyle(element).paddingLeft)),
+          paddingTop: resolveMixed(scopeElements.map(element => getScopedStyle(element).paddingTop)),
+          paddingRight: resolveMixed(scopeElements.map(element => getScopedStyle(element).paddingRight)),
+          paddingBottom: resolveMixed(scopeElements.map(element => getScopedStyle(element).paddingBottom)),
+          gap: resolveMixed(scopeElements.map(element => getScopedStyle(element).gap)),
+          borderRadius: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderRadius)),
+          borderTopLeftRadius: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderTopLeftRadius)),
+          borderTopRightRadius: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderTopRightRadius)),
+          borderBottomRightRadius: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderBottomRightRadius)),
+          borderBottomLeftRadius: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderBottomLeftRadius)),
+          backgroundColor: resolveMixed(scopeElements.map(element => getScopedStyle(element).backgroundColor)),
+          borderWidth: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderWidth)),
+          borderColor: resolveMixed(scopeElements.map(element => getScopedStyle(element).borderColor)),
         }
         const multiPanel = buildMultiSelectionContainerPanel(containerState, styleTracker, {
           onStyleChange: () => {
@@ -4777,38 +4729,38 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         })
         body.appendChild(multiPanel)
         updateHighlight(info)
-        renderLayersPanel()
+        requestRenderLayersPanel()
         return
       }
 
       const typographyState: MultiSelectionTypographyState = {
         count: scopeElements.length,
         fontFamily: (() => {
-          const value = scopeElements.length ? scopeElements.map(element => extractInspectorInfo(element).typography.fontFamily.split(',')[0]?.replace(/["']/g, '').trim() || 'Inter') : []
+          const value = scopedInspectorInfos.length ? scopedInspectorInfos.map(elementInfo => elementInfo.typography.fontFamily.split(',')[0]?.replace(/["']/g, '').trim() || 'Inter') : []
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         fontSize: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.fontSize)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.fontSize)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         fontWeight: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.fontWeight)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.fontWeight)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         lineHeight: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.lineHeight)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.lineHeight)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         letterSpacing: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.letterSpacing)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.letterSpacing)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         textAlign: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.textAlign)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.textAlign)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
         color: (() => {
-          const value = scopeElements.map(element => extractInspectorInfo(element).typography.color)
+          const value = scopedInspectorInfos.map(elementInfo => elementInfo.typography.color)
           return value.every(item => item === value[0]) ? value[0] ?? null : null
         })(),
       }
@@ -4822,7 +4774,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
       body.appendChild(multiPanel)
       updateHighlight(info)
-      renderLayersPanel()
+      requestRenderLayersPanel()
       return
     }
 
@@ -4852,7 +4804,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     body.appendChild(designPanel)
 
     updateHighlight(info)
-    renderLayersPanel()
+    requestRenderLayersPanel()
   }
 
   function renderMove(info: InspectorInfo | null): void {
@@ -4947,7 +4899,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       } else if (currentInfo && panelAnchor) {
         positionPanel(panelAnchor, currentInfo)
       }
-      renderLayersPanel()
+      requestRenderLayersPanel()
       return
     }
     if (!document.contains(lockedElement)) {
@@ -4955,7 +4907,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       resetDesignTracker()
       clearDesignSelection()
       renderForCurrentMode(null)
-      renderLayersPanel()
+      requestRenderLayersPanel()
       return
     }
     if (currentMode === 'inspector') {
@@ -4967,7 +4919,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       if (panelPosition) positionPanel(panelAnchor, info)
       if (currentMode === 'move') renderMove(info)
     }
-    renderLayersPanel()
+    requestRenderLayersPanel()
   }
 
   // --- Event handlers ---
@@ -6316,7 +6268,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     finishInlineTextEdit(true)
     resetDesignTracker()
     cancelMoveDrag()
-    hideDesignQuickBar()
     clearDesignSelection()
     hideMoveIndicator()
     renderForCurrentMode(null)
@@ -6379,12 +6330,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     window.removeEventListener('resize', syncMarkersPosition)
     window.removeEventListener('scroll', syncMarkersPosition, true)
     hideTooltip()
-    hideDesignQuickBar()
     setMode('off')
     destroyed = true
     if (rafId != null) {
       window.cancelAnimationFrame(rafId)
       rafId = null
+    }
+    if (layersRenderRaf != null) {
+      window.cancelAnimationFrame(layersRenderRaf)
+      layersRenderRaf = null
     }
     root.remove()
   }
@@ -6622,7 +6576,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   async function performCapture(selector: string, captureOptions: CaptureOptions): Promise<void> {
     try {
       const result = await performCaptureForDesign(selector, { scroll: captureOptions.scroll }, options.viewportController?.captureForDesign)
-      console.log('[Elens] Capture result:', result)
       showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
       return
     } catch (error) {
@@ -6648,7 +6601,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // Update window resize handler to reposition menu
   window.addEventListener('resize', () => {
     pinToolbarToBottomCenter()
-    refreshDesignQuickBar()
     if (viewportMenuOpen) positionViewportMenu()
     if (moreMenuOpen) positionMoreMenu()
     if (isOutputDetailMenuOpen) closeOutputDetailMenu()

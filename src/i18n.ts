@@ -125,8 +125,6 @@ export const zhCN = {
   },
   design: {
     selectMatchingLayers: '选择匹配图层',
-    quickCopyToFigma: '拷贝到 Figma',
-    quickScreenshot: '截图',
     capturingCopyToFigma: '正在拷贝到 Figma...',
     copiedToFigma: '已复制到剪贴板，可直接粘贴到 Figma',
     capturingScreenshot: '正在生成截图...',

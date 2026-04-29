@@ -3,6 +3,16 @@ import type { InspectableElement, InspectorInfo, StyleDiff } from './types'
 import { i18n } from './i18n'
 import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
 
+let cachedPageColors: { colors: string[]; collectedAt: number } | null = null
+
+function getCachedPageColors(): string[] {
+  const now = Date.now()
+  if (cachedPageColors && now - cachedPageColors.collectedAt < 2000) return cachedPageColors.colors
+  const colors = collectPageColors(document)
+  cachedPageColors = { colors, collectedAt: now }
+  return colors
+}
+
 export type MultiSelectionTypographyState = {
   count: number
   fontFamily: string | null
@@ -3399,7 +3409,7 @@ export function buildMultiSelectionContainerPanel(
         callbacks.onStyleChange()
       },
       onSwatchClick: (swatch) => {
-        openSolidColorPopover(swatch, state.backgroundColor ?? '#FFFFFF', 100, collectPageColors(document), tracker, (nextColor) => {
+        openSolidColorPopover(swatch, state.backgroundColor ?? '#FFFFFF', 100, getCachedPageColors(), tracker, (nextColor) => {
           tracker.apply('background-color', nextColor)
           callbacks.onStyleChange()
         }, callbacks.onStyleChange)
@@ -3447,7 +3457,7 @@ export function buildMultiSelectionContainerPanel(
         callbacks.onStyleChange()
       },
       onSwatchClick: (swatch) => {
-        openSolidColorPopover(swatch, state.borderColor ?? '#000000', 100, collectPageColors(document), tracker, (nextColor) => {
+        openSolidColorPopover(swatch, state.borderColor ?? '#000000', 100, getCachedPageColors(), tracker, (nextColor) => {
           tracker.apply('border-color', nextColor)
           if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
           callbacks.onStyleChange()
@@ -3561,7 +3571,7 @@ export function buildMultiSelectionTypographyPanel(
       callbacks.onStyleChange()
     },
     onSwatchClick: (swatch) => {
-      openSolidColorPopover(swatch, state.color ?? '#999999', 100, collectPageColors(document), tracker, (nextColor) => {
+      openSolidColorPopover(swatch, state.color ?? '#999999', 100, getCachedPageColors(), tracker, (nextColor) => {
         tracker.apply('color', nextColor)
         callbacks.onStyleChange()
       }, callbacks.onStyleChange)
@@ -3844,7 +3854,7 @@ function createEffectsPanel(
   })
 
   // Color inputs
-  const shadowPageColors = collectPageColors(document).filter(color => color !== values.color)
+  const shadowPageColors = getCachedPageColors().filter(color => color !== values.color)
   const colorInputs = createFillRow({
     value: values.color,
     opacity: values.opacity,
@@ -4017,7 +4027,7 @@ function createStrokePanel(
 
   // Row 1: Color + Opacity (remove button outside)
   const colorWrapper = el('div', 'ei-dp-stroke-color-wrapper')
-  const strokePageColors = collectPageColors(document).filter(color => color !== values.color)
+  const strokePageColors = getCachedPageColors().filter(color => color !== values.color)
   const colorInputs = createFillRow({
     value: values.color,
     opacity: values.opacity,
@@ -4962,7 +4972,7 @@ export function buildDesignPanel(
     typoSec.content.appendChild(row4)
 
     // Row 5: Text color
-    const textPageColors = collectPageColors(document).filter(color => color !== info.typography.color)
+    const textPageColors = getCachedPageColors().filter(color => color !== info.typography.color)
     typoSec.content.appendChild(createFillRow({
       value: info.typography.color,
       onChange: (v) => tracker.apply('color', v),
@@ -4985,7 +4995,7 @@ export function buildDesignPanel(
   const htmlElement = element as HTMLElement
   const fillDraft = createFillDraft(htmlElement, info)
   const hasFill = fillDraft.kind !== 'solid' || info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
-  const pageColors = collectPageColors(document).filter(color => color !== fillDraft.color)
+  const pageColors = getCachedPageColors().filter(color => color !== fillDraft.color)
 
   function populateFillContent(contentEl: HTMLDivElement): void {
     contentEl.innerHTML = ''

@@ -133,6 +133,8 @@ export const tokens = {
     button: {
       iconSize: '32px',
       iconSizeSm: '24px',
+      iconGlyphSize: '20px',
+      iconGlyphSizeSm: '16px',
       textHeight: '24px',
       textHeightMd: '28px',
       textHeightLg: '32px',
@@ -513,6 +515,8 @@ export function deriveComponentTokens(_semantic: DerivedSemanticTokens, config: 
     button: {
       iconSize: tokens.components.button.iconSize,
       iconSizeSm: tokens.components.button.iconSizeSm,
+      iconGlyphSize: tokens.components.button.iconGlyphSize,
+      iconGlyphSizeSm: tokens.components.button.iconGlyphSizeSm,
       textHeight: tokens.components.button.textHeight,
       textHeightMd: tokens.components.button.textHeightMd,
       textHeightLg: tokens.components.button.textHeightLg,
@@ -699,6 +703,8 @@ export function generateCSSVariables(theme: ThemeBuildResult): string {
   /* Component Sizes */
   --btn-icon-size: ${components.button.iconSize};
   --btn-icon-size-sm: ${components.button.iconSizeSm};
+  --btn-icon-glyph-size: ${components.button.iconGlyphSize};
+  --btn-icon-glyph-size-sm: ${components.button.iconGlyphSizeSm};
   --btn-text-height: ${components.button.textHeight};
   --btn-text-height-md: ${components.button.textHeightMd};
   --btn-text-height-lg: ${components.button.textHeightLg};

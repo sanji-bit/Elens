@@ -1,5 +1,7 @@
-import CHANGES_PANEL_CLOSE_ICON from './assets/changes-panel-close.svg?raw'
+import { ICON_SVGS } from './icons'
 import type { InspectableElement, InspectorInfo, StyleDiff } from './types'
+
+const CHANGES_PANEL_CLOSE_ICON = ICON_SVGS.changesPanelClose
 import { i18n } from './i18n'
 import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
 
@@ -1539,7 +1541,7 @@ function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
   })
   tabs.append(custom, libraries)
   const actions = el('div', 'ei-dp-fill-chrome-actions')
-  const close = el('button', 'ei-dp-fill-chrome-action ei-changes-close')
+  const close = el('button', 'ei-design-action-btn ei-dp-fill-chrome-action ei-changes-close')
   close.type = 'button'
   close.title = i18n.panel.closeChanges
   close.ariaLabel = i18n.panel.closeChanges
@@ -3661,7 +3663,7 @@ function createLetterSpacingField(value: string, onChange: (value: string) => vo
 }
 
 // --- Section Icons ---
-const SECTION_ADD_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
+const SECTION_ADD_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.001 5V19.002M19.002 12.002H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const REMOVE_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
 
 // --- Stroke constants ---
@@ -4599,7 +4601,7 @@ export function buildDesignPanel(
     let setHasContent = (_has: boolean) => {}
 
     if (opts?.addRemove) {
-      const btn = el('button', 'ei-dp-section-btn')
+      const btn = el('button', 'ei-design-action-btn ei-dp-section-btn')
       btn.type = 'button'
       btn.setAttribute(IGNORE_ATTR, 'true')
       btn.innerHTML = SECTION_ADD_ICON
@@ -5259,9 +5261,6 @@ export function getDesignStyles(): string {
 .ei-dp-section-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.11px; }
 .ei-dp-multi-section { padding-top: 0; }
 .ei-dp-multi-header + .ei-dp-multi-hint { margin-top: -2px; }
-.ei-dp-section-btn { display: flex; align-items: center; justify-content: center; width: var(--input-height); height: var(--input-height); padding: 0; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--field-radius); transition: color 0.12s ease; }
-.ei-dp-section-btn:hover { color: var(--text-secondary); }
-.ei-dp-section-btn:focus { outline: none; }
 .ei-dp-section-btn svg { display: block; }
 .ei-dp-section-content { padding-bottom: 16px; }
 .ei-dp-section-content[data-visible="false"] { display: none; }
@@ -5307,10 +5306,8 @@ export function getDesignStyles(): string {
 .ei-dp-fill-chrome-tabs { gap: 4px; margin-bottom: 0; }
 .ei-dp-fill-chrome-tabs .ei-ann-filter { min-width: 58px; height: 24px; }
 .ei-dp-fill-chrome-actions { display: flex; gap: 6px; align-items: center; }
-.ei-dp-fill-chrome-actions .ei-changes-close { width: 24px; height: 24px; }
-.ei-dp-fill-chrome-actions .ei-changes-close svg { width: 24px; height: 24px; }
-.ei-dp-fill-chrome-action { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.ei-dp-fill-chrome-action:hover { background: var(--border-subtle); }
+.ei-dp-fill-chrome-action:not(.ei-design-action-btn) { width: var(--input-height); height: var(--input-height); border: 0; border-radius: var(--field-radius); background: transparent; color: var(--text-primary); font-size: 18px; line-height: var(--input-height); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ei-dp-fill-chrome-action:not(.ei-design-action-btn):hover { background: var(--border-subtle); }
 .ei-dp-fill-popover::-webkit-scrollbar { width: 8px; }
 .ei-dp-fill-popover::-webkit-scrollbar-track { background: transparent; }
 .ei-dp-fill-popover::-webkit-scrollbar-thumb { background: var(--surface-hover-strong); border-radius: 999px; }

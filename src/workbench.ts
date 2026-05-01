@@ -1,10 +1,11 @@
-import { buildTheme } from './design-tokens'
+import { buildTheme, generateCSSVariables } from './design-tokens'
+import { ELENS_ICONS, type ElensIconDefinition, type ElensIconGroup } from './icons'
 import { createRuntimeStyles } from './runtime-styles'
 import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
 import type { ElementInspectorInstance, ThemeConfig, ThemeContrast, ThemeDensity, ThemeMotion, ThemeRadiusScale } from './types'
 
 type PreviewInteractionState = 'default' | 'hover' | 'active' | 'selected' | 'focus' | 'disabled'
-type WorkbenchLibraryTab = 'all' | 'colors' | 'buttons' | 'inputs' | 'navigation' | 'panels' | 'states' | 'pending'
+type WorkbenchLibraryTab = 'all' | 'colors' | 'icons' | 'buttons' | 'inputs' | 'navigation' | 'panels' | 'states' | 'pending'
 
 type LabelOption<T extends string> = {
   value: T
@@ -15,13 +16,17 @@ type WorkbenchState = {
   theme: ThemeConfig
   previewState: PreviewInteractionState
   libraryTab: WorkbenchLibraryTab
+  selectedSampleId: string
 }
 
 type WorkbenchComponentKind = 'standard' | 'project'
+type WorkbenchNavGroup = 'foundations' | 'components' | 'project'
 
 type WorkbenchComponentSample = {
   id: string
   title: string
+  navLabel?: string
+  navGroup: WorkbenchNavGroup
   tab: Exclude<WorkbenchLibraryTab, 'all'>
   status: 'stable' | 'pending'
   componentKind: WorkbenchComponentKind
@@ -112,17 +117,6 @@ const previewOptions: LabelOption<PreviewInteractionState>[] = [
   { value: 'disabled', label: '禁用' },
 ]
 
-const libraryTabs: LabelOption<WorkbenchLibraryTab>[] = [
-  { value: 'all', label: '全部组件' },
-  { value: 'colors', label: '颜色规范' },
-  { value: 'buttons', label: '按钮' },
-  { value: 'inputs', label: '输入控件' },
-  { value: 'navigation', label: '导航与选择' },
-  { value: 'panels', label: '面板与浮层' },
-  { value: 'states', label: '状态参考' },
-  { value: 'pending', label: '待确认组件' },
-]
-
 const STORAGE_KEY = 'elens-workbench-theme'
 const WORKBENCH_THEME_DEFAULTS: ThemeConfig = {
   surface: { base: '#111113' },
@@ -151,27 +145,6 @@ const WORKBENCH_THEME_DEFAULTS: ThemeConfig = {
     },
   },
   zIndex: 100,
-}
-
-const libraryTabDescriptions: Record<WorkbenchLibraryTab, string> = {
-  all: '总览当前已收录的正式组件与待确认组件，适合定期巡检整个系统。',
-  colors: '集中整理颜色规范：基础输入色、派生语义色、组件背景、文字、边框、交互和反馈颜色。',
-  buttons: '集中查看按钮、图标按钮和触发类控件，方便发现重复按钮体系。',
-  inputs: '集中查看输入框、下拉触发器和注释输入等输入类控件。',
-  navigation: '集中查看 tabs、菜单项、面包屑等导航与选择类组件。',
-  panels: '集中查看 panel、tooltip、annotation item 等承载信息的浮层与容器。',
-  states: '集中查看状态色、交互状态和 token 对应关系。',
-  pending: '这里放暂时不适合正式收录，或看起来可能重复、后续需要继续整理的组件。',
-}
-
-const stableTabLabel: Record<Exclude<WorkbenchLibraryTab, 'all'>, string> = {
-  colors: '颜色规范',
-  buttons: '按钮',
-  inputs: '输入控件',
-  navigation: '导航与选择',
-  panels: '面板与浮层',
-  states: '状态参考',
-  pending: '待确认组件',
 }
 
 const DEFAULT_PENDING_NOTES = [
@@ -319,9 +292,12 @@ function getInspectorInstance(): ElementInspectorInstance | null {
   return (window as InspectorWindow).__ELEMENT_INSPECTOR__ ?? null
 }
 
+const DEFAULT_SELECTED_SAMPLE_ID = 'toolbar-buttons'
+
 const DEFAULT_STATE: WorkbenchState = {
   previewState: 'default',
-  libraryTab: 'all',
+  libraryTab: 'buttons',
+  selectedSampleId: DEFAULT_SELECTED_SAMPLE_ID,
   theme: getDefaultThemeConfig({}, WORKBENCH_THEME_DEFAULTS),
 }
 
@@ -342,6 +318,7 @@ function mergeState(input: Partial<WorkbenchState>): WorkbenchState {
   return {
     previewState: input.previewState ?? DEFAULT_STATE.previewState,
     libraryTab: input.libraryTab ?? DEFAULT_STATE.libraryTab,
+    selectedSampleId: input.selectedSampleId ?? DEFAULT_STATE.selectedSampleId,
     theme: mergeThemeConfig(DEFAULT_STATE.theme, input.theme),
   }
 }
@@ -351,6 +328,7 @@ function saveState(state: WorkbenchState): void {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
       previewState: state.previewState,
       libraryTab: state.libraryTab,
+      selectedSampleId: state.selectedSampleId,
     }))
   } catch {
     // 忽略浏览器存储失败。
@@ -573,15 +551,32 @@ function createSampleCard(sample: WorkbenchComponentSample, context: SampleRende
   return card
 }
 
-function createLibraryTabBar(current: WorkbenchLibraryTab, onSelect: (tab: WorkbenchLibraryTab) => void): HTMLElement {
-  const wrap = el('div', 'wb-library-tabs')
-  for (const option of libraryTabs) {
-    const button = el('button', `wb-library-tab${option.value === current ? ' is-active' : ''}`, option.label)
-    button.type = 'button'
-    button.addEventListener('click', () => onSelect(option.value))
-    wrap.appendChild(button)
+type SampleSelectHandler = (sampleId: string) => void
+
+const navGroupLabels: Record<WorkbenchNavGroup, string> = {
+  foundations: 'Foundations',
+  components: 'Components',
+  project: 'Project Components',
+}
+
+function createComponentNav(currentSampleId: string, onSelect: SampleSelectHandler): HTMLElement {
+  const nav = el('nav', 'wb-component-nav')
+  for (const group of ['foundations', 'components', 'project'] as const) {
+    const samples = componentSamples.filter((sample) => sample.navGroup === group)
+    if (!samples.length) continue
+    const section = el('section', 'wb-component-nav-group')
+    section.appendChild(el('h2', undefined, navGroupLabels[group]))
+    for (const sample of samples) {
+      const button = el('button', `wb-component-nav-item${sample.id === currentSampleId ? ' is-active' : ''}`)
+      button.type = 'button'
+      button.dataset.sampleId = sample.id
+      button.append(el('span', undefined, sample.navLabel ?? sample.title), el('small', undefined, sample.title))
+      button.addEventListener('click', () => onSelect(sample.id))
+      section.appendChild(button)
+    }
+    nav.appendChild(section)
   }
-  return wrap
+  return nav
 }
 
 function activateByAttribute(scope: HTMLElement, selector: string, activeAttribute = 'data-active'): void {
@@ -610,60 +605,144 @@ function bindFieldFocus(scope: HTMLElement): void {
   })
 }
 
-function createToolbarButton(icon: string, stateClass = '', attrs = ''): string {
-  return `<button class="ei-toolbar-btn ${stateClass}" ${attrs}><span>${icon}</span></button>`
+const BUTTON_SAMPLE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M8.52733 5.84537L11.656 7.06937C13.46 7.77537 14.3627 8.12871 14.3327 8.68871C14.3027 9.24871 13.3613 9.50537 11.478 10.0187C10.9173 10.172 10.6367 10.248 10.4427 10.4427C10.248 10.6367 10.172 10.9174 10.0187 11.478C9.50533 13.3614 9.24866 14.3027 8.68866 14.3327C8.12866 14.3627 7.77533 13.4607 7.06866 11.656L5.846 8.52671C5.106 6.63737 4.73666 5.69337 5.21533 5.21404C5.694 4.73537 6.63866 5.10537 8.528 5.84471L8.52733 5.84537Z" stroke="currentColor" stroke-linejoin="round"/>
+<path d="M8.99996 2.66675H3.66663M2.66663 3.66675V9.00008M2.99996 1.66675H2.33329C2.15648 1.66675 1.98691 1.73699 1.86189 1.86201C1.73686 1.98703 1.66663 2.1566 1.66663 2.33341V3.00008C1.66663 3.17689 1.73686 3.34646 1.86189 3.47149C1.98691 3.59651 2.15648 3.66675 2.33329 3.66675H2.99996C3.17677 3.66675 3.34634 3.59651 3.47136 3.47149C3.59639 3.34646 3.66663 3.17689 3.66663 3.00008V2.33341C3.66663 2.1566 3.59639 1.98703 3.47136 1.86201C3.34634 1.73699 3.17677 1.66675 2.99996 1.66675ZM2.99996 9.00008H2.33329C2.15648 9.00008 1.98691 9.07032 1.86189 9.19534C1.73686 9.32037 1.66663 9.48994 1.66663 9.66675V10.3334C1.66663 10.5102 1.73686 10.6798 1.86189 10.8048C1.98691 10.9298 2.15648 11.0001 2.33329 11.0001H2.99996C3.17677 11.0001 3.34634 10.9298 3.47136 10.8048C3.59639 10.6798 3.66663 10.5102 3.66663 10.3334V9.66675C3.66663 9.48994 3.59639 9.32037 3.47136 9.19534C3.34634 9.07032 3.17677 9.00008 2.99996 9.00008ZM10.3333 1.66675H9.66663C9.48982 1.66675 9.32025 1.73699 9.19522 1.86201C9.0702 1.98703 8.99996 2.1566 8.99996 2.33341V3.00008C8.99996 3.17689 9.0702 3.34646 9.19522 3.47149C9.32025 3.59651 9.48982 3.66675 9.66663 3.66675H10.3333C10.5101 3.66675 10.6797 3.59651 10.8047 3.47149C10.9297 3.34646 11 3.17689 11 3.00008V2.33341C11 2.1566 10.9297 1.98703 10.8047 1.86201C10.6797 1.73699 10.5101 1.66675 10.3333 1.66675Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`
+
+function createToolbarButton(stateClass = '', attrs = ''): string {
+  return `<button class="ei-toolbar-btn ${stateClass}" ${attrs}>${BUTTON_SAMPLE_ICON}</button>`
 }
 
-function createFieldState(label: string, stateClass = '', disabled = false): string {
+function createDesignActionButton(stateClass = '', attrs = ''): string {
+  return `<button class="ei-design-action-btn ${stateClass}" ${attrs}>${BUTTON_SAMPLE_ICON}</button>`
+}
+
+function createLayerRow(label: string, secondary: string, stateClass = '', attrs = ''): string {
+  return `<button class="ei-layer-row ${stateClass}" ${attrs}><span class="ei-layer-disclosure">›</span><span class="ei-layer-icon">□</span><span class="ei-layer-label">${label}</span><span class="ei-layer-secondary">${secondary}</span></button>`
+}
+
+type StateMatrixRow = {
+  label: string
+  meta?: string
+  cells: Record<string, string>
+}
+
+function createStateMatrix(columns: string[], rows: StateMatrixRow[]): HTMLElement {
+  const host = createSampleHost('wb-component-matrix')
+  host.style.gridTemplateColumns = `118px repeat(${columns.length}, minmax(120px, 1fr))`
+  host.appendChild(el('div', 'wb-matrix-heading'))
+  columns.forEach((column) => host.appendChild(el('div', 'wb-matrix-heading', column)))
+
+  rows.forEach((row) => {
+    const label = el('div', 'wb-matrix-label')
+    label.appendChild(el('strong', undefined, row.label))
+    if (row.meta) label.appendChild(el('span', undefined, row.meta))
+    host.appendChild(label)
+
+    columns.forEach((column) => {
+      const cell = el('div', 'wb-matrix-cell')
+      cell.innerHTML = row.cells[column] ?? ''
+      host.appendChild(cell)
+    })
+  })
+
+  return host
+}
+
+function createVerticalStateMatrix(rows: Array<{ state: string; meta?: string; content: string }>): HTMLElement {
+  const host = createSampleHost('wb-component-matrix wb-component-matrix-vertical')
+  host.append(el('div', 'wb-matrix-heading', 'state'), el('div', 'wb-matrix-heading', 'preview'))
+
+  rows.forEach((row) => {
+    const label = el('div', 'wb-matrix-label')
+    label.appendChild(el('strong', undefined, row.state))
+    if (row.meta) label.appendChild(el('span', undefined, row.meta))
+    const cell = el('div', 'wb-matrix-cell')
+    cell.innerHTML = row.content
+    host.append(label, cell)
+  })
+
+  return host
+}
+
+function createFieldState(stateClass = '', disabled = false): string {
   return `
-    <div class="wb-state-row">
-      <span class="wb-kv-label">${label}</span>
-      <div class="ei-dp-field ${stateClass}">
-        <span class="ei-dp-field-icon">W</span>
-        <input class="ei-dp-field-input" value="320" ${disabled ? 'disabled' : ''}>
-        <span class="ei-dp-field-suffix">px</span>
-      </div>
+    <div class="ei-dp-field ${stateClass}">
+      <span class="ei-dp-field-icon">W</span>
+      <input class="ei-dp-field-input" value="320" ${disabled ? 'disabled' : ''}>
+      <span class="ei-dp-field-suffix">px</span>
     </div>
   `
 }
 
 function createToolbarStateMatrix(): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span>${createToolbarButton('↖')}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span>${createToolbarButton('↖', 'wb-preview-hover')}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">active</span>${createToolbarButton('↖', 'wb-preview-active')}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">selected</span>${createToolbarButton('↖', 'wb-preview-selected', 'data-active="true"')}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span>${createToolbarButton('↖', 'wb-preview-focus')}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">disabled</span>${createToolbarButton('↖', 'wb-preview-disabled', 'data-disabled="true"')}</div>
-  `
-  return host
+  return createStateMatrix(['default', 'hover', 'active', 'focus', 'disabled'], [
+    {
+      label: 'large circle',
+      meta: 'icon · 32px · 20px',
+      cells: {
+        default: createToolbarButton(),
+        hover: createToolbarButton('wb-preview-hover'),
+        active: createToolbarButton('wb-preview-selected', 'data-active="true"'),
+        focus: createToolbarButton('wb-preview-focus'),
+        disabled: createToolbarButton('wb-preview-disabled', 'data-disabled="true"'),
+      },
+    },
+    {
+      label: 'small rounded',
+      meta: 'icon · 24px · 16px',
+      cells: {
+        default: createDesignActionButton(),
+        hover: createDesignActionButton('wb-preview-hover'),
+        active: createDesignActionButton('', 'data-active="true"'),
+        focus: createDesignActionButton('wb-preview-focus'),
+        disabled: createDesignActionButton('wb-preview-disabled', 'disabled'),
+      },
+    },
+  ])
+}
+
+function createLayerRowStateMatrix(): HTMLElement {
+  return createStateMatrix(['default', 'hover', 'active'], [
+    {
+      label: 'layer row',
+      meta: 'project component',
+      cells: {
+        default: createLayerRow('Card', 'div.card'),
+        hover: createLayerRow('Button', 'button.primary', 'wb-preview-hover'),
+        active: createLayerRow('Panel', 'section.panel', '', 'data-active="true"'),
+      },
+    },
+  ])
 }
 
 function createInputStateMatrix(): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    ${createFieldState('default')}
-    ${createFieldState('hover', 'wb-preview-hover')}
-    ${createFieldState('active', 'wb-preview-active')}
-    ${createFieldState('focus', 'wb-preview-focus')}
-    ${createFieldState('selected', 'wb-preview-selected')}
-    ${createFieldState('disabled', 'wb-preview-disabled', true)}
-  `
-  return host
+  return createVerticalStateMatrix([
+    { state: 'default', meta: 'number field', content: createFieldState() },
+    { state: 'hover', meta: 'number field', content: createFieldState('wb-preview-hover') },
+    { state: 'active', meta: 'number field', content: createFieldState('wb-preview-active') },
+    { state: 'focus', meta: 'number field', content: createFieldState('wb-preview-focus') },
+    { state: 'selected', meta: 'number field', content: createFieldState('wb-preview-selected') },
+    { state: 'disabled', meta: 'number field', content: createFieldState('wb-preview-disabled', true) },
+  ])
 }
 
 function createNavigationStateMatrix(): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-tab">文字</button></div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-tab wb-preview-hover">文字</button></div>
-    <div class="wb-state-row"><span class="wb-kv-label">active</span><button class="ei-tab wb-preview-active">文字</button></div>
-    <div class="wb-state-row"><span class="wb-kv-label">selected</span><button class="ei-tab wb-preview-selected" data-active="true">文字</button></div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span><button class="ei-tab wb-preview-focus">文字</button></div>
-    <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-tab wb-preview-disabled" disabled>文字</button></div>
-  `
-  return host
+  return createStateMatrix(['default', 'hover', 'active', 'selected', 'focus', 'disabled'], [
+    {
+      label: 'tab',
+      meta: 'text navigation',
+      cells: {
+        default: '<button class="ei-tab">文字</button>',
+        hover: '<button class="ei-tab wb-preview-hover">文字</button>',
+        active: '<button class="ei-tab wb-preview-active">文字</button>',
+        selected: '<button class="ei-tab wb-preview-selected" data-active="true">文字</button>',
+        focus: '<button class="ei-tab wb-preview-focus">文字</button>',
+        disabled: '<button class="ei-tab wb-preview-disabled" disabled>文字</button>',
+      },
+    },
+  ])
 }
 
 function createAnnotationMarkup(className: string, toolbarGap: string): string {
@@ -687,46 +766,72 @@ function createAnnotationMarkup(className: string, toolbarGap: string): string {
 }
 
 function createAnnotationStateMatrix(context: SampleRenderContext): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span>${createAnnotationMarkup('', context.toolbarGap)}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span>${createAnnotationMarkup('wb-preview-hover', context.toolbarGap)}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">active</span>${createAnnotationMarkup('wb-preview-active', context.toolbarGap)}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">selected</span>${createAnnotationMarkup('is-active wb-preview-selected', context.toolbarGap)}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span>${createAnnotationMarkup('wb-preview-focus', context.toolbarGap)}</div>
-    <div class="wb-state-row"><span class="wb-kv-label">disabled</span>${createAnnotationMarkup('wb-preview-disabled', context.toolbarGap)}</div>
-  `
-  return host
+  return createStateMatrix(['default', 'hover', 'active', 'selected', 'focus', 'disabled'], [
+    {
+      label: 'annotation item',
+      meta: 'author / diff / note',
+      cells: {
+        default: createAnnotationMarkup('', context.toolbarGap),
+        hover: createAnnotationMarkup('wb-preview-hover', context.toolbarGap),
+        active: createAnnotationMarkup('wb-preview-active', context.toolbarGap),
+        selected: createAnnotationMarkup('is-active wb-preview-selected', context.toolbarGap),
+        focus: createAnnotationMarkup('wb-preview-focus', context.toolbarGap),
+        disabled: createAnnotationMarkup('wb-preview-disabled', context.toolbarGap),
+      },
+    },
+  ])
 }
 
 function createPanelStateMatrix(context: SampleRenderContext): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span><span class="wb-state-chip">${context.panelWidth}</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span><span class="wb-state-chip is-hover">边框 / 阴影保持稳定</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">active</span><span class="wb-state-chip is-active">拖动或操作中</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">selected</span><span class="wb-state-chip is-selected">当前面板</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span><span class="wb-state-chip is-focus">键盘焦点</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">disabled</span><span class="wb-state-chip is-disabled">不可操作</span></div>
+  return createStateMatrix(['default', 'hover', 'active', 'selected', 'focus', 'disabled'], [
+    {
+      label: 'panel shell',
+      meta: context.panelWidth,
+      cells: {
+        default: `<span class="wb-state-chip">${context.panelWidth}</span>`,
+        hover: '<span class="wb-state-chip is-hover">边框 / 阴影保持稳定</span>',
+        active: '<span class="wb-state-chip is-active">拖动或操作中</span>',
+        selected: '<span class="wb-state-chip is-selected">当前面板</span>',
+        focus: '<span class="wb-state-chip is-focus">键盘焦点</span>',
+        disabled: '<span class="wb-state-chip is-disabled">不可操作</span>',
+      },
+    },
+  ])
+}
+
+function createButtonsSample(_context: SampleRenderContext): HTMLElement {
+  const host = createSampleHost('wb-gallery-stack')
+  const iconSection = el('section', 'wb-component-type-card')
+  iconSection.innerHTML = `
+    <div class="wb-section-head"><div><h3>Ghost Icon Button</h3><p>按真实组件规格拆行展示：large circle 为 32px 按钮盒 / 20px 图标；small rounded 为 24px 按钮盒 / 16px 图标。目前只展示这两种全局规格。</p></div></div>
   `
+  iconSection.appendChild(createToolbarStateMatrix())
+
+  const textSection = el('section', 'wb-component-type-card')
+  textSection.innerHTML = `
+    <div class="wb-section-head"><div><h3>Text Button</h3><p>基础文本按钮模式，用于面板内确认、提交和次级操作。</p></div></div>
+  `
+  textSection.appendChild(createTextButtonStateMatrix())
+
+  host.append(iconSection, textSection)
   return host
 }
 
-function createToolbarButtonsSample(context: SampleRenderContext): HTMLElement {
+function createLayerRowsSample(): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   const demo = el('div', 'wb-gallery-stack')
   demo.innerHTML = `
-    <div class="wb-section-head"><div><h3>交互演示</h3><p>点击切换当前激活按钮，直接观察真实工具栏按钮的交互反馈。</p></div></div>
-    <div class="wb-mini-toolbar">
-      <button class="ei-toolbar-btn ${context.previewClass}" data-active="true"><span>↖</span></button>
-      <button class="ei-toolbar-btn ${context.previewClass}"><span>◇</span></button>
-      <button class="ei-toolbar-btn ${context.previewClass}"><span>✣</span></button>
-      <button class="ei-toolbar-btn wb-preview-disabled" data-disabled="true"><span>⌘</span></button>
+    <div class="wb-section-head"><div><h3>真实规格</h3><p>Layer Row 是图层面板里的项目组件，当前最小行高 28px，图标与 disclosure 为 16px。</p></div></div>
+    <div class="wb-layers-demo">
+      ${createLayerRow('App', 'body', '', 'data-active="true"')}
+      ${createLayerRow('Card', 'div.card')}
+      ${createLayerRow('Button', 'button.primary')}
     </div>
   `
-  activateByAttribute(demo, '.ei-toolbar-btn:not([data-disabled="true"])')
-  host.append(demo, createCard('状态矩阵'))
-  host.lastElementChild?.appendChild(createToolbarStateMatrix())
+  activateByAttribute(demo, '.ei-layer-row')
+  const card = createCard('状态矩阵')
+  card.appendChild(createLayerRowStateMatrix())
+  host.append(demo, card)
   return host
 }
 
@@ -739,37 +844,57 @@ function createFilterButtonsSample(): HTMLElement {
       <button class="ei-ann-filter">样式</button>
       <button class="ei-ann-filter">移动</button>
     </div>
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-ann-filter">样式</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-ann-filter wb-preview-hover">样式</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">active</span><button class="ei-ann-filter wb-preview-active">样式</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">selected</span><button class="ei-ann-filter is-active">样式</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-ann-filter wb-preview-disabled" disabled>样式</button></div>
-    </div>
   `
+  host.appendChild(createStateMatrix(['default', 'hover', 'active', 'selected', 'disabled'], [
+    {
+      label: 'segment item',
+      meta: 'annotation filter',
+      cells: {
+        default: '<button class="ei-ann-filter">样式</button>',
+        hover: '<button class="ei-ann-filter wb-preview-hover">样式</button>',
+        active: '<button class="ei-ann-filter wb-preview-active">样式</button>',
+        selected: '<button class="ei-ann-filter is-active">样式</button>',
+        disabled: '<button class="ei-ann-filter wb-preview-disabled" disabled>样式</button>',
+      },
+    },
+  ]))
   activateByClass(host, '.ei-ann-filters .ei-ann-filter')
   return host
 }
 
-function createTextButtonsSample(): HTMLElement {
-  const host = createSampleHost('wb-gallery-stack')
-  host.innerHTML = `
-    <div class="wb-section-head"><div><h3>交互演示</h3><p>标准文本按钮用于面板内确认、提交和次级操作；圆角固定 8px，左右内边距 12px。</p></div></div>
-    <div class="wb-preview-row">
-      <button class="ei-button">取消</button>
-      <button class="ei-button ei-button-ghost">次级</button>
-      <button class="ei-button ei-button-primary">添加</button>
-      <button class="ei-button" disabled>不可用</button>
-    </div>
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-button">按钮</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">ghost</span><button class="ei-button ei-button-ghost">按钮</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-button wb-preview-hover">按钮</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">primary</span><button class="ei-button ei-button-primary">添加</button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-button" disabled>按钮</button></div>
-    </div>
-  `
-  return host
+function createTextButtonStateMatrix(): HTMLElement {
+  return createStateMatrix(['default', 'hover', 'focus', 'disabled'], [
+    {
+      label: 'default',
+      meta: 'text · base',
+      cells: {
+        default: '<button class="ei-button">Button</button>',
+        hover: '<button class="ei-button wb-preview-hover">Button</button>',
+        focus: '<button class="ei-button wb-preview-focus">Button</button>',
+        disabled: '<button class="ei-button" disabled>Button</button>',
+      },
+    },
+    {
+      label: 'primary',
+      meta: 'text · accent',
+      cells: {
+        default: '<button class="ei-button ei-button-primary">Button</button>',
+        hover: '<button class="ei-button ei-button-primary wb-preview-hover">Button</button>',
+        focus: '<button class="ei-button ei-button-primary wb-preview-focus">Button</button>',
+        disabled: '<button class="ei-button ei-button-primary" disabled>Button</button>',
+      },
+    },
+    {
+      label: 'ghost',
+      meta: 'text · secondary',
+      cells: {
+        default: '<button class="ei-button ei-button-ghost">Button</button>',
+        hover: '<button class="ei-button ei-button-ghost wb-preview-hover">Button</button>',
+        focus: '<button class="ei-button ei-button-ghost wb-preview-focus">Button</button>',
+        disabled: '<button class="ei-button ei-button-ghost" disabled>Button</button>',
+      },
+    },
+  ])
 }
 
 function createInputFieldsSample(context: SampleRenderContext): HTMLElement {
@@ -794,12 +919,12 @@ function createTextareaSample(context: SampleRenderContext): HTMLElement {
   host.innerHTML = `
     <div class="wb-section-head"><div><h3>交互演示</h3><p>可以直接输入多行内容，检查 textarea 的输入、焦点和禁用状态。</p></div></div>
     <textarea class="ei-annotate-input ${context.previewState === 'focus' ? 'wb-preview-focus' : ''}" placeholder="输入注释内容预览"></textarea>
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span><textarea class="ei-annotate-input" placeholder="默认"></textarea></div>
-      <div class="wb-state-row"><span class="wb-kv-label">focus</span><textarea class="ei-annotate-input wb-preview-focus" placeholder="焦点"></textarea></div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><textarea class="ei-annotate-input wb-preview-disabled" disabled placeholder="禁用"></textarea></div>
-    </div>
   `
+  host.appendChild(createVerticalStateMatrix([
+    { state: 'default', meta: 'textarea', content: '<textarea class="ei-annotate-input" placeholder="默认"></textarea>' },
+    { state: 'focus', meta: 'textarea', content: '<textarea class="ei-annotate-input wb-preview-focus" placeholder="焦点"></textarea>' },
+    { state: 'disabled', meta: 'textarea', content: '<textarea class="ei-annotate-input wb-preview-disabled" disabled placeholder="禁用"></textarea>' },
+  ]))
   return host
 }
 
@@ -856,14 +981,12 @@ function createFontSelectSample(context: SampleRenderContext): HTMLElement {
   })
   host.appendChild(demo)
   const card = createCard('状态矩阵')
-  card.innerHTML += `
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span>${createFontSelectMarkup('Inter')}</div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span><div class="wb-preview-hover">${createFontSelectMarkup('Inter')}</div></div>
-      <div class="wb-state-row"><span class="wb-kv-label">active</span><div class="wb-preview-active">${createFontSelectMarkup('Inter')}</div></div>
-      <div class="wb-state-row"><span class="wb-kv-label">selected</span>${createFontSelectMarkup('SF Pro')}</div>
-    </div>
-  `
+  card.appendChild(createVerticalStateMatrix([
+    { state: 'default', meta: 'font select', content: createFontSelectMarkup('Inter') },
+    { state: 'hover', meta: 'font select', content: `<div class="wb-preview-hover">${createFontSelectMarkup('Inter')}</div>` },
+    { state: 'active', meta: 'font select', content: `<div class="wb-preview-active">${createFontSelectMarkup('Inter')}</div>` },
+    { state: 'selected', meta: 'font select', content: createFontSelectMarkup('SF Pro') },
+  ]))
   host.appendChild(card)
   return host
 }
@@ -889,15 +1012,13 @@ function createDropdownTriggerSample(context: SampleRenderContext): HTMLElement 
   })
   host.appendChild(demo)
   const card = createCard('状态矩阵')
-  card.innerHTML += `
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span>${createFillFieldMarkup('', '100')}</div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span>${createFillFieldMarkup('wb-preview-hover', '100')}</div>
-      <div class="wb-state-row"><span class="wb-kv-label">active</span>${createFillFieldMarkup('wb-preview-active', '100')}</div>
-      <div class="wb-state-row"><span class="wb-kv-label">selected</span>${createFillFieldMarkup('wb-preview-selected', '100')}</div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span>${createFillFieldMarkup('wb-preview-disabled', '100')}</div>
-    </div>
-  `
+  card.appendChild(createVerticalStateMatrix([
+    { state: 'default', meta: 'fill trigger', content: createFillFieldMarkup('', '100') },
+    { state: 'hover', meta: 'fill trigger', content: createFillFieldMarkup('wb-preview-hover', '100') },
+    { state: 'active', meta: 'fill trigger', content: createFillFieldMarkup('wb-preview-active', '100') },
+    { state: 'selected', meta: 'fill trigger', content: createFillFieldMarkup('wb-preview-selected', '100') },
+    { state: 'disabled', meta: 'fill trigger', content: createFillFieldMarkup('wb-preview-disabled', '100') },
+  ]))
   host.appendChild(card)
   return host
 }
@@ -947,14 +1068,29 @@ function createMenuSample(context: SampleRenderContext): HTMLElement {
         </div>
       </div>
     </div>
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">default</span><button class="ei-capture-menu-item"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">hover</span><button class="ei-capture-menu-item wb-preview-hover"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">large</span><button class="ei-capture-menu-item" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">active</span><button class="ei-capture-menu-item wb-preview-active" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button></div>
-      <div class="wb-state-row"><span class="wb-kv-label">disabled</span><button class="ei-capture-menu-item wb-preview-disabled" data-size="lg" disabled><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button></div>
-    </div>
   `
+  host.appendChild(createStateMatrix(['default', 'hover', 'active', 'disabled'], [
+    {
+      label: 'default item',
+      meta: '24 menu item',
+      cells: {
+        default: '<button class="ei-capture-menu-item"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button>',
+        hover: '<button class="ei-capture-menu-item wb-preview-hover"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button>',
+        active: '<button class="ei-capture-menu-item wb-preview-active"><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button>',
+        disabled: '<button class="ei-capture-menu-item wb-preview-disabled" disabled><span class="ei-capture-menu-icon">▣</span><span class="ei-capture-menu-label">24 菜单项</span></button>',
+      },
+    },
+    {
+      label: 'large item',
+      meta: '32 action item',
+      cells: {
+        default: '<button class="ei-capture-menu-item" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button>',
+        hover: '<button class="ei-capture-menu-item wb-preview-hover" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button>',
+        active: '<button class="ei-capture-menu-item wb-preview-active" data-size="lg"><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button>',
+        disabled: '<button class="ei-capture-menu-item wb-preview-disabled" data-size="lg" disabled><span class="ei-capture-menu-icon">✦</span><span class="ei-capture-menu-label">32 菜单项</span></button>',
+      },
+    },
+  ]))
   return host
 }
 
@@ -986,14 +1122,22 @@ function createPanelSample(context: SampleRenderContext): HTMLElement {
   return host
 }
 
+function createTooltipMarkup(tag: string, size: string, value: string): string {
+  return `<div class="ei-tooltip wb-tooltip-sample"><div class="ei-tt-head"><span class="ei-tt-tag">${tag}</span><span class="ei-tt-size">${size}</span></div><div class="ei-tt-row"><span class="ei-tt-label">状态</span><span class="ei-tt-val">${value}</span></div></div>`
+}
+
 function createTooltipStateMatrix(context: SampleRenderContext): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span><div class="ei-tooltip wb-tooltip-sample"><div class="ei-tt-head"><span class="ei-tt-tag">input</span><span class="ei-tt-size">120 × ${context.fieldHeight}</span></div><div class="ei-tt-row"><span class="ei-tt-label">状态</span><span class="ei-tt-val">默认</span></div></div></div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span><div class="ei-tooltip wb-tooltip-sample"><div class="ei-tt-head"><span class="ei-tt-tag">hover</span><span class="ei-tt-size">提示</span></div><div class="ei-tt-row"><span class="ei-tt-label">状态</span><span class="ei-tt-val">悬停说明</span></div></div></div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span><div class="ei-tooltip wb-tooltip-sample"><div class="ei-tt-head"><span class="ei-tt-tag">focus</span><span class="ei-tt-size">提示</span></div><div class="ei-tt-row"><span class="ei-tt-label">状态</span><span class="ei-tt-val">焦点说明</span></div></div></div>
-  `
-  return host
+  return createStateMatrix(['default', 'hover', 'focus'], [
+    {
+      label: 'tooltip',
+      meta: 'head / row',
+      cells: {
+        default: createTooltipMarkup('input', `120 × ${context.fieldHeight}`, '默认'),
+        hover: createTooltipMarkup('hover', '提示', '悬停说明'),
+        focus: createTooltipMarkup('focus', '提示', '焦点说明'),
+      },
+    },
+  ])
 }
 
 function createTooltipSample(context: SampleRenderContext): HTMLElement {
@@ -1030,17 +1174,21 @@ function createAnnotationSample(context: SampleRenderContext): HTMLElement {
 }
 
 function createStateReferenceSample(context: SampleRenderContext): HTMLElement {
-  const host = createSampleHost('wb-state-list')
-  host.innerHTML = `
-    <div class="wb-state-row"><span class="wb-kv-label">default</span><span class="wb-state-chip">默认</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">hover</span><span class="wb-state-chip is-hover">悬停</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">active</span><span class="wb-state-chip is-active">按下</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">selected</span><span class="wb-state-chip is-selected">选中</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">focus</span><span class="wb-state-chip is-focus">焦点</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">disabled</span><span class="wb-state-chip is-disabled">禁用</span></div>
-    <div class="wb-state-row"><span class="wb-kv-label">当前</span><span class="wb-state-chip ${context.previewClass}">${displayPreviewState(context.previewState)}</span></div>
-  `
-  return host
+  return createStateMatrix(['default', 'hover', 'active', 'selected', 'focus', 'disabled', 'current'], [
+    {
+      label: 'state chip',
+      meta: 'preview helper',
+      cells: {
+        default: '<span class="wb-state-chip">默认</span>',
+        hover: '<span class="wb-state-chip is-hover">悬停</span>',
+        active: '<span class="wb-state-chip is-active">按下</span>',
+        selected: '<span class="wb-state-chip is-selected">选中</span>',
+        focus: '<span class="wb-state-chip is-focus">焦点</span>',
+        disabled: '<span class="wb-state-chip is-disabled">禁用</span>',
+        current: `<span class="wb-state-chip ${context.previewClass}">${displayPreviewState(context.previewState)}</span>`,
+      },
+    },
+  ])
 }
 
 function createColorSwatch(name: string, token: string, value: string, usage: string, source: string): HTMLElement {
@@ -1192,16 +1340,78 @@ function createTokenReferenceSample(context: SampleRenderContext): HTMLElement {
   return createColorPaletteSample(context)
 }
 
+function createCheckboxInfoRow(label: string, value: string, checked = false, muted = false): string {
+  const swatch = label === 'color:' ? '<span class="ei-ann-info-swatch" style="background:#6fff2c"></span>' : ''
+  return `<div class="ei-ann-info-row ${muted ? 'is-muted' : ''}"><label class="ei-checkbox"><input type="checkbox" ${checked ? 'checked' : ''} aria-label="${label}"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">${label}</span><span class="ei-ann-info-value-wrap">${swatch}<span class="ei-ann-info-value">${value}</span></span></div></div>`
+}
+
 function createCheckboxSample(): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   host.innerHTML = `
     <div class="wb-section-head"><div><h3>交互演示</h3><p>这里展示 checkbox 标准组件本体的真实使用方式；后面的文本或内容区都可以按场景自由组合。</p></div></div>
-    <div class="wb-state-list">
-      <div class="wb-state-row"><span class="wb-kv-label">unchecked</span><div class="ei-ann-info-row"><label class="ei-checkbox"><input type="checkbox" aria-label="unchecked"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">display:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-value">block</span></span></div></div></div>
-      <div class="wb-state-row"><span class="wb-kv-label">checked</span><div class="ei-ann-info-row"><label class="ei-checkbox"><input type="checkbox" checked aria-label="checked"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">color:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-swatch" style="background:#6fff2c"></span><span class="ei-ann-info-value">#6fff2c</span></span></div></div></div>
-      <div class="wb-state-row"><span class="wb-kv-label">muted</span><div class="ei-ann-info-row is-muted"><label class="ei-checkbox"><input type="checkbox" aria-label="muted"><span class="ei-checkbox-mark"></span></label><div class="ei-ann-info-content"><span class="ei-ann-info-property">background-image:</span><span class="ei-ann-info-value-wrap"><span class="ei-ann-info-value">none</span></span></div></div></div>
-    </div>
   `
+  host.appendChild(createStateMatrix(['unchecked', 'checked', 'muted'], [
+    {
+      label: 'checkbox row',
+      meta: 'annotation info row',
+      cells: {
+        unchecked: createCheckboxInfoRow('display:', 'block'),
+        checked: createCheckboxInfoRow('color:', '#6fff2c', true),
+        muted: createCheckboxInfoRow('background-image:', 'none', false, true),
+      },
+    },
+  ]))
+  return host
+}
+
+const ICON_GROUP_LABELS: Record<ElensIconGroup, string> = {
+  toolbar: 'Toolbar',
+  design: 'Design',
+  changes: 'Changes',
+  capture: 'Capture',
+  layers: 'Layers',
+  inline: 'Inline',
+  extension: 'Extension',
+}
+
+function createIconPreview(icon: ElensIconDefinition): HTMLElement {
+  const preview = el('div', `wb-icon-preview${icon.fixedColor ? ' is-fixed-color' : ''}`)
+  if (icon.svg) {
+    preview.innerHTML = icon.svg
+  } else if (icon.renderMode === 'image' && icon.url) {
+    const image = document.createElement('img')
+    image.src = icon.url
+    image.alt = ''
+    preview.appendChild(image)
+  }
+  return preview
+}
+
+function createIconCard(icon: ElensIconDefinition): HTMLElement {
+  const card = el('article', `wb-icon-card${icon.fixedColor ? ' is-fixed-color' : ''}`)
+  card.title = `${icon.id} · ${icon.source}`
+  card.append(createIconPreview(icon), el('span', 'wb-icon-name', icon.name))
+  return card
+}
+
+function createIconGroup(group: ElensIconGroup, icons: ElensIconDefinition[]): HTMLElement {
+  const section = el('section', 'wb-icon-group')
+  const head = el('div', 'wb-icon-group-head')
+  const titleWrap = el('div')
+  titleWrap.append(el('h3', undefined, ICON_GROUP_LABELS[group]), el('p', undefined, `${icons.length} 个真实项目 icon，来源于 src/icons.ts registry。`))
+  head.append(titleWrap, el('span', 'wb-icon-coverage-badge', 'covered'))
+  const grid = el('div', 'wb-icon-grid')
+  icons.forEach((icon) => grid.appendChild(createIconCard(icon)))
+  section.append(head, grid)
+  return section
+}
+
+function createIconLibrarySample(): HTMLElement {
+  const host = createSampleHost('wb-icon-groups')
+  const groups = Array.from(new Set(ELENS_ICONS.map((icon) => icon.group))) as ElensIconGroup[]
+  groups.forEach((group) => {
+    host.appendChild(createIconGroup(group, ELENS_ICONS.filter((icon) => icon.group === group)))
+  })
   return host
 }
 
@@ -1249,6 +1459,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'color-palette',
     title: '颜色总表',
+    navLabel: 'Colors',
+    navGroup: 'foundations',
     tab: 'colors',
     status: 'stable',
     componentKind: 'project',
@@ -1259,6 +1471,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'text-border-colors',
     title: '文字与边框规范',
+    navLabel: 'Typography',
+    navGroup: 'foundations',
     tab: 'colors',
     status: 'stable',
     componentKind: 'project',
@@ -1269,6 +1483,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'feedback-colors',
     title: '反馈与覆盖层颜色',
+    navLabel: 'States',
+    navGroup: 'foundations',
     tab: 'colors',
     status: 'stable',
     componentKind: 'project',
@@ -1277,18 +1493,34 @@ const componentSamples: WorkbenchComponentSample[] = [
     render: createFeedbackColorSample,
   },
   {
+    id: 'icon-library',
+    title: '图标库',
+    navLabel: 'Icons',
+    navGroup: 'foundations',
+    tab: 'icons',
+    status: 'stable',
+    componentKind: 'project',
+    description: '集中预览当前项目真实使用的 icon registry，后续替换源文件或 registry 定义即可让 runtime 与 Workbench 同步。',
+    classNames: ['icon registry', 'src/assets/*.svg', 'src/icons.ts'],
+    render: () => createIconLibrarySample(),
+  },
+  {
     id: 'toolbar-buttons',
-    title: '图标按钮',
+    title: '按钮',
+    navLabel: 'Button',
+    navGroup: 'components',
     tab: 'buttons',
     status: 'stable',
     componentKind: 'standard',
-    description: '基础图标按钮模式，用于检查、设计、移动、变更等高频操作入口。',
-    classNames: ['.ei-toolbar-btn'],
-    render: createToolbarButtonsSample,
+    description: '统一按钮组件族，当前包含 Ghost Icon Button 与 Text Button 两类真实类型。',
+    classNames: ['.ei-toolbar-btn', '.ei-design-action-btn', '.ei-button', '.ei-button-primary', '.ei-button-ghost'],
+    render: createButtonsSample,
   },
   {
     id: 'segmented-switch',
     title: '分段切换',
+    navLabel: 'Segmented Control',
+    navGroup: 'components',
     tab: 'buttons',
     status: 'stable',
     componentKind: 'standard',
@@ -1297,18 +1529,10 @@ const componentSamples: WorkbenchComponentSample[] = [
     render: () => createFilterButtonsSample(),
   },
   {
-    id: 'text-buttons',
-    title: '文本按钮',
-    tab: 'buttons',
-    status: 'stable',
-    componentKind: 'standard',
-    description: '基础文本按钮模式，用于面板内的添加、更新、取消等文字操作，支持 primary 与 ghost 变体。',
-    classNames: ['.ei-button', '.ei-button-primary', '.ei-button-ghost'],
-    render: () => createTextButtonsSample(),
-  },
-  {
     id: 'dp-field',
     title: '字段输入框',
+    navLabel: 'Field Input',
+    navGroup: 'components',
     tab: 'inputs',
     status: 'stable',
     componentKind: 'standard',
@@ -1319,6 +1543,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'annotate-input',
     title: '多行输入框',
+    navLabel: 'Textarea',
+    navGroup: 'components',
     tab: 'inputs',
     status: 'stable',
     componentKind: 'standard',
@@ -1329,6 +1555,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'checkbox',
     title: '复选框',
+    navLabel: 'Checkbox',
+    navGroup: 'components',
     tab: 'inputs',
     status: 'stable',
     componentKind: 'standard',
@@ -1339,6 +1567,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'fill-trigger',
     title: '颜色选择器',
+    navLabel: 'Color Picker Trigger',
+    navGroup: 'components',
     tab: 'inputs',
     status: 'stable',
     componentKind: 'standard',
@@ -1349,6 +1579,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'font-select',
     title: '下拉选择器',
+    navLabel: 'Select / Dropdown',
+    navGroup: 'components',
     tab: 'inputs',
     status: 'stable',
     componentKind: 'standard',
@@ -1359,6 +1591,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'tabs-breadcrumbs',
     title: '导航选择控件',
+    navLabel: 'Tabs / Breadcrumb',
+    navGroup: 'components',
     tab: 'navigation',
     status: 'stable',
     componentKind: 'standard',
@@ -1369,6 +1603,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'capture-menu',
     title: '菜单项',
+    navLabel: 'Menu Item',
+    navGroup: 'components',
     tab: 'navigation',
     status: 'stable',
     componentKind: 'standard',
@@ -1379,6 +1615,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'panel-shell',
     title: '面板容器',
+    navLabel: 'Panel',
+    navGroup: 'components',
     tab: 'panels',
     status: 'stable',
     componentKind: 'standard',
@@ -1389,6 +1627,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'annotation-item',
     title: '注释卡片',
+    navLabel: 'Annotation Item',
+    navGroup: 'project',
     tab: 'panels',
     status: 'stable',
     componentKind: 'project',
@@ -1397,8 +1637,22 @@ const componentSamples: WorkbenchComponentSample[] = [
     render: createAnnotationSample,
   },
   {
+    id: 'layer-row',
+    title: '图层行',
+    navLabel: 'Layer Row',
+    navGroup: 'project',
+    tab: 'panels',
+    status: 'stable',
+    componentKind: 'project',
+    description: '图层面板里的项目组件，用于展示元素层级、当前选中层和辅助标签。',
+    classNames: ['.ei-layers-panel', '.ei-layer-row', '.ei-layer-label', '.ei-layer-secondary'],
+    render: createLayerRowsSample,
+  },
+  {
     id: 'tooltip',
     title: '提示浮层',
+    navLabel: 'Tooltip',
+    navGroup: 'components',
     tab: 'panels',
     status: 'stable',
     componentKind: 'standard',
@@ -1409,6 +1663,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'state-reference',
     title: '状态参考',
+    navLabel: 'States',
+    navGroup: 'foundations',
     tab: 'states',
     status: 'stable',
     componentKind: 'project',
@@ -1419,6 +1675,8 @@ const componentSamples: WorkbenchComponentSample[] = [
   {
     id: 'token-reference',
     title: '组件颜色 token',
+    navLabel: 'Component Tokens',
+    navGroup: 'foundations',
     tab: 'states',
     status: 'stable',
     componentKind: 'project',
@@ -1428,57 +1686,10 @@ const componentSamples: WorkbenchComponentSample[] = [
   },
 ]
 
-function getVisibleSamples(tab: WorkbenchLibraryTab): WorkbenchComponentSample[] {
-  if (tab === 'all') return componentSamples
-  if (tab === 'pending') return []
-  return componentSamples.filter((sample) => sample.tab === tab)
-}
-
-function groupSamplesByTab(samples: WorkbenchComponentSample[]): Record<Exclude<WorkbenchLibraryTab, 'all'>, WorkbenchComponentSample[]> {
-  return {
-    colors: samples.filter((sample) => sample.tab === 'colors'),
-    buttons: samples.filter((sample) => sample.tab === 'buttons'),
-    inputs: samples.filter((sample) => sample.tab === 'inputs'),
-    navigation: samples.filter((sample) => sample.tab === 'navigation'),
-    panels: samples.filter((sample) => sample.tab === 'panels'),
-    states: samples.filter((sample) => sample.tab === 'states'),
-    pending: [],
-  }
-}
-
-function renderLibrarySection(title: string, description: string, cards: HTMLElement[], layout: 'grid' | 'stack' = 'grid'): HTMLElement {
-  const section = el('section', 'wb-section')
-  section.innerHTML = `
-    <div class="wb-section-head">
-      <div>
-        <h3>${title}</h3>
-        <p>${description}</p>
-      </div>
-    </div>
-  `
-  const container = el('div', layout === 'stack' ? 'wb-gallery-stack' : 'wb-gallery-grid')
-  cards.forEach((card) => container.appendChild(card))
-  section.appendChild(container)
-  return section
-}
-
-function getLibrarySectionLayout(tab: Exclude<WorkbenchLibraryTab, 'all' | 'pending'>): 'grid' | 'stack' {
-  return tab === 'colors' ? 'stack' : 'grid'
-}
-
-function renderPendingSection(): HTMLElement {
-  const pending = getPendingRegistry()
-  const standardCards = pending.filter((item) => item.componentKind === 'standard').map((item) => createPendingCard(item))
-  const projectCards = pending.filter((item) => item.componentKind === 'project').map((item) => createPendingCard(item))
-
-  const wrap = el('div', 'wb-gallery-stack')
-  if (standardCards.length) {
-    wrap.appendChild(renderLibrarySection('待确认标准组件', '这里放还未正式收录、但目标是沉淀为跨模块复用基础能力的组件。', standardCards))
-  }
-  if (projectCards.length) {
-    wrap.appendChild(renderLibrarySection('待确认项目组件', '这里放依赖具体业务语义或组合关系的项目组件，通常由标准组件组合而成。', projectCards))
-  }
-  return wrap
+function createWorkbenchRuntimeStyles(themeConfig: ThemeConfig): string {
+  const theme = buildTheme(themeConfig)
+  return `${generateCSSVariables(theme).replace(/^\.ei-root,/, '.wb-main,')}
+${createRuntimeStyles(theme)}`
 }
 
 function createContext(state: WorkbenchState): SampleRenderContext {
@@ -1501,48 +1712,33 @@ function createContext(state: WorkbenchState): SampleRenderContext {
   }
 }
 
-function renderComponentLibrary(main: HTMLElement, state: WorkbenchState, onTabChange: (tab: WorkbenchLibraryTab) => void): void {
+function createComponentSection(sample: WorkbenchComponentSample, context: SampleRenderContext): HTMLElement {
+  const page = el('section', 'wb-component-page')
+  page.id = `wb-sample-${sample.id}`
+  const header = el('div', 'wb-component-page-head')
+  header.append(
+    el('span', 'wb-eyebrow', navGroupLabels[sample.navGroup]),
+    el('h2', undefined, sample.navLabel ?? sample.title),
+    createSampleMeta(sample),
+  )
+  const body = el('div', 'wb-component-body')
+  body.appendChild(sample.render(context))
+  page.append(header, body)
+  return page
+}
+
+function renderComponentLibrary(main: HTMLElement, state: WorkbenchState): void {
   const context = createContext(state)
-  const tabSection = el('section', 'wb-section')
-  const head = el('div', 'wb-section-head')
-  const body = el('div')
-  body.append(el('h3', undefined, '组件资产盘点'), el('p', undefined, libraryTabDescriptions[state.libraryTab]))
-  head.appendChild(body)
-  tabSection.append(head, createLibraryTabBar(state.libraryTab, onTabChange), createDesignSystemRuleCard())
-  main.appendChild(tabSection)
+  const flow = el('div', 'wb-component-flow')
 
-  if (state.libraryTab === 'all') {
-    const grouped = groupSamplesByTab(componentSamples)
-    for (const tab of ['colors', 'buttons', 'inputs', 'navigation', 'panels', 'states'] as const) {
-      const samples = grouped[tab]
-      if (!samples.length) continue
-      const standardCards = samples.filter((sample) => sample.componentKind === 'standard').map((sample) => createSampleCard(sample, context))
-      const projectCards = samples.filter((sample) => sample.componentKind === 'project').map((sample) => createSampleCard(sample, context))
-      if (standardCards.length) {
-        main.appendChild(renderLibrarySection(`${stableTabLabel[tab]} / 标准组件`, libraryTabDescriptions[tab], standardCards, getLibrarySectionLayout(tab)))
-      }
-      if (projectCards.length) {
-        main.appendChild(renderLibrarySection(`${stableTabLabel[tab]} / 项目组件`, libraryTabDescriptions[tab], projectCards, getLibrarySectionLayout(tab)))
-      }
+  for (const sample of componentSamples) {
+    flow.appendChild(createComponentSection(sample, context))
+    if (sample.id === 'state-reference') {
+      flow.appendChild(createDesignSystemRuleCard())
     }
-    main.appendChild(renderPendingSection())
-    return
   }
 
-  if (state.libraryTab === 'pending') {
-    main.appendChild(renderPendingSection())
-    return
-  }
-
-  const visible = getVisibleSamples(state.libraryTab)
-  const standardCards = visible.filter((sample) => sample.componentKind === 'standard').map((sample) => createSampleCard(sample, context))
-  const projectCards = visible.filter((sample) => sample.componentKind === 'project').map((sample) => createSampleCard(sample, context))
-  if (standardCards.length) {
-    main.appendChild(renderLibrarySection(`${stableTabLabel[state.libraryTab]} / 标准组件`, libraryTabDescriptions[state.libraryTab], standardCards, getLibrarySectionLayout(state.libraryTab)))
-  }
-  if (projectCards.length) {
-    main.appendChild(renderLibrarySection(`${stableTabLabel[state.libraryTab]} / 项目组件`, libraryTabDescriptions[state.libraryTab], projectCards, getLibrarySectionLayout(state.libraryTab)))
-  }
+  main.appendChild(flow)
 }
 
 function createDesignSystemRuleCard(): HTMLElement {
@@ -1572,14 +1768,17 @@ function createDesignSystemRuleCard(): HTMLElement {
   return card
 }
 
-function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () => void, onReset: () => void): void {
+function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () => void, onReset: () => void, onSampleSelect: SampleSelectHandler): void {
   const panel = el('aside', 'wb-controls')
   const head = el('div', 'wb-controls-head')
   head.appendChild(createHeadingWithHelp('span', '', ['Workbench']))
   head.firstElementChild?.classList.add('wb-eyebrow')
   head.appendChild(createHeadingWithHelp('h1', 'Elens', ['Design System']))
-  head.appendChild(el('p', undefined, '这里是 Elens 的设计系统工作台。你可以改颜色、圆角、组件尺寸，并立即看到真实组件变化。'))
+  head.appendChild(el('p', undefined, '这里是 Elens 的设计系统工作台。左侧选择真实组件，右侧查看它当前已有的规格与状态。'))
   panel.appendChild(head)
+
+  const library = el('section', 'wb-control-section')
+  library.append(el('h2', undefined, '组件库'), createComponentNav(state.selectedSampleId, onSampleSelect))
 
   const basic = el('section', 'wb-control-section')
   basic.appendChild(el('h2', undefined, '基础'))
@@ -1636,8 +1835,8 @@ function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () =
     })),
   )
 
-  const components = el('section', 'wb-control-section')
-  components.appendChild(el('h2', undefined, '组件规格'))
+  const components = el('section', 'wb-control-section wb-control-section-secondary')
+  components.appendChild(el('h2', undefined, '局部调试参数'))
   components.append(
     createField('面板宽度', createTextInput(state.theme.component?.panel?.width ?? DEFAULT_STATE.theme.component?.panel?.width ?? '', (value) => {
       state.theme.component = {
@@ -1711,11 +1910,11 @@ function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () =
   })
   actions.append(output, resetButton)
 
-  panel.append(basic, feel, components, preview, actions)
+  panel.append(library, basic, feel, components, preview, actions)
   root.appendChild(panel)
 }
 
-function renderSamples(root: HTMLElement, state: WorkbenchState, onTabChange: (tab: WorkbenchLibraryTab) => void): void {
+function renderSamples(root: HTMLElement, state: WorkbenchState): void {
   const main = el('main', 'wb-main')
   const hero = el('section', 'wb-hero')
   const eyebrow = createHeadingWithHelp('span', '', ['Runtime Style Builder'])
@@ -1723,10 +1922,10 @@ function renderSamples(root: HTMLElement, state: WorkbenchState, onTabChange: (t
   hero.append(
     eyebrow,
     el('h2', undefined, '真实组件库'),
-    el('p', undefined, '右侧现在按组件类型收录真实运行时样本。每张卡片都保留真实类名，方便你定期检查重复组件、失控变体和待整理样式。'),
+    el('p', undefined, '这一版按截图式组件手册重排：左侧只列当前项目已有组件，右侧只展示真实 class、真实规格和已有状态。'),
   )
   main.appendChild(hero)
-  renderComponentLibrary(main, state, onTabChange)
+  renderComponentLibrary(main, state)
   root.appendChild(main)
 }
 
@@ -1735,7 +1934,7 @@ function renderWorkbench(root: HTMLElement, state: WorkbenchState): void {
   const styleEl = document.querySelector<HTMLStyleElement>('style[data-elens-runtime]') ?? document.createElement('style')
   const inspector = getInspectorInstance()
   styleEl.dataset.elensRuntime = 'true'
-  styleEl.textContent = createRuntimeStyles(buildTheme(state.theme))
+  styleEl.textContent = createWorkbenchRuntimeStyles(state.theme)
   document.head.appendChild(styleEl)
 
   const shell = el('div', 'wb-shell')
@@ -1745,7 +1944,7 @@ function renderWorkbench(root: HTMLElement, state: WorkbenchState): void {
     saveState(state)
     persistTheme(state.theme)
     inspector?.updateTheme(state.theme)
-    styleEl.textContent = createRuntimeStyles(buildTheme(state.theme))
+    styleEl.textContent = createWorkbenchRuntimeStyles(state.theme)
     rerender()
   }
   const resetWorkbench = (): void => {
@@ -1753,17 +1952,21 @@ function renderWorkbench(root: HTMLElement, state: WorkbenchState): void {
     inspector?.resetTheme()
     Object.assign(state, structuredClone(DEFAULT_STATE))
     saveState(state)
-    styleEl.textContent = createRuntimeStyles(buildTheme(state.theme))
+    styleEl.textContent = createWorkbenchRuntimeStyles(state.theme)
     rerender()
   }
-  const changeTab = (tab: WorkbenchLibraryTab): void => {
-    state.libraryTab = tab
+  const selectSample = (sampleId: string): void => {
+    const sample = componentSamples.find((item) => item.id === sampleId)
+    if (!sample) return
+    state.selectedSampleId = sample.id
+    state.libraryTab = sample.tab
     saveState(state)
-    rerender()
+    shell.querySelectorAll('.wb-component-nav-item').forEach((item) => item.classList.toggle('is-active', (item as HTMLElement).dataset.sampleId === sample.id))
+    shell.querySelector(`#wb-sample-${sample.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  renderControls(shell, state, notifyUpdate, resetWorkbench)
-  renderSamples(shell, state, changeTab)
+  renderControls(shell, state, notifyUpdate, resetWorkbench, selectSample)
+  renderSamples(shell, state)
   root.appendChild(shell)
   bindHelpTooltips(shell)
 }

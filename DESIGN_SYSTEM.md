@@ -162,8 +162,8 @@ font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
 | 变体 | 高度 | 宽度 | 圆角 |
 |------|------|------|------|
-| Icon (圆形) | `var(--btn-icon-size)` | `var(--btn-icon-size)` | `var(--radius-full)` |
-| Icon (方形) | `var(--btn-icon-size-sm)` | `var(--btn-icon-size-sm)` | `var(--radius-md)` |
+| Ghost Icon (圆形) | `var(--btn-icon-size)` | `var(--btn-icon-size)` | `var(--radius-full)` |
+| Ghost Icon (圆角矩形) | `var(--btn-icon-size-sm)` | `var(--btn-icon-size-sm)` | `var(--radius-md)` |
 | Text (小) | `var(--btn-text-height)` | auto | `var(--radius-xl)` |
 | Text (中) | `var(--btn-text-height-md)` | auto | `var(--radius-xl)` |
 | Text (大) | `var(--btn-text-height-lg)` | auto | `var(--radius-xl)` |
@@ -310,8 +310,9 @@ transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease
 
 | 用途 | 尺寸 |
 |------|------|
-| Toolbar 按钮 | `var(--btn-icon-size-sm)` 视口，stroke 建议跟随图标体系统一控制 |
-| 输入框图标 | `var(--btn-icon-size-sm)` 视口 |
+| Ghost Icon 大尺寸图标 | `var(--btn-icon-glyph-size)` 视口，按钮盒使用 `var(--btn-icon-size)` |
+| Ghost Icon 小尺寸图标 | `var(--btn-icon-glyph-size-sm)` 视口，按钮盒使用 `var(--btn-icon-size-sm)` |
+| 输入框图标 | `16px` 视口 |
 | 对齐网格图标 | `var(--icon-size-sm)` 视口 |
 | 小图标 | `var(--icon-size-sm)` 视口 |
 
@@ -377,5 +378,5 @@ color: var(--interactive-accent);
 
 ### 9.3 交互区域
 
-- 所有可点击元素最小尺寸使用 `var(--btn-icon-size-sm)` 或更大值
-- Toolbar 按钮尺寸使用 `var(--btn-icon-size)` 以便于触摸操作
+- Ghost Icon Button 目前只有两种真实尺寸：`var(--btn-icon-size)` / `var(--btn-icon-glyph-size)` 与 `var(--btn-icon-size-sm)` / `var(--btn-icon-glyph-size-sm)`
+- Ghost Icon Button 目前只有两种真实形状：圆形和圆角矩形

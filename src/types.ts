@@ -396,6 +396,8 @@ export type ComponentTokens = {
   button: {
     iconSize: string
     iconSizeSm: string
+    iconGlyphSize: string
+    iconGlyphSizeSm: string
     textHeight: string
     textHeightMd: string
     textHeightLg: string

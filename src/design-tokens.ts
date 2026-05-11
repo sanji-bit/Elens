@@ -183,13 +183,18 @@ export type DesignTokens = typeof tokens
 
 export function resolveThemeConfig(input: ThemeConfig = {}): ResolvedThemeConfig {
   const accent = input.brand?.accent ?? input.accentColor ?? '#008AFF'
+  const baseSurface = input.surface?.base ?? tokens.colors.bg.panel
+  const parsedBaseSurface = parseColor(baseSurface) ?? parseColor(tokens.colors.bg.panel) ?? { r: 17, g: 17, b: 19 }
+  const defaultForeground = getLuminance(parsedBaseSurface) < 0.32 ? '#FFFFFF' : '#000000'
+  const foreground = input.brand?.foreground ?? defaultForeground
 
   return {
     brand: {
       accent,
+      foreground,
     },
     surface: {
-      base: input.surface?.base ?? tokens.colors.bg.panel,
+      base: baseSurface,
     },
     contrast: input.contrast ?? 'normal',
     density: input.density ?? 'compact',
@@ -394,11 +399,12 @@ function getLuminance(color: RgbColor): number {
   return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b)
 }
 
-function getSurfacePalette(base: RgbColor, contrast: ResolvedThemeConfig['contrast']) {
+function getSurfacePalette(base: RgbColor, foreground: RgbColor, contrast: ResolvedThemeConfig['contrast']) {
   const isDarkSurface = getLuminance(base) < 0.32
-  const contrastColor = isDarkSurface ? WHITE : BLACK
-  const inverseColor = isDarkSurface ? BLACK : WHITE
-  const blendTarget = isDarkSurface ? WHITE : BLACK
+  const foregroundIsLight = getLuminance(foreground) >= 0.32
+  const contrastColor = foreground
+  const inverseColor = foregroundIsLight ? BLACK : WHITE
+  const blendTarget = foreground
   const scale = contrastScales[contrast]
 
   const panel = toRgb(base)
@@ -435,7 +441,8 @@ function getSurfacePalette(base: RgbColor, contrast: ResolvedThemeConfig['contra
 export function deriveSemanticTokens(config: ResolvedThemeConfig): DerivedSemanticTokens {
   const accent = config.brand.accent
   const baseSurface = parseColor(config.surface.base) ?? parseColor(tokens.colors.bg.panel) ?? { r: 17, g: 17, b: 19 }
-  const palette = getSurfacePalette(baseSurface, config.contrast)
+  const foreground = parseColor(config.brand.foreground) ?? (getLuminance(baseSurface) < 0.32 ? WHITE : BLACK)
+  const palette = getSurfacePalette(baseSurface, foreground, config.contrast)
 
   return {
     surface: {

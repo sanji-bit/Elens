@@ -13,7 +13,8 @@
     "build:extension": "node scripts/build-extension.mjs",
     "dev:extension": "npx vite build --config vite.extension.config.ts --watch",
     "sync-tokens": "bun run scripts/sync-tokens.ts",
-    "check:design-system": "node scripts/check-design-system.mjs"
+    "check:design-system": "node scripts/check-design-system.mjs",
+    "check:design-scope": "node scripts/check-design-scope.mjs"
   },
   "exports": {
     ".": "./src/index.ts",

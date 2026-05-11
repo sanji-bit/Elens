@@ -30,6 +30,7 @@ const utilityFiles = new Set([
   'src/utils.ts',
   'src/design-tokens.ts',
   'src/mount.ts',
+  'src/design-scope.ts',
   'src/theme-store.ts',
   'src/theme.ts',
   'src/index.ts',

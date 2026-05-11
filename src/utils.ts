@@ -223,6 +223,23 @@ export function rgbToHex(rgb: string): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`
 }
 
+export function cssColorToHex(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed === 'transparent') return null
+  const probe = document.createElement('div')
+  probe.style.position = 'absolute'
+  probe.style.pointerEvents = 'none'
+  probe.style.opacity = '0'
+  probe.style.color = trimmed
+  if (!probe.style.color) return null
+  document.body.appendChild(probe)
+  const normalized = window.getComputedStyle(probe).color
+  probe.remove()
+  if (!normalized || normalized === 'transparent' || normalized === 'rgba(0, 0, 0, 0)' || normalized === 'rgba(0,0,0,0)') return null
+  const hex = rgbToHex(normalized)
+  return hex.startsWith('#') ? hex : null
+}
+
 export function normalizeColorValue(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed || trimmed === 'transparent' || trimmed === 'rgba(0, 0, 0, 0)' || trimmed === 'rgba(0,0,0,0)') {
@@ -245,7 +262,7 @@ export function normalizeColorValue(value: string): string | null {
   }
   if (normalized.startsWith('#')) return normalized.toUpperCase()
   if (normalized.startsWith('rgb')) return rgbToHex(normalized)
-  return normalized
+  return cssColorToHex(normalized) ?? normalized
 }
 
 export function collectPageColors(root: ParentNode = document): string[] {

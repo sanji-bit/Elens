@@ -1,0 +1,207 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "elens": {
+    "surface": {
+      "canvas": {
+        "$type": "color",
+        "$value": "transparent",
+        "$description": "Overlay root canvas background"
+      },
+      "panel": {
+        "$type": "color",
+        "$value": "#111113",
+        "$description": "Main inspector panel background"
+      },
+      "dropdown": {
+        "$type": "color",
+        "$value": "#1E1E1E",
+        "$description": "Dropdown, popover and floating menu background"
+      },
+      "toolbar": {
+        "$type": "color",
+        "$value": "#000000",
+        "$description": "Floating toolbar background"
+      },
+      "field": {
+        "$type": "color",
+        "$value": "#FFFFFF14",
+        "$description": "Input, select and weak control background"
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "#FFFFFF14",
+        "$description": "Default hover background"
+      },
+      "hoverStrong": {
+        "$type": "color",
+        "$value": "#FFFFFF1F",
+        "$description": "Stronger hover or elevated interaction background"
+      },
+      "active": {
+        "$type": "color",
+        "$value": "#FFFFFF24",
+        "$description": "Pressed or active control background"
+      }
+    },
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": "#FFFFFFD9",
+        "$description": "Primary text, values and high-emphasis icons"
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "#FFFFFFB3",
+        "$description": "Secondary text, section labels and default action icons"
+      },
+      "tertiary": {
+        "$type": "color",
+        "$value": "#FFFFFF73",
+        "$description": "Labels, placeholders and low-emphasis icons"
+      },
+      "muted": {
+        "$type": "color",
+        "$value": "#FFFFFF59",
+        "$description": "Disabled controls and muted helper text"
+      },
+      "faint": {
+        "$type": "color",
+        "$value": "#FFFFFF40",
+        "$description": "Very low-emphasis text"
+      },
+      "inverse": {
+        "$type": "color",
+        "$value": "#000000EB",
+        "$description": "Text on light or accent backgrounds"
+      }
+    },
+    "border": {
+      "default": {
+        "$type": "color",
+        "$value": "#FFFFFF1A",
+        "$description": "Default panel and component border"
+      },
+      "subtle": {
+        "$type": "color",
+        "$value": "#FFFFFF14",
+        "$description": "Subtle divider and hairline border"
+      },
+      "input": {
+        "$type": "color",
+        "$value": "#FFFFFF26",
+        "$description": "Input and select border"
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "#FFFFFF1F",
+        "$description": "Hover border"
+      },
+      "accent": {
+        "$type": "color",
+        "$value": "#008AFF",
+        "$description": "Focused and selected border"
+      }
+    },
+    "interactive": {
+      "accent": {
+        "$type": "color",
+        "$value": "#008AFF",
+        "$description": "Primary interaction accent, selection and focus"
+      },
+      "accentSoft": {
+        "$type": "color",
+        "$value": "#008AFF1F",
+        "$description": "Soft accent background"
+      },
+      "accentSelected": {
+        "$type": "color",
+        "$value": "#008AFF57",
+        "$description": "Selection fill and stronger accent wash"
+      },
+      "focusRing": {
+        "$type": "color",
+        "$value": "#008AFF",
+        "$description": "Keyboard focus ring"
+      }
+    },
+    "feedback": {
+      "success": {
+        "$type": "color",
+        "$value": "#00B894E6",
+        "$description": "Success foreground"
+      },
+      "successBg": {
+        "$type": "color",
+        "$value": "#00B8942E",
+        "$description": "Success background"
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "#E74C3CEB",
+        "$description": "Danger and destructive foreground"
+      },
+      "dangerBg": {
+        "$type": "color",
+        "$value": "#E74C3C2E",
+        "$description": "Danger background"
+      },
+      "purple": {
+        "$type": "color",
+        "$value": "#6C5CE7",
+        "$description": "Special secondary semantic accent"
+      },
+      "purpleBg": {
+        "$type": "color",
+        "$value": "#6C5CE738",
+        "$description": "Special secondary semantic background"
+      }
+    },
+    "overlay": {
+      "margin": {
+        "$type": "color",
+        "$value": "#E17055",
+        "$description": "Margin overlay"
+      },
+      "marginBg": {
+        "$type": "color",
+        "$value": "#E1705573",
+        "$description": "Margin overlay fill"
+      },
+      "padding": {
+        "$type": "color",
+        "$value": "#00B894E6",
+        "$description": "Padding overlay"
+      },
+      "paddingStripe": {
+        "$type": "color",
+        "$value": "#00B8941F",
+        "$description": "Padding stripe overlay"
+      },
+      "move": {
+        "$type": "color",
+        "$value": "#008AFF",
+        "$description": "Move and selected overlay"
+      },
+      "moveBg": {
+        "$type": "color",
+        "$value": "#008AFF2E",
+        "$description": "Move overlay fill"
+      },
+      "guide": {
+        "$type": "color",
+        "$value": "#FF00FF",
+        "$description": "Guide and ruler helper line"
+      },
+      "labelText": {
+        "$type": "color",
+        "$value": "#FFFFFFFA",
+        "$description": "Overlay label text"
+      },
+      "labelBg": {
+        "$type": "color",
+        "$value": "#008AFF",
+        "$description": "Overlay label background"
+      }
+    }
+  }
+}

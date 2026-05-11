@@ -60,6 +60,17 @@ function postBridgeResponse(id, response) {
   }, '*')
 }
 
+function sendRuntimeMessage(message, callback) {
+  chrome.runtime.sendMessage(message, (response) => {
+    const lastError = chrome.runtime.lastError
+    if (lastError) {
+      callback({ ok: false, error: lastError.message || '扩展运行时通信失败' })
+      return
+    }
+    callback(response)
+  })
+}
+
 function handlePageCapture(message) {
   const handlePageResult = (event) => {
     if (event.source !== window) return
@@ -74,7 +85,7 @@ function handlePageCapture(message) {
     window.removeEventListener('message', handlePageResult)
 
     if (data.ok && data.result?.clipboard) {
-      chrome.runtime.sendMessage({
+      sendRuntimeMessage({
         source: 'elens-extension-content',
         type: 'ELENS_WRITE_CLIPBOARD',
         clipboard: data.result.clipboard,
@@ -120,7 +131,7 @@ window.addEventListener('message', (event) => {
     return
   }
 
-  chrome.runtime.sendMessage({
+  sendRuntimeMessage({
     source: 'elens-extension-content',
     type: message.type,
     bounds: message.bounds,

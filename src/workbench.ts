@@ -39,7 +39,8 @@ type SampleRenderContext = {
   previewClass: string
   previewState: PreviewInteractionState
   accent: string
-  surface: string
+  background: string
+  foreground: string
   contrast: ThemeContrast
   density: ThemeDensity
   radiusScale: ThemeRadiusScale
@@ -56,9 +57,10 @@ const glossary = {
   Workbench: '工作台。这里是专门用来调试和理解 Elens 设计系统的页面，你可以在这里改颜色、圆角、间距，并立刻看到组件变化。',
   'Design System': '设计系统。一套统一的颜色、字体、圆角、间距和组件规范，目的是让所有界面看起来一致。',
   'Runtime Style Builder': '运行时样式生成器。它会把左侧主题配置转换成真实组件正在使用的 CSS 样式，所以这里看到的不是假预览。',
-  accent: '强调色。通常用于按钮高亮、选中状态、焦点边框等最重要的交互颜色。',
-  surface: '界面底色。比如面板、输入框、下拉菜单这些区域的背景颜色都会从它派生出来。',
-  contrast: '对比度。控制文字、边框和背景之间的明显程度。对比越强，界面越清晰但也可能更硬。',
+  accent: '强调色。用于选中、聚焦、主要操作和关键交互反馈。',
+  background: '背景。主题基础底色，用于面板、下拉菜单和主要界面容器。',
+  foreground: '前景。主题基础前景色，用于派生文字、图标、边框、悬停和按下状态。',
+  contrast: '对比度。控制前景色派生到文字、边框和背景状态时的透明度强弱。对比越强，界面越清晰但也可能更硬。',
   density: '密度。控制控件是更紧凑还是更舒展，会影响输入框、下拉项等组件高度。',
   radius: '圆角。控制按钮、输入框、面板边角的圆润程度。',
   motion: '动效。控制界面变化时是否使用过渡动画。',
@@ -119,6 +121,7 @@ const previewOptions: LabelOption<PreviewInteractionState>[] = [
 
 const STORAGE_KEY = 'elens-workbench-theme'
 const WORKBENCH_THEME_DEFAULTS: ThemeConfig = {
+  brand: { foreground: '#FFFFFF' },
   surface: { base: '#111113' },
   contrast: 'normal',
   density: 'compact',
@@ -1108,7 +1111,8 @@ function createPanelSample(context: SampleRenderContext): HTMLElement {
       </div>
       <div class="ei-body">
         <div class="ei-row"><span class="ei-label">accent</span><span class="ei-value"><span class="ei-swatch" style="background: var(--interactive-accent)"></span><span class="ei-text">${context.accent}</span></span></div>
-        <div class="ei-row"><span class="ei-label">surface</span><span class="ei-value"><span class="ei-swatch" style="background: var(--surface-panel)"></span><span class="ei-text">${context.surface}</span></span></div>
+        <div class="ei-row"><span class="ei-label">background</span><span class="ei-value"><span class="ei-swatch" style="background: var(--surface-panel)"></span><span class="ei-text">${context.background}</span></span></div>
+        <div class="ei-row"><span class="ei-label">foreground</span><span class="ei-value"><span class="ei-swatch" style="background: var(--text-primary)"></span><span class="ei-text">${context.foreground}</span></span></div>
         <div class="ei-row"><span class="ei-label">density</span><span class="ei-value"><span class="ei-text">${displayDensity(context.density)}</span></span></div>
         <div class="ei-row"><span class="ei-label">radius</span><span class="ei-value"><span class="ei-text">${displayRadius(context.radiusScale)}</span></span></div>
         <div class="ei-row"><span class="ei-label">motion</span><span class="ei-value"><span class="ei-text">${displayMotion(context.motion)}</span></span></div>
@@ -1232,13 +1236,6 @@ function createTokenColorRow(name: string, token: string, value: string, usage: 
   return createColorSwatch(name, token, value, usage, source)
 }
 
-function getContrastColorLabel(context: SampleRenderContext): string {
-  return context.surface.trim().toLowerCase() === '#ffffff' ? '黑色' : '白色'
-}
-
-function getForegroundValue(context: SampleRenderContext): string {
-  return getContrastColorLabel(context) === '白色' ? '#FFFFFF' : '#000000'
-}
 
 function getContrastScaleText(contrast: ThemeContrast): { field: string; hover: string; active: string } {
   if (contrast === 'soft') {
@@ -1253,35 +1250,34 @@ function getContrastScaleText(contrast: ThemeContrast): { field: string; hover: 
 }
 
 function getColorSourceInfo(context: SampleRenderContext): Record<'foreground' | 'panel' | 'field' | 'dropdown' | 'hover' | 'active' | 'accentSoft', string> {
-  const foreground = getContrastColorLabel(context)
   const scale = getContrastScaleText(context.contrast)
-  const dropdownMix = foreground === '白色' ? '8% foreground.base' : '5% foreground.base'
+  const dropdownMix = context.foreground.trim().toLowerCase() === '#ffffff' ? '8% 前景' : '5% 前景'
 
   return {
-    foreground: `根据 surface.base 自动选择：深色界面使用白色，浅色界面使用黑色。它是文字、边框、hover、active 等派生色的前景源色。`,
-    panel: `直接使用左侧“界面底色” surface.base（${context.surface}），不额外加透明度。`,
-    field: `由 foreground.base 叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.field} 不透明度。`,
-    dropdown: `由 surface.base 向 foreground.base 轻微混合生成；当前大约混入 ${dropdownMix}。`,
-    hover: `由 foreground.base 叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.hover} 不透明度。`,
-    active: `由 foreground.base 叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.active} 不透明度。`,
-    accentSoft: `由品牌强调色 accent（${context.accent}）混入透明底生成；当前为 accent 12% + transparent。`,
+    foreground: `直接使用左侧“前景”（${context.foreground}），作为文字、图标、边框、hover、active 等派生色的源色。`,
+    panel: `直接使用左侧“背景” theme.background（${context.background}），不额外加透明度。`,
+    field: `由前景色叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.field} 不透明度。`,
+    dropdown: `由背景向前景轻微混合生成；当前大约混入 ${dropdownMix}。`,
+    hover: `由前景色叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.hover} 不透明度。`,
+    active: `由前景色叠加在透明底上生成；当前对比度 ${displayContrast(context.contrast)} 下约 ${scale.active} 不透明度。`,
+    accentSoft: `由强调色 accent（${context.accent}）混入透明底生成；当前为 accent 12% + transparent。`,
   }
 }
 
 function createColorPaletteSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   const theme = buildTheme({
-    brand: { accent: context.accent },
-    surface: { base: context.surface },
+    brand: { accent: context.accent, foreground: context.foreground },
+    surface: { base: context.background },
     density: context.density,
     radiusScale: context.radiusScale,
     motion: context.motion,
   })
   const source = getColorSourceInfo(context)
   const rows = [
-    createColorSwatch('品牌强调色', 'brand.accent', theme.config.brand.accent, '按钮、选中、焦点、重要操作', '左侧“强调色”直接输入，作为 accent 源色。'),
-    createColorSwatch('界面底色', 'surface.base', theme.config.surface.base, '整套界面的基础底色', '左侧“界面底色”直接输入，作为所有 surface 派生色的源色。'),
-    createColorSwatch('Foreground', 'foreground.base', getForegroundValue(context), '文字、边框、hover、active 等派生色的前景源色', source.foreground),
+    createColorSwatch('强调色', 'theme.accent', theme.config.brand.accent, '按钮、选中、焦点、重要操作', '左侧“强调色”直接输入，作为 accent 源色。'),
+    createColorSwatch('背景', 'theme.background', theme.config.surface.base, '整套界面的基础底色', '左侧“背景”直接输入，作为所有 surface 派生色的源色。'),
+    createColorSwatch('前景', 'theme.foreground', theme.config.brand.foreground, '文字、图标、边框、hover、active 等派生色的源色', source.foreground),
     createColorSwatch('Panel 背景', '--surface-panel', theme.semantic.surface.panel, '检查面板、设置面板、信息容器', source.panel),
     createColorSwatch('Field 背景', '--surface-field', theme.semantic.surface.field, '输入框、数值框、可编辑区域', source.field),
     createColorSwatch('Dropdown 背景', '--surface-dropdown', theme.semantic.surface.dropdown, '下拉菜单、弹出选择层', source.dropdown),
@@ -1296,20 +1292,20 @@ function createColorPaletteSample(context: SampleRenderContext): HTMLElement {
 function createTextBorderColorSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   const theme = buildTheme({
-    brand: { accent: context.accent },
-    surface: { base: context.surface },
+    brand: { accent: context.accent, foreground: context.foreground },
+    surface: { base: context.background },
     density: context.density,
     radiusScale: context.radiusScale,
     motion: context.motion,
   })
   const rows = [
-    createTokenColorRow('主要文字', '--text-primary', theme.semantic.text.primary, '最高优先级文字、标题、关键内容', '由 foreground.base 按当前对比度较高透明度生成。'),
-    createTokenColorRow('次要文字', '--text-secondary', theme.semantic.text.secondary, '说明文字、次级信息、辅助描述', '由 foreground.base 按当前对比度中等透明度生成。'),
-    createTokenColorRow('辅助文字', '--text-tertiary', theme.semantic.text.tertiary, '更弱的信息层级、辅助标签', '由 foreground.base 按当前对比度更低透明度生成。'),
-    createTokenColorRow('淡文字', '--text-faint', theme.semantic.text.faint, '占位、弱提示、低存在感信息', '由 foreground.base 按当前对比度低透明度生成。'),
-    createTokenColorRow('默认边框', '--border-default', theme.semantic.border.default, '面板、模块、普通分割线', '由 foreground.base 按边框默认透明度生成。'),
-    createTokenColorRow('悬停边框', '--border-hover', theme.semantic.border.hover, 'hover 态边框、可交互轮廓增强', '由 foreground.base 按边框 hover 透明度生成。'),
-    createTokenColorRow('输入边框', '--border-input', theme.semantic.border.input, '输入框、字段、表单控件轮廓', '由 foreground.base 按输入边框透明度生成。'),
+    createTokenColorRow('主要文字', '--text-primary', theme.semantic.text.primary, '最高优先级文字、标题、关键内容', '由前景色按当前对比度较高透明度生成。'),
+    createTokenColorRow('次要文字', '--text-secondary', theme.semantic.text.secondary, '说明文字、次级信息、辅助描述', '由前景色按当前对比度中等透明度生成。'),
+    createTokenColorRow('辅助文字', '--text-tertiary', theme.semantic.text.tertiary, '更弱的信息层级、辅助标签', '由前景色按当前对比度更低透明度生成。'),
+    createTokenColorRow('淡文字', '--text-faint', theme.semantic.text.faint, '占位、弱提示、低存在感信息', '由前景色按当前对比度低透明度生成。'),
+    createTokenColorRow('默认边框', '--border-default', theme.semantic.border.default, '面板、模块、普通分割线', '由前景色按边框默认透明度生成。'),
+    createTokenColorRow('悬停边框', '--border-hover', theme.semantic.border.hover, 'hover 态边框、可交互轮廓增强', '由前景色按边框 hover 透明度生成。'),
+    createTokenColorRow('输入边框', '--border-input', theme.semantic.border.input, '输入框、字段、表单控件轮廓', '由前景色按输入边框透明度生成。'),
   ]
   host.appendChild(createColorTable(rows))
   return host
@@ -1318,8 +1314,8 @@ function createTextBorderColorSample(context: SampleRenderContext): HTMLElement 
 function createFeedbackColorSample(context: SampleRenderContext): HTMLElement {
   const host = createSampleHost('wb-gallery-stack')
   const theme = buildTheme({
-    brand: { accent: context.accent },
-    surface: { base: context.surface },
+    brand: { accent: context.accent, foreground: context.foreground },
+    surface: { base: context.background },
     density: context.density,
     radiusScale: context.radiusScale,
     motion: context.motion,
@@ -1465,7 +1461,7 @@ const componentSamples: WorkbenchComponentSample[] = [
     status: 'stable',
     componentKind: 'project',
     description: '把当前主题真正使用到的核心颜色整理出来，便于你检查品牌色、表面色和交互色是否还统一。',
-    classNames: ['brand.accent', 'surface.base', '--surface-panel', '--surface-hover'],
+    classNames: ['theme.accent', 'theme.background', 'theme.foreground', '--surface-panel', '--surface-hover'],
     render: createColorPaletteSample,
   },
   {
@@ -1680,8 +1676,8 @@ const componentSamples: WorkbenchComponentSample[] = [
     tab: 'states',
     status: 'stable',
     componentKind: 'project',
-    description: '集中查看真实组件消费的 surface / interactive token，确认左侧主题输入能全局联动。',
-    classNames: ['--surface-panel', '--surface-field', '--interactive-accent'],
+    description: '集中查看真实组件消费的 surface / text / border / interactive token，确认左侧三核心主题色能全局联动。',
+    classNames: ['theme.accent', 'theme.background', 'theme.foreground', '--surface-panel', '--surface-field', '--interactive-accent'],
     render: createTokenReferenceSample,
   },
 ]
@@ -1698,7 +1694,8 @@ function createContext(state: WorkbenchState): SampleRenderContext {
     previewClass: `wb-preview-${state.previewState}`,
     previewState: state.previewState,
     accent: theme.config.brand.accent,
-    surface: theme.config.surface.base,
+    background: theme.config.surface.base,
+    foreground: theme.config.brand.foreground,
     contrast: theme.config.contrast,
     density: theme.config.density,
     radiusScale: theme.config.radiusScale,
@@ -1782,25 +1779,32 @@ function renderControls(root: HTMLElement, state: WorkbenchState, onUpdate: () =
 
   const basic = el('section', 'wb-control-section')
   basic.appendChild(el('h2', undefined, '基础'))
-  const foregroundValue = getForegroundValue(createContext(state))
+  const resolvedTheme = buildTheme(state.theme).config
   basic.append(
-    createField('强调色', createTextInput(state.theme.brand?.accent ?? '#008AFF', (value) => {
+    createField('强调色', createTextInput(resolvedTheme.brand.accent, (value) => {
       state.theme.brand = { ...state.theme.brand, accent: value }
       onUpdate()
     }, 'color'), ['accent']),
-    createField('强调色代码', createTextInput(state.theme.brand?.accent ?? '#008AFF', (value) => {
+    createField('强调色代码', createTextInput(resolvedTheme.brand.accent, (value) => {
       state.theme.brand = { ...state.theme.brand, accent: value }
       onUpdate()
     }), ['accent']),
-    createField('界面底色', createTextInput(state.theme.surface?.base ?? '#111113', (value) => {
+    createField('背景', createTextInput(resolvedTheme.surface.base, (value) => {
       state.theme.surface = { ...state.theme.surface, base: value }
       onUpdate()
-    }, 'color'), ['surface']),
-    createField('底色代码', createTextInput(state.theme.surface?.base ?? '#111113', (value) => {
+    }, 'color'), ['background']),
+    createField('背景代码', createTextInput(resolvedTheme.surface.base, (value) => {
       state.theme.surface = { ...state.theme.surface, base: value }
       onUpdate()
-    }), ['surface']),
-    createReadonlyField('Foreground', foregroundValue, '根据界面底色自动推导，不需要单独设置。'),
+    }), ['background']),
+    createField('前景', createTextInput(resolvedTheme.brand.foreground, (value) => {
+      state.theme.brand = { ...state.theme.brand, foreground: value }
+      onUpdate()
+    }, 'color'), ['foreground']),
+    createField('前景代码', createTextInput(resolvedTheme.brand.foreground, (value) => {
+      state.theme.brand = { ...state.theme.brand, foreground: value }
+      onUpdate()
+    }), ['foreground']),
     createField('对比度', createSelect<ThemeContrast>(state.theme.contrast ?? 'normal', contrastOptions, (value) => {
       state.theme.contrast = value
       onUpdate()

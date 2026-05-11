@@ -84,6 +84,19 @@ type StyleTrackerAdapter = {
   reset?: (property: string) => void
 }
 
+function getStrokeResetValue(property: string): string {
+  if (property === 'border' || property === 'border-style' || property === 'outline' || property === 'box-shadow') return 'none'
+  if (property === 'border-width' || property === 'outline-offset') return '0px'
+  if (property === 'border-color') return 'transparent'
+  return ''
+}
+
+function resetStrokeStyles(tracker: StyleTracker): void {
+  ;['border', 'border-style', 'border-color', 'border-width', 'outline', 'outline-offset', 'box-shadow'].forEach((property) => {
+    tracker.apply(property, getStrokeResetValue(property))
+  })
+}
+
 export function createStyleTracker(element: InspectableElement, onChange?: () => void, adapter?: StyleTrackerAdapter): StyleTracker {
   const originals = new Map<string, string>()
   const applied = new Map<string, string>()
@@ -97,6 +110,7 @@ export function createStyleTracker(element: InspectableElement, onChange?: () =>
       if (value === original) applied.delete(property)
       else applied.set(property, value)
       if (adapter?.apply) adapter.apply(property, value)
+      else if (value.trim() === '') element.style.removeProperty(property)
       else element.style.setProperty(property, value)
       onChange?.()
     },
@@ -155,13 +169,17 @@ type NumberInputOptions = {
   onChange: (value: number) => void
 }
 
+function formatNumberInputValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100)
+}
+
 function createNumberInput(options: NumberInputOptions): HTMLInputElement {
   const { value, min, max, step = 1, onChange } = options
 
   const input = document.createElement('input')
   input.type = 'text'
   input.className = 'ei-dp-num'
-  input.value = String(Math.round(value))
+  input.value = formatNumberInputValue(value)
   input.setAttribute(IGNORE_ATTR, 'true')
 
   function clamp(v: number): number {
@@ -172,8 +190,8 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
   }
 
   function commit(newVal: number): void {
-    const clamped = clamp(Math.round(newVal))
-    input.value = String(clamped)
+    const clamped = clamp(Math.round(newVal * 100) / 100)
+    input.value = formatNumberInputValue(clamped)
     onChange(clamped)
   }
 
@@ -894,6 +912,14 @@ function ensureHexColor(value: string, fallback = '#FFFFFF'): string {
   return fallback
 }
 
+function getDisplayColorValue(value: string, fallback = '#FFFFFF'): string {
+  return normalizeColorValue(value) ?? fallback
+}
+
+function isHexColorValue(value: string): boolean {
+  return /^#[0-9A-Fa-f]{6}$/i.test(value)
+}
+
 function cssUrlValue(url: string): string {
   return `url("${url.replace(/"/g, '%22')}")`
 }
@@ -1102,10 +1128,11 @@ function createFillDraft(element: HTMLElement, info: InspectorInfo): FillDraft {
 function createFillRow(options: FillRowOptions): HTMLDivElement {
   const { value, opacity = 100, className = '', textValue, placeholder, onChange, onOpacityChange, onSwatchClick } = options
   const wrap = el('div', `ei-dp-fill-row${className ? ` ${className}` : ''}`)
-  let currentHex = ensureHexColor(value)
+  let currentColor = getDisplayColorValue(value)
+  let currentHex = ensureHexColor(currentColor)
 
   const swatch = el('div', 'ei-dp-swatch')
-  swatch.style.background = currentHex
+  swatch.style.background = currentColor
 
   const picker = document.createElement('input')
   picker.type = 'color'
@@ -1121,7 +1148,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   hexInput.type = 'text'
   hexInput.className = 'ei-dp-hex'
   hexInput.setAttribute(IGNORE_ATTR, 'true')
-  hexInput.value = textValue ?? currentHex.replace('#', '')
+  hexInput.value = textValue ?? (isHexColorValue(currentColor) ? currentColor.replace('#', '') : currentColor)
   if (placeholder) hexInput.placeholder = placeholder
 
   const opacityInput = createNumberInput({
@@ -1131,6 +1158,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
     step: 1,
     onChange: (v) => {
       currentHex = picker.value || currentHex
+      currentColor = currentHex
       onOpacityChange?.(v, currentHex)
     },
   })
@@ -1140,6 +1168,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   function applyColor(hex: string): void {
     const normalized = ensureHexColor(hex, currentHex)
     currentHex = normalized
+    currentColor = normalized
     swatch.style.background = normalized
     hexInput.value = normalized.replace('#', '').toUpperCase()
     picker.value = normalized
@@ -3433,6 +3462,15 @@ export function buildMultiSelectionContainerPanel(
   const strokeSec = el('div', 'ei-dp-section')
   const strokeHeader = el('div', 'ei-dp-section-header')
   strokeHeader.appendChild(el('div', 'ei-dp-section-label', i18n.design.stroke))
+  const strokeRemoveBtn = el('button', 'ei-design-action-btn ei-dp-section-btn') as HTMLButtonElement
+  strokeRemoveBtn.type = 'button'
+  strokeRemoveBtn.innerHTML = REMOVE_ICON
+  strokeRemoveBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    resetStrokeStyles(tracker)
+    callbacks.onStyleChange()
+  })
+  strokeHeader.appendChild(strokeRemoveBtn)
   strokeSec.appendChild(strokeHeader)
 
   const strokeContent = el('div', 'ei-dp-section-content')
@@ -3663,8 +3701,8 @@ function createLetterSpacingField(value: string, onChange: (value: string) => vo
 }
 
 // --- Section Icons ---
-const SECTION_ADD_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.001 5V19.002M19.002 12.002H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-const REMOVE_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
+const SECTION_ADD_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4V20M20 12H4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const REMOVE_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19.002 12H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 
 // --- Stroke constants ---
 const STROKE_SETTINGS_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.5 12c.133 0 .26-.053.354-.146a.5.5 0 0 0 .146-.354V9.95a2.5 2.5 0 0 0 1.438-.868A2.5 2.5 0 0 0 5 7.5a2.5 2.5 0 0 0-.562-1.582A2.5 2.5 0 0 0 3 5.05V.5a.5.5 0 0 0-.854-.354A.5.5 0 0 0 2 .5v4.55a2.5 2.5 0 0 0-1.437.869A2.5 2.5 0 0 0 0 7.5c0 .576.199 1.134.563 1.581A2.5 2.5 0 0 0 2 9.95v1.55a.5.5 0 0 0 .146.354c.094.093.221.146.354.146ZM9.5 12a.5.5 0 0 0 .352-.146.5.5 0 0 0 .148-.354V6.95a2.5 2.5 0 0 0 1.435-.869A2.5 2.5 0 0 0 12 4.5a2.5 2.5 0 0 0-.565-1.581A2.5 2.5 0 0 0 10 2.05V.5a.5.5 0 0 0-.146-.354A.5.5 0 0 0 9.5 0a.5.5 0 0 0-.354.146A.5.5 0 0 0 9 .5v1.55a2.5 2.5 0 0 0-1.44.868A2.5 2.5 0 0 0 7 4.5c0 .577.196 1.134.56 1.582A2.5 2.5 0 0 0 9 6.95v4.55a.5.5 0 0 0 .146.354c.094.093.22.146.354.146ZM9.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM2.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" fill="currentColor" fill-opacity="0.7"/></svg>`
@@ -5082,13 +5120,7 @@ export function buildDesignPanel(
         notifyStyleChange()
       },
       onRemove: () => {
-        tracker.apply('border', '')
-        tracker.apply('border-style', '')
-        tracker.apply('border-color', '')
-        tracker.apply('border-width', '')
-        tracker.apply('outline', '')
-        tracker.apply('outline-offset', '')
-        tracker.apply('box-shadow', '')
+        resetStrokeStyles(tracker)
         strokeSection.content.innerHTML = ''
         strokeSection.setHasContent(false)
         notifyStyleChange()
@@ -5097,6 +5129,7 @@ export function buildDesignPanel(
   })
   if (existingStroke) {
     populateStrokeContent(strokeSection.content, existingStroke)
+    strokeSection.setHasContent(true)
   } else {
     strokeSection.setHasContent(false)
   }

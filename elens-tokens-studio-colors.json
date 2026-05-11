@@ -1,0 +1,244 @@
+{
+  "global": {
+    "theme": {
+      "accent": {
+        "$value": "#008AFF",
+        "$type": "color",
+        "$description": "主题强调色，用于选中、聚焦、主要操作和关键交互反馈"
+      },
+      "background": {
+        "$value": "#111113",
+        "$type": "color",
+        "$description": "主题背景色，用于面板、下拉菜单和主要界面容器"
+      },
+      "foreground": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "主题前景色，用于派生文字、图标、边框、悬停和按下状态"
+      }
+    },
+    "surface": {
+      "canvas": {
+        "$value": "transparent",
+        "$type": "color",
+        "$description": "覆盖层根容器背景"
+      },
+      "panel": {
+        "$value": "{theme.background}",
+        "$type": "color",
+        "$description": "主检查器面板背景"
+      },
+      "dropdown": {
+        "$value": "rgba({theme.foreground}, 8%)",
+        "$type": "color",
+        "$description": "下拉菜单、弹出层和浮层菜单背景叠加"
+      },
+      "toolbar": {
+        "$value": "{theme.background}",
+        "$type": "color",
+        "$description": "悬浮工具栏背景"
+      },
+      "field": {
+        "$value": "rgba({theme.foreground}, 8%)",
+        "$type": "color",
+        "$description": "输入框、选择器和弱控件背景"
+      },
+      "hover": {
+        "$value": "rgba({theme.foreground}, 8%)",
+        "$type": "color",
+        "$description": "默认悬停背景"
+      },
+      "hoverStrong": {
+        "$value": "rgba({theme.foreground}, 12%)",
+        "$type": "color",
+        "$description": "强悬停或更高层级交互背景"
+      },
+      "active": {
+        "$value": "rgba({theme.foreground}, 14%)",
+        "$type": "color",
+        "$description": "按下或激活状态背景"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "rgba({theme.foreground}, 85%)",
+        "$type": "color",
+        "$description": "主要文字、数值和高强调图标"
+      },
+      "secondary": {
+        "$value": "rgba({theme.foreground}, 70%)",
+        "$type": "color",
+        "$description": "次要文字、分组标题和默认操作图标"
+      },
+      "tertiary": {
+        "$value": "rgba({theme.foreground}, 45%)",
+        "$type": "color",
+        "$description": "标签、占位符和低强调图标"
+      },
+      "muted": {
+        "$value": "rgba({theme.foreground}, 35%)",
+        "$type": "color",
+        "$description": "禁用控件和弱化辅助文字"
+      },
+      "faint": {
+        "$value": "rgba({theme.foreground}, 25%)",
+        "$type": "color",
+        "$description": "极低强调文字"
+      },
+      "inverse": {
+        "$value": "{theme.background}",
+        "$type": "color",
+        "$description": "强调色或亮色背景上的反色文字"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "rgba({theme.foreground}, 10%)",
+        "$type": "color",
+        "$description": "默认面板和组件边框"
+      },
+      "subtle": {
+        "$value": "rgba({theme.foreground}, 8%)",
+        "$type": "color",
+        "$description": "细分割线和弱边框"
+      },
+      "input": {
+        "$value": "rgba({theme.foreground}, 15%)",
+        "$type": "color",
+        "$description": "输入框和选择器边框"
+      },
+      "hover": {
+        "$value": "rgba({theme.foreground}, 12%)",
+        "$type": "color",
+        "$description": "悬停状态边框"
+      },
+      "accent": {
+        "$value": "{theme.accent}",
+        "$type": "color",
+        "$description": "聚焦和选中状态边框"
+      }
+    },
+    "interactive": {
+      "accent": {
+        "$value": "{theme.accent}",
+        "$type": "color",
+        "$description": "主要交互强调色、选中和聚焦"
+      },
+      "accentSoft": {
+        "$value": "rgba({theme.accent}, 12%)",
+        "$type": "color",
+        "$description": "弱强调背景"
+      },
+      "accentSelected": {
+        "$value": "rgba({theme.accent}, 34%)",
+        "$type": "color",
+        "$description": "选中填充和较强强调色覆盖"
+      },
+      "focusRing": {
+        "$value": "{theme.accent}",
+        "$type": "color",
+        "$description": "键盘聚焦描边"
+      }
+    },
+    "feedback": {
+      "successBase": {
+        "$value": "#00B894",
+        "$type": "color",
+        "$description": "成功状态基础绿色"
+      },
+      "success": {
+        "$value": "rgba({feedback.successBase}, 90%)",
+        "$type": "color",
+        "$description": "成功状态前景色"
+      },
+      "successBg": {
+        "$value": "rgba({feedback.successBase}, 18%)",
+        "$type": "color",
+        "$description": "成功状态背景"
+      },
+      "dangerBase": {
+        "$value": "#E74C3C",
+        "$type": "color",
+        "$description": "危险和错误状态基础红色"
+      },
+      "danger": {
+        "$value": "rgba({feedback.dangerBase}, 92%)",
+        "$type": "color",
+        "$description": "危险、错误和破坏性操作前景色"
+      },
+      "dangerBg": {
+        "$value": "rgba({feedback.dangerBase}, 18%)",
+        "$type": "color",
+        "$description": "危险和错误状态背景"
+      },
+      "purple": {
+        "$value": "#6C5CE7",
+        "$type": "color",
+        "$description": "特殊辅助语义强调色"
+      },
+      "purpleBg": {
+        "$value": "rgba({feedback.purple}, 22%)",
+        "$type": "color",
+        "$description": "特殊辅助语义背景"
+      }
+    },
+    "overlay": {
+      "marginBase": {
+        "$value": "#E17055",
+        "$type": "color",
+        "$description": "外边距覆盖层基础橙色"
+      },
+      "margin": {
+        "$value": "{overlay.marginBase}",
+        "$type": "color",
+        "$description": "外边距覆盖层颜色"
+      },
+      "marginBg": {
+        "$value": "rgba({overlay.marginBase}, 45%)",
+        "$type": "color",
+        "$description": "外边距覆盖层填充"
+      },
+      "padding": {
+        "$value": "{feedback.success}",
+        "$type": "color",
+        "$description": "内边距覆盖层颜色"
+      },
+      "paddingStripe": {
+        "$value": "rgba({feedback.successBase}, 12%)",
+        "$type": "color",
+        "$description": "内边距条纹覆盖层"
+      },
+      "move": {
+        "$value": "{theme.accent}",
+        "$type": "color",
+        "$description": "移动和选区覆盖层颜色"
+      },
+      "moveBg": {
+        "$value": "rgba({theme.accent}, 18%)",
+        "$type": "color",
+        "$description": "移动覆盖层填充"
+      },
+      "guide": {
+        "$value": "#FF00FF",
+        "$type": "color",
+        "$description": "参考线和标尺辅助线"
+      },
+      "labelText": {
+        "$value": "rgba({theme.foreground}, 98%)",
+        "$type": "color",
+        "$description": "覆盖层标签文字"
+      },
+      "labelBg": {
+        "$value": "{theme.accent}",
+        "$type": "color",
+        "$description": "覆盖层标签背景"
+      }
+    }
+  },
+  "$themes": [],
+  "$metadata": {
+    "tokenSetOrder": [
+      "global"
+    ]
+  }
+}

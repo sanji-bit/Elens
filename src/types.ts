@@ -285,6 +285,7 @@ export type ThemeConfig = {
   accentColor?: string
   brand?: {
     accent?: string
+    foreground?: string
   }
   surface?: {
     base?: string
@@ -304,6 +305,7 @@ export type ThemeConfig = {
 export type ResolvedThemeConfig = {
   brand: {
     accent: string
+    foreground: string
   }
   surface: {
     base: string

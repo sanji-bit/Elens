@@ -13,25 +13,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
+function loadCaptureScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = src
+    script.async = false
+    script.addEventListener('load', () => resolve(), { once: true })
+    script.addEventListener('error', () => reject(new Error(`Failed to load capture.js: ${src}`)), { once: true })
+    document.head.appendChild(script)
+  })
+}
+
 async function ensureCaptureScript(): Promise<void> {
   if (window.figma?.captureForDesign) return
 
-  let scriptText = ''
-  try {
-    const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
-    if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
-    scriptText = await response.text()
-  } catch {
-    if (!EXTENSION_CAPTURE_SCRIPT_URL) throw new Error('Failed to fetch remote capture.js')
-    const response = await fetch(EXTENSION_CAPTURE_SCRIPT_URL)
-    if (!response.ok) throw new Error(`Failed to fetch local capture.js: ${response.status}`)
-    scriptText = await response.text()
+  if (EXTENSION_CAPTURE_SCRIPT_URL) {
+    await loadCaptureScript(EXTENSION_CAPTURE_SCRIPT_URL)
+    await sleep(300)
+    return
   }
 
-  const script = document.createElement('script')
-  script.textContent = scriptText
-  document.head.appendChild(script)
-  await sleep(1200)
+  await loadCaptureScript(CAPTURE_SCRIPT_REMOTE_URL)
+  await sleep(300)
 }
 
 export async function runPageCapture(selector: string, options?: { scroll?: boolean }): Promise<unknown> {

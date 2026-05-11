@@ -17,6 +17,7 @@ import {
 } from './icons'
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectableElement, InspectorInfo, InspectorMode, LayersTreeBuildResult, LayersTreeNode, OutputDetail, StyleDiff, ThemeConfig, ViewportControllerCapabilities, ViewportPreset, ViewportState, ViewportTarget, WindowBounds } from './types'
 import { buildDesignDevEditor, buildDesignPanel, buildMultiSelectionContainerPanel, buildMultiSelectionTypographyPanel, createStyleTracker, type MultiSelectionContainerState, type MultiSelectionTypographyState, type StyleTracker } from './design'
+import { analyzeDesignScope, type DesignScopeAnalysis, type DesignScopeMode } from './design-scope'
 import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
@@ -481,6 +482,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   } | null = null
   let designApplyToElementOnly = false
   let designPanelView: 'visual' | 'dev' = 'visual'
+  let designScopeModeOverride: DesignScopeMode | null = null
+  let designScopeSelectionKey: string | null = null
   let panelCollapsed = false
   let panelExpandedHeight = 0
   let designDevDraft = ''
@@ -520,6 +523,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const root = el('div')
   root.className = 'ei-root'
   root.setAttribute(IGNORE_ATTR, 'true')
+
+  const overlayHost = document.createElement('div')
+  overlayHost.setAttribute(IGNORE_ATTR, 'true')
+  const overlayShadow = overlayHost.attachShadow({ mode: 'open' })
 
   const styleEl = document.createElement('style')
   const applyTheme = (nextThemeConfig: ThemeConfig, options: { persist?: boolean; reset?: boolean } = {}): void => {
@@ -923,7 +930,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   panel.append(dragHandle, header, changesSummaryBar, body)
 
   root.append(styleEl, highlight, designScopeOverlay, moveIndicator, guidesOverlay, tooltip, layersPanel, panel, markersContainer, toolbar)
-  document.body.appendChild(root)
+  overlayShadow.appendChild(root)
+  document.body.appendChild(overlayHost)
 
   // --- Helpers ---
 
@@ -1124,7 +1132,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function cleanupPanelExtras(): void {
-    panel.querySelectorAll('.ei-annotate, .ei-ann-export, .ei-design-actions, .ei-design-selection-summary').forEach(n => n.remove())
+    panel.querySelectorAll('.ei-annotate, .ei-ann-export, .ei-design-actions, .ei-design-selection-summary, .ei-design-scope-switch').forEach(n => n.remove())
     panel.classList.remove('is-changes')
     panelCollapsed = false
     panel.dataset.collapseHidden = 'false'
@@ -4068,17 +4076,39 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return [getRoute(), getSelectionElementKey(element)].join('|')
   }
 
+  function getDesignScopeSelectionKey(element: HTMLElement): string {
+    return [getRoute(), getSelectionElementKey(element)].join('|')
+  }
+
+  function getDesignScopeAnalysis(element: HTMLElement): DesignScopeAnalysis {
+    return analyzeDesignScope(element)
+  }
+
+  function getActiveDesignScopeMode(element: HTMLElement, analysis = getDesignScopeAnalysis(element)): DesignScopeMode {
+    const selectionKey = getDesignScopeSelectionKey(element)
+    if (designScopeSelectionKey !== selectionKey) {
+      designScopeSelectionKey = selectionKey
+      designScopeModeOverride = null
+    }
+    const override = designScopeModeOverride
+    if (override && analysis.candidates[override]?.enabled) return override
+    return analysis.recommendedMode
+  }
+
   function getEffectiveDesignScopeElements(element: HTMLElement): HTMLElement[] {
     if (selectedElements.length > 1) {
       return selectedElements.filter(candidate => document.contains(candidate))
     }
-    return [element]
+    const analysis = getDesignScopeAnalysis(element)
+    const mode = getActiveDesignScopeMode(element, analysis)
+    return analysis.candidates[mode]?.elements.filter(candidate => document.contains(candidate)) ?? [element]
   }
 
   function getDesignChangeGroupKey(element: HTMLElement): string {
     const scopeElements = getEffectiveDesignScopeElements(element)
-    if (scopeElements.length > 1 && selectedElements.length > 1) {
-      return [getRoute(), 'multi', ...scopeElements.map(getSelectionElementKey)].join('|')
+    if (scopeElements.length > 1) {
+      const mode = selectedElements.length > 1 ? 'multi' : getActiveDesignScopeMode(element)
+      return [getRoute(), mode, ...scopeElements.map(getSelectionElementKey)].join('|')
     }
     return getDesignSelectionGroupKey(element)
   }
@@ -4107,6 +4137,37 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     ))
 
     return matchingChildren.length > 1 ? [element, ...matchingChildren.filter(match => match !== element)] : [element]
+  }
+
+  function createDesignScopeSwitch(element: HTMLElement, analysis: DesignScopeAnalysis, activeMode: DesignScopeMode): HTMLElement {
+    const wrap = el('div', 'ei-design-scope-switch')
+    wrap.setAttribute(IGNORE_ATTR, 'true')
+    const activeCandidate = analysis.candidates[activeMode]
+    const label = el('div', 'ei-design-scope-switch-label', `作用范围：${activeCandidate?.label ?? '当前元素'}`)
+    const tabs = el('div', 'ei-tabs ei-design-scope-tabs')
+    const options: Array<{ mode: DesignScopeMode; label: string }> = [
+      { mode: 'single', label: '当前元素' },
+      { mode: 'same-component', label: '同组件实例' },
+      { mode: 'same-slot', label: '同槽位' },
+      { mode: 'same-group-type', label: '同组同类型' },
+    ]
+    options.forEach((option) => {
+      const button = el('button', 'ei-tab ei-design-scope-tab', option.label)
+      button.type = 'button'
+      button.setAttribute(IGNORE_ATTR, 'true')
+      const scopeCandidate = analysis.candidates[option.mode]
+      button.disabled = !scopeCandidate.enabled
+      if (option.mode === activeMode) button.dataset.active = 'true'
+      button.addEventListener('click', () => {
+        if (!scopeCandidate.enabled) return
+        designScopeModeOverride = option.mode === analysis.recommendedMode ? null : option.mode
+        designScopeSelectionKey = getDesignScopeSelectionKey(element)
+        renderDesign(extractInspectorInfo(element))
+      })
+      tabs.appendChild(button)
+    })
+    wrap.append(label, tabs)
+    return wrap
   }
 
   function consumeDesignScopeElements(element: HTMLElement): HTMLElement[] {
@@ -4571,8 +4632,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       scopedElements.forEach((element) => {
         if (element !== primaryElement) {
           diffs.forEach((diff) => {
-            if (diff.property === 'textContent') element.textContent = diff.modified
-            else element.style.setProperty(diff.property, diff.modified)
+            if (diff.property === 'textContent') return
+            element.style.setProperty(diff.property, diff.modified)
           })
         }
         const existingScopedChange = changes.find(c => c.type === 'design' && c.element === element)
@@ -4674,6 +4735,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
     })
 
+    const scopeAnalysis = info.element instanceof HTMLElement ? getDesignScopeAnalysis(info.element) : null
+    const activeScopeMode = info.element instanceof HTMLElement && scopeAnalysis ? getActiveDesignScopeMode(info.element, scopeAnalysis) : 'single'
     const currentScopeElements = info.element instanceof HTMLElement ? getCurrentDesignScopeElements(info.element) : []
     if (info.element instanceof HTMLElement && currentScopeElements.length > 1 && designOverlaysVisible) renderDesignScopeOverlay(currentScopeElements)
     else clearDesignScopeOverlay()
@@ -4692,6 +4755,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     actionsRight.append(resetBtn)
     designActions.append(actionsLeft, actionsRight)
     panel.insertBefore(designActions, body)
+    if (!isMultiSelection && info.element instanceof HTMLElement && scopeAnalysis) {
+      panel.insertBefore(createDesignScopeSwitch(info.element, scopeAnalysis, activeScopeMode), body)
+    }
 
     const scopeElements = info.element instanceof HTMLElement ? consumeDesignScopeElements(info.element) : []
     if (isMultiSelection) {
@@ -5010,6 +5076,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const info = extractInspectorInfo(lockedElement)
       currentInfo = info
       updateHighlight(info)
+      if (currentMode === 'design' && lockedElement instanceof HTMLElement) {
+        const scopeElements = getCurrentDesignScopeElements(lockedElement)
+        if (scopeElements.length > 1 && designOverlaysVisible) renderDesignScopeOverlay(scopeElements)
+        else clearDesignScopeOverlay()
+      }
       if (panelPosition) positionPanel(panelAnchor, info)
       if (currentMode === 'move') renderMove(info)
     }
@@ -6434,7 +6505,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       window.cancelAnimationFrame(layersRenderRaf)
       layersRenderRaf = null
     }
-    root.remove()
+    overlayHost.remove()
   }
 
   // --- Wire up events ---

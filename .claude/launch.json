@@ -24,6 +24,20 @@
         "--watch"
       ],
       "port": 0
+    },
+    {
+      "name": "demo",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "demo",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4320",
+        "--strictPort"
+      ],
+      "port": 4320
     }
   ]
 }

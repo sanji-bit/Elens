@@ -21,6 +21,8 @@ Stable existing functionality must not regress when implementing new features or
 - Before editing, identify the likely impacted existing flows and shared utilities/components.
 - If a change may affect an existing feature, explicitly tell the user which feature may be affected and why.
 - If a task is likely to take a long time, require broad exploration, require multi-agent planning, require full regression testing, or exceed roughly 10 minutes, explain the expected scope, reason, risk, and faster alternative first; wait for user approval before proceeding.
+- When both a fast path and a safer path are reasonable, present them as options with estimated cost and risk, then let the user choose.
+- Treat inspector controls, toolbar behavior, changes/copy flows, selection, move/drag, runtime styles, design tokens, overlay mounting, and extension/demo entry points as high-risk areas that require adjacent regression checks when touched.
 - If touching shared interaction code, event handling, rendering, design tokens, runtime styles, persistence, selection, inspector controls, toolbar behavior, overlay mounting, or extension/demo entry points, test both the requested path and adjacent existing paths that depend on the same code.
 - If the affected old functionality cannot be tested locally, state this clearly in the completion report and list exactly what the user should verify.
 - Do not claim a feature is safe or fully validated unless the relevant regression paths were actually tested.
@@ -36,7 +38,7 @@ For clearly scoped, local changes, do not over-plan.
 - Keep progress updates short and frequent when work takes more than a few minutes.
 - Regression prevention should be proportional to the change scope: test directly affected and adjacent paths, not the entire product for every small change.
 - Ask the user only when product behavior, copy format, design intent, backwards compatibility, or long-running work approval is genuinely ambiguous.
-- Completion reports should be concise: what changed, what was verified, and what still needs user confirmation.
+- Completion reports should be concise: what changed, what was verified, what was not verified, and what still needs user confirmation.
 
 ## Core Rule
 

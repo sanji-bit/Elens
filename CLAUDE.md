@@ -72,6 +72,19 @@ These patterns are established design system components and must be reused:
 - New stable UI tokens must be added to `src/design-tokens.ts` and exposed through `generateCSSVariables()` before documentation or component specs reference them.
 - Do not invent local one-off CSS variables or raw values to bypass the design system; if a reusable value is missing, add or propose a semantic token first.
 
+## Inspector Panel Regression Guardrails
+
+These rules are stable product behavior and must not regress when adding or refactoring inspector features:
+
+- Numeric inspector fields that represent pixel, size, spacing, radius, position, or similar visual values must display and commit integers only. Do not allow manual input, blur, Enter, arrow keys, or drag scrubbing to produce decimals.
+- Color text fields must display six-digit HEX values without CSS color functions. Show values like `FFFFFF` or `09090B`; do not show `lab(...)`, `oklab(...)`, `rgb(...)`, `rgba(...)`, named colors, or raw computed color strings in the input.
+- Color swatches and color text fields must reflect the real computed color. Do not use white or black fallbacks when parsing fails in a way that could misrepresent the selected element.
+- Transparent or absent backgrounds must not be presented as a white fill. Only show `FFFFFF` when the element actually has a visible white background or fill.
+- Color opacity controls must reflect the real alpha channel from computed colors, including `rgba(...)`, `rgb(... / alpha)`, `lab(... / alpha)`, `oklab(... / alpha)`, `lch(... / alpha)`, and `oklch(... / alpha)`. Do not default visible color rows to `100%` when the source color contains alpha.
+- When changing a color while an existing alpha is present, preserve that alpha unless the user explicitly changes opacity.
+- Dropdowns, popovers, and floating controls inside the inspector must remain visually isolated from host pages. In extension and embedded contexts, mount floating UI under the Elens root/shadow host when needed, and use Shadow DOM-safe outside-click handling such as `event.composedPath()`.
+- Every inspector UI fix that touches color, numeric fields, dropdowns, popovers, or floating controls must be validated against realistic host-page CSS conditions, not only the demo page.
+
 ## Required Completion Report For UI Changes
 
 When finishing a UI-related task, report:

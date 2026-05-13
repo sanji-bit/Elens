@@ -215,12 +215,30 @@ export function extractInspectorInfo(element: InspectableElement): InspectorInfo
 }
 
 export function rgbToHex(rgb: string): string {
-  const match = rgb.match(/rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)/i)
+  const match = rgb.match(/rgba?\(\s*(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/i)
   if (!match) return rgb
-  const r = Number(match[1])
-  const g = Number(match[2])
-  const b = Number(match[3])
+  const r = Math.round(Number(match[1]))
+  const g = Math.round(Number(match[2]))
+  const b = Math.round(Number(match[3]))
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`
+}
+
+function canvasColorToHex(value: string): string | null {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1
+  canvas.height = 1
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) return null
+  context.clearRect(0, 0, 1, 1)
+  context.fillStyle = '#000000'
+  context.fillStyle = value
+  if (context.fillStyle === '#000000' && value.trim().toLowerCase() !== '#000000' && value.trim().toLowerCase() !== 'black') {
+    return null
+  }
+  context.fillRect(0, 0, 1, 1)
+  const [r = 0, g = 0, b = 0, a = 255] = context.getImageData(0, 0, 1, 1).data
+  if (a === 0) return null
+  return `#${[r, g, b].map(channel => channel.toString(16).padStart(2, '0')).join('')}`.toUpperCase()
 }
 
 export function cssColorToHex(value: string): string | null {
@@ -237,7 +255,8 @@ export function cssColorToHex(value: string): string | null {
   probe.remove()
   if (!normalized || normalized === 'transparent' || normalized === 'rgba(0, 0, 0, 0)' || normalized === 'rgba(0,0,0,0)') return null
   const hex = rgbToHex(normalized)
-  return hex.startsWith('#') ? hex : null
+  if (hex.startsWith('#')) return hex
+  return canvasColorToHex(normalized) ?? canvasColorToHex(trimmed)
 }
 
 export function normalizeColorValue(value: string): string | null {
@@ -262,7 +281,7 @@ export function normalizeColorValue(value: string): string | null {
   }
   if (normalized.startsWith('#')) return normalized.toUpperCase()
   if (normalized.startsWith('rgb')) return rgbToHex(normalized)
-  return cssColorToHex(normalized) ?? normalized
+  return cssColorToHex(normalized) ?? canvasColorToHex(normalized) ?? canvasColorToHex(trimmed)
 }
 
 export function collectPageColors(root: ParentNode = document): string[] {
@@ -299,10 +318,14 @@ export function collectPageColors(root: ParentNode = document): string[] {
 }
 
 export function getColorOpacityPercent(value: string): number {
-  const match = value.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)/i)
-  if (!match) return 100
-  const alpha = Number(match[1])
-  if (!Number.isFinite(alpha)) return 100
+  const trimmed = value.trim()
+  const commaAlpha = trimmed.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+%?)\s*\)/i)
+  const slashAlpha = trimmed.match(/(?:rgba?|hsla?|lab|oklab|lch|oklch)\([^)]*\/\s*([\d.]+%?)\s*\)/i)
+  const alphaValue = commaAlpha?.[1] ?? slashAlpha?.[1]
+  if (!alphaValue) return 100
+  const numeric = Number.parseFloat(alphaValue)
+  if (!Number.isFinite(numeric)) return 100
+  const alpha = alphaValue.endsWith('%') ? numeric / 100 : numeric
   return Math.round(Math.max(0, Math.min(1, alpha)) * 100)
 }
 

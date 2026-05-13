@@ -1734,11 +1734,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Change management ---
 
-  function findChangeForElement(element: HTMLElement): Change | undefined {
+  function findChangeForElement(element: InspectableElement): Change | undefined {
     return changes.find(c => c.element === element)
   }
 
-  function findNoteChangeForElement(element: HTMLElement): Change | undefined {
+  function findNoteChangeForElement(element: InspectableElement): Change | undefined {
     return changes.find(c => c.element === element && (c.type === 'annotation' || Boolean(c.meta.note?.trim())))
   }
 
@@ -2221,7 +2221,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     else markAutoCopyRestored()
   }
 
-  function addChange(element: HTMLElement, comment: string, type: Change['type'] = 'annotation', diffs?: Change['diffs']): string {
+  function addChange(element: InspectableElement, comment: string, type: Change['type'] = 'annotation', diffs?: Change['diffs']): string {
     changeIdCounter++
     const info = extractInspectorInfo(element)
     const isoTimestamp = new Date().toISOString()
@@ -2312,7 +2312,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderMarkers()
   }
 
-  function createNoteChange(element: HTMLElement, note: string): string {
+  function createNoteChange(element: InspectableElement, note: string): string {
     const id = addChange(element, note, 'annotation', [])
     const change = changes.find((item) => item.id === id)
     if (change) updateChangeNote(change, note)
@@ -2376,7 +2376,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Annotate input (inspector mode) ---
 
-  function renderAnnotateInput(element: HTMLElement): HTMLDivElement {
+  function renderAnnotateInput(element: InspectableElement): HTMLDivElement {
     const wrap = el('div', 'ei-annotate')
     const textarea = document.createElement('textarea')
     textarea.className = 'ei-annotate-input'
@@ -2436,7 +2436,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return wrap
   }
 
-  function submitAnnotation(element: HTMLElement, comment: string): void {
+  function submitAnnotation(element: InspectableElement, comment: string): void {
     const trimmed = comment.trim()
     if (!trimmed) return
     const existing = findNoteChangeForElement(element)
@@ -3837,7 +3837,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     wrap.append(target, card)
     body.append(wrap)
 
-    if (lockedElement instanceof HTMLElement) {
+    if (lockedElement) {
       panel.appendChild(renderAnnotateInput(lockedElement))
     }
 

@@ -3,7 +3,7 @@ import type { InspectableElement, InspectorInfo, StyleDiff } from './types'
 
 const CHANGES_PANEL_CLOSE_ICON = ICON_SVGS.changesPanelClose
 import { i18n } from './i18n'
-import { collectPageColors, normalizeColorValue, rgbToHex } from './utils'
+import { collectPageColors, getColorOpacityPercent, normalizeColorValue, rgbToHex } from './utils'
 
 let cachedPageColors: { colors: string[]; collectedAt: number } | null = null
 
@@ -52,10 +52,24 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
   return node
 }
 
+function getFloatingLayerHost(anchor: HTMLElement): HTMLElement {
+  const rootNode = anchor.getRootNode()
+  if (rootNode instanceof ShadowRoot) {
+    const root = rootNode.querySelector<HTMLElement>('.ei-root')
+    if (root) return root
+  }
+  return document.body
+}
+
+function eventPathIncludes(event: Event, element: Element): boolean {
+  return event.composedPath().includes(element)
+}
+
 function mountBodyDropdown(dropdown: HTMLElement, anchor: HTMLElement, offset = 4): void {
-  document.body.appendChild(dropdown)
+  getFloatingLayerHost(anchor).appendChild(dropdown)
   dropdown.style.position = 'fixed'
   dropdown.style.zIndex = '2147483647'
+  dropdown.style.pointerEvents = 'auto'
 
   const anchorRect = anchor.getBoundingClientRect()
   const dropdownRect = dropdown.getBoundingClientRect()
@@ -145,13 +159,23 @@ export function createStyleTracker(element: InspectableElement, onChange?: () =>
 
 function parsePxValue(value: string): number {
   const num = parseFloat(value)
-  return Number.isFinite(num) ? num : 0
+  return Number.isFinite(num) ? Math.round(num) : 0
+}
+
+function parseIntegerInput(value: string): number | null {
+  const num = Number.parseFloat(value)
+  return Number.isFinite(num) ? Math.round(num) : null
+}
+
+function parseNumberInput(value: string): number | null {
+  const num = Number.parseFloat(value)
+  return Number.isFinite(num) ? num : null
 }
 
 function parseBorderRadius(raw: string): [string, string, string, string] {
   const parts = raw.split(/\s+/).map((token) => {
     const num = parseFloat(token)
-    return Number.isFinite(num) ? String(num) : '0'
+    return Number.isFinite(num) ? String(Math.round(num)) : '0'
   })
   const a = parts[0] ?? '0'
   const b = parts[1] ?? a
@@ -166,20 +190,22 @@ type NumberInputOptions = {
   max?: number
   step?: number
   suffix?: string
+  preserveDecimal?: boolean
   onChange: (value: number) => void
 }
 
-function formatNumberInputValue(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100)
+function formatNumberInputValue(value: number, preserveDecimal = false): string {
+  if (!preserveDecimal) return String(Math.round(value))
+  return Number.isInteger(value) ? String(value) : String(value)
 }
 
 function createNumberInput(options: NumberInputOptions): HTMLInputElement {
-  const { value, min, max, step = 1, onChange } = options
+  const { value, min, max, step = 1, preserveDecimal = false, onChange } = options
 
   const input = document.createElement('input')
   input.type = 'text'
   input.className = 'ei-dp-num'
-  input.value = formatNumberInputValue(value)
+  input.value = formatNumberInputValue(value, preserveDecimal)
   input.setAttribute(IGNORE_ATTR, 'true')
 
   function clamp(v: number): number {
@@ -189,35 +215,36 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
     return n
   }
 
-  function commit(newVal: number): void {
-    const clamped = clamp(Math.round(newVal * 100) / 100)
-    input.value = formatNumberInputValue(clamped)
-    onChange(clamped)
+  function commit(newVal: number, forceInteger = !preserveDecimal): void {
+    const clamped = clamp(newVal)
+    const committed = forceInteger ? Math.round(clamped) : clamped
+    input.value = formatNumberInputValue(committed, preserveDecimal)
+    onChange(committed)
   }
 
   input.addEventListener('keydown', (e) => {
     e.stopPropagation()
     if (e.key === 'Enter') {
       e.preventDefault()
-      const num = parseFloat(input.value)
-      if (Number.isFinite(num)) commit(num)
+      const num = preserveDecimal ? parseNumberInput(input.value) : parseIntegerInput(input.value)
+      if (num != null) commit(num, !preserveDecimal)
       input.blur()
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       const delta = e.shiftKey ? 10 : step
-      const current = parseFloat(input.value) || 0
+      const current = parseIntegerInput(input.value) || 0
       commit(current + delta)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       const delta = e.shiftKey ? 10 : step
-      const current = parseFloat(input.value) || 0
+      const current = parseIntegerInput(input.value) || 0
       commit(current - delta)
     }
   })
 
   input.addEventListener('blur', () => {
-    const num = parseFloat(input.value)
-    if (Number.isFinite(num)) commit(num)
+    const num = preserveDecimal ? parseNumberInput(input.value) : parseIntegerInput(input.value)
+    if (num != null) commit(num, !preserveDecimal)
   })
 
   let dragStartX = 0
@@ -227,7 +254,7 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
     if (document.activeElement === input || e.button !== 0) return
     e.preventDefault()
     dragStartX = e.clientX
-    dragStartValue = parseFloat(input.value) || 0
+    dragStartValue = parseIntegerInput(input.value) || 0
     let dragged = false
     let latestValue = dragStartValue
     let rafId: number | null = null
@@ -235,7 +262,7 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
 
     const flush = (): void => {
       rafId = null
-      commit(latestValue)
+      commit(latestValue, true)
     }
 
     const scheduleCommit = (value: number): void => {
@@ -249,13 +276,13 @@ function createNumberInput(options: NumberInputOptions): HTMLInputElement {
       dragged = true
       input.classList.add('is-scrubbing')
       const multiplier = moveEvent.shiftKey ? 4 : 1
-      scheduleCommit(dragStartValue + delta * dragScale * multiplier)
+      scheduleCommit(Math.round(dragStartValue + delta * dragScale * multiplier))
     }
 
     const onUp = () => {
       if (rafId != null) {
         window.cancelAnimationFrame(rafId)
-        commit(latestValue)
+        commit(latestValue, true)
       }
       input.classList.remove('is-scrubbing')
       input.releasePointerCapture(e.pointerId)
@@ -423,7 +450,7 @@ function createGapField(options: GapFieldOptions): HTMLDivElement {
         trigger.dataset.auto = 'true'
       } else {
         autoMode = false
-        const v = parseFloat(input.value) || 0
+        const v = parseIntegerInput(input.value) || 0
         tracker.apply('gap', `${v}px`)
         input.value = String(v)
         input.style.color = ''
@@ -449,7 +476,7 @@ function closeGapDropdown(): void {
 }
 
 function handleGapDropdownOutside(e: MouseEvent): void {
-  if (activeGapDropdown && e.target instanceof Element && !activeGapDropdown.contains(e.target)) {
+  if (activeGapDropdown && !eventPathIncludes(e, activeGapDropdown)) {
     closeGapDropdown()
   }
 }
@@ -583,6 +610,7 @@ type LabeledFieldOptions = {
   step?: number
   suffix?: string
   iconHtml?: string
+  preserveDecimal?: boolean
   onChange: (value: number) => void
 }
 
@@ -814,7 +842,7 @@ function closeSizingDropdown(): void {
 }
 
 function handleDropdownOutsideClick(e: MouseEvent): void {
-  if (activeDropdown && e.target instanceof Element && !activeDropdown.contains(e.target)) {
+  if (activeDropdown && !eventPathIncludes(e, activeDropdown)) {
     closeSizingDropdown()
   }
 }
@@ -903,7 +931,7 @@ type FillRowOptions = {
   onSwatchClick?: (swatch: HTMLDivElement) => void
 }
 
-function ensureHexColor(value: string, fallback = '#FFFFFF'): string {
+function ensureHexColor(value: string, fallback = '#000000'): string {
   const normalized = normalizeColorValue(value)
   if (!normalized) return fallback
   if (normalized.startsWith('#')) return normalized.length === 4
@@ -912,8 +940,65 @@ function ensureHexColor(value: string, fallback = '#FFFFFF'): string {
   return fallback
 }
 
-function getDisplayColorValue(value: string, fallback = '#FFFFFF'): string {
-  return normalizeColorValue(value) ?? fallback
+function getDisplayColorValue(value: string, fallback = '#000000'): string {
+  return ensureHexColor(value, fallback)
+}
+
+function hasVisibleFill(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  return Boolean(normalized && normalized !== 'transparent' && normalized !== 'rgba(0, 0, 0, 0)' && normalized !== 'rgba(0,0,0,0)')
+}
+
+type SvgPaintValues = {
+  color: string
+  opacity: number
+}
+
+type SvgStrokeValues = SvgPaintValues & {
+  width: number
+}
+
+function isVisibleSvgPaint(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized || normalized === 'none' || normalized === 'transparent' || normalized.startsWith('url(')) return false
+  return getColorOpacityPercent(normalized) > 0
+}
+
+function parseSvgOpacity(value: string, fallback = 100): number {
+  const trimmed = value.trim()
+  if (!trimmed) return fallback
+  const numeric = Number.parseFloat(trimmed)
+  if (!Number.isFinite(numeric)) return fallback
+  const opacity = trimmed.endsWith('%') ? numeric : numeric <= 1 ? numeric * 100 : numeric
+  return Math.round(clamp(opacity, 0, 100))
+}
+
+function getSvgPaintValues(
+  style: CSSStyleDeclaration,
+  property: 'fill' | 'stroke',
+  opacityProperty: 'fill-opacity' | 'stroke-opacity',
+): SvgPaintValues | null {
+  const rawPaint = style.getPropertyValue(property)
+  if (!isVisibleSvgPaint(rawPaint)) return null
+  const normalized = normalizeColorValue(rawPaint)
+  if (!normalized?.startsWith('#')) return null
+  const colorOpacity = getColorOpacityPercent(rawPaint)
+  const paintOpacity = parseSvgOpacity(style.getPropertyValue(opacityProperty), 100)
+  return {
+    color: ensureHexColor(normalized),
+    opacity: Math.round(clamp((colorOpacity * paintOpacity) / 100, 0, 100)),
+  }
+}
+
+function applySvgPaint(
+  tracker: StyleTracker,
+  property: 'fill' | 'stroke',
+  opacityProperty: 'fill-opacity' | 'stroke-opacity',
+  color: string,
+  opacity: number,
+): void {
+  tracker.apply(property, ensureHexColor(color))
+  tracker.apply(opacityProperty, String(Math.round(clamp(opacity, 0, 100)) / 100))
 }
 
 function isHexColorValue(value: string): boolean {
@@ -1107,7 +1192,8 @@ function formatColorValue(value: string, format: ColorFormat, opacity = 100): st
 function createFillDraft(element: HTMLElement, info: InspectorInfo): FillDraft {
   const style = window.getComputedStyle(element)
   const backgroundImage = style.getPropertyValue('background-image')
-  const backgroundColor = ensureHexColor(style.getPropertyValue('background-color'), '#FFFFFF')
+  const rawBackgroundColor = style.getPropertyValue('background-color')
+  const backgroundColor = hasVisibleFill(rawBackgroundColor) ? ensureHexColor(rawBackgroundColor) : 'transparent'
   const isGradient = backgroundImage.includes('gradient(')
   const isImage = backgroundImage.includes('url(')
 
@@ -1128,11 +1214,11 @@ function createFillDraft(element: HTMLElement, info: InspectorInfo): FillDraft {
 function createFillRow(options: FillRowOptions): HTMLDivElement {
   const { value, opacity = 100, className = '', textValue, placeholder, onChange, onOpacityChange, onSwatchClick } = options
   const wrap = el('div', `ei-dp-fill-row${className ? ` ${className}` : ''}`)
-  let currentColor = getDisplayColorValue(value)
-  let currentHex = ensureHexColor(currentColor)
+  let currentHex = getDisplayColorValue(value)
+  let currentColor = currentHex
 
   const swatch = el('div', 'ei-dp-swatch')
-  swatch.style.background = currentColor
+  swatch.style.background = currentHex
 
   const picker = document.createElement('input')
   picker.type = 'color'
@@ -1148,7 +1234,7 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   hexInput.type = 'text'
   hexInput.className = 'ei-dp-hex'
   hexInput.setAttribute(IGNORE_ATTR, 'true')
-  hexInput.value = textValue ?? (isHexColorValue(currentColor) ? currentColor.replace('#', '') : currentColor)
+  hexInput.value = textValue ?? currentHex.replace('#', '')
   if (placeholder) hexInput.placeholder = placeholder
 
   const opacityInput = createNumberInput({
@@ -1207,7 +1293,11 @@ function createFillRow(options: FillRowOptions): HTMLDivElement {
   hexInput.addEventListener('blur', () => {
     let hex = hexInput.value.trim()
     if (!hex.startsWith('#')) hex = '#' + hex
-    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) applyColor(hex)
+    if (/^#[0-9A-Fa-f]{3,8}$/.test(hex)) {
+      applyColor(hex)
+      return
+    }
+    hexInput.value = currentHex.replace('#', '').toUpperCase()
   })
 
   swatch.appendChild(picker)
@@ -1629,17 +1719,29 @@ function getFillTriggerValue(draft: FillDraft): string {
   return draft.kind === 'solid' ? draft.color.toUpperCase() : describeFillDraft(draft)
 }
 
-function createFillTrigger(draft: FillDraft, onChange: () => void): HTMLDivElement {
+function applySolidFillDraft(tracker: StyleTracker, draft: FillDraft): void {
+  const alpha = draft.opacity / 100
+  if (alpha < 1) {
+    tracker.apply('background-color', formatColorValue(draft.color, 'css', draft.opacity))
+  } else {
+    tracker.apply('background-color', draft.color)
+  }
+  tracker.apply('background-image', 'none')
+}
+
+function createFillTrigger(draft: FillDraft, tracker: StyleTracker, onChange: () => void): HTMLDivElement {
   const trigger = createFillRow({
     value: draft.color,
     opacity: draft.opacity,
     onChange: (value) => {
       draft.color = value
+      if (draft.kind === 'solid') applySolidFillDraft(tracker, draft)
       onChange()
     },
     onOpacityChange: (opacity, currentHex) => {
       draft.opacity = opacity
       draft.color = currentHex
+      if (draft.kind === 'solid') applySolidFillDraft(tracker, draft)
       onChange()
     },
   })
@@ -1647,24 +1749,26 @@ function createFillTrigger(draft: FillDraft, onChange: () => void): HTMLDivEleme
   return trigger
 }
 
+function updateFillRowDisplay(row: Element | null, color: string, opacityValue: number): void {
+  if (!row) return
+  const hex = ensureHexColor(color)
+  const swatch = row.querySelector<HTMLDivElement>('.ei-dp-swatch')
+  const picker = row.querySelector<HTMLInputElement>('.ei-dp-picker')
+  const value = row.querySelector<HTMLInputElement>('.ei-dp-hex')
+  const opacity = row.querySelector<HTMLInputElement>('.ei-dp-fill-opacity')
+
+  if (swatch) swatch.style.background = hex
+  if (picker) picker.value = hex
+  if (value && document.activeElement !== value) value.value = hex.replace('#', '').toUpperCase()
+  if (opacity && document.activeElement !== opacity) opacity.value = String(Math.round(opacityValue))
+}
+
 function updateFillTrigger(trigger: HTMLDivElement, draft: FillDraft): void {
   const swatch = trigger.querySelector<HTMLDivElement>('.ei-dp-swatch')
-  const picker = trigger.querySelector<HTMLInputElement>('.ei-dp-picker')
-  const value = trigger.querySelector<HTMLInputElement>('.ei-dp-hex')
-  const opacity = trigger.querySelector<HTMLInputElement>('.ei-dp-fill-opacity')
-
   if (swatch) {
     swatch.style.background = getFillTriggerSwatchBackground(draft)
   }
-  if (picker) {
-    picker.value = ensureHexColor(draft.color)
-  }
-  if (value && document.activeElement !== value) {
-    value.value = draft.color.replace('#', '').toUpperCase()
-  }
-  if (opacity && document.activeElement !== opacity) {
-    opacity.value = String(draft.opacity)
-  }
+  updateFillRowDisplay(trigger, draft.color, draft.opacity)
 }
 
 function attachFillTriggerEvents(
@@ -1721,7 +1825,7 @@ function mountFillTrigger(
   tracker: StyleTracker,
   onChange: () => void,
 ): void {
-  const trigger = createFillTrigger(draft, onChange)
+  const trigger = createFillTrigger(draft, tracker, onChange)
   attachFillTriggerEvents(trigger, draft, pageColors, tracker, onChange)
   updateFillTrigger(trigger, draft)
   container.appendChild(trigger)
@@ -1791,14 +1895,18 @@ function openSolidColorPopover(
   tracker: StyleTracker,
   onColorChange: (value: string, opacity: number) => void,
   onChange: () => void,
+  onDraftUpdate?: (value: string, opacity: number) => void,
 ): void {
   const draft = createSolidColorDraft(value, opacity)
   draft.activeGradientStopId = draft.gradientStops[0]!.id
-  openFillPopover(anchor, draft, pageColors, tracker, onChange, () => {
+  const syncDraft = (): void => {
     onColorChange(draft.color, draft.opacity)
-  }, {
+    updateFillRowDisplay(anchor.closest('.ei-dp-fill-row'), draft.color, draft.opacity)
+    onDraftUpdate?.(draft.color, draft.opacity)
+  }
+  openFillPopover(anchor, draft, pageColors, tracker, onChange, syncDraft, {
     showModes: false,
-    applySolid: () => onColorChange(draft.color, draft.opacity),
+    applySolid: syncDraft,
   })
 }
 
@@ -1876,7 +1984,7 @@ function closeFillPopover(): void {
 }
 
 function handleFillPopoverOutside(e: MouseEvent): void {
-  if (activeFillPopover && e.target instanceof Element && !activeFillPopover.contains(e.target)) {
+  if (activeFillPopover && !eventPathIncludes(e, activeFillPopover)) {
     closeFillPopover()
   }
 }
@@ -1902,7 +2010,8 @@ function openFillPopover(
   popover.setAttribute(IGNORE_ATTR, 'true')
   popover.appendChild(createFillPopoverChrome(createFillPanel(draft, pageColors, tracker, onChange, onDraftChange, panelOptions)))
 
-  document.body.appendChild(popover)
+  getFloatingLayerHost(anchor).appendChild(popover)
+  popover.style.pointerEvents = 'auto'
   const anchorRect = anchor.getBoundingClientRect()
   const left = clamp(anchorRect.left, 8, window.innerWidth - popover.offsetWidth - 8)
   const top = clamp(anchorRect.bottom + 8, 8, window.innerHeight - popover.offsetHeight - 8)
@@ -1933,17 +2042,7 @@ function createFillPanel(
       onChange()
       return
     }
-    const alpha = draft.opacity / 100
-    if (alpha < 1) {
-      const hex = ensureHexColor(draft.color)
-      const r = parseInt(hex.slice(1, 3), 16)
-      const g = parseInt(hex.slice(3, 5), 16)
-      const b = parseInt(hex.slice(5, 7), 16)
-      tracker.apply('background-color', `rgba(${r}, ${g}, ${b}, ${alpha})`)
-    } else {
-      tracker.apply('background-color', draft.color)
-    }
-    tracker.apply('background-image', 'none')
+    applySolidFillDraft(tracker, draft)
     onDraftChange()
     onChange()
   }
@@ -2439,7 +2538,7 @@ function closeGradientTypeDropdown(): void {
 }
 
 function handleGradientTypeDropdownOutside(e: MouseEvent): void {
-  if (activeGradientTypeDropdown && e.target instanceof Element && !activeGradientTypeDropdown.contains(e.target)) {
+  if (activeGradientTypeDropdown && !eventPathIncludes(e, activeGradientTypeDropdown)) {
     closeGradientTypeDropdown()
   }
 }
@@ -2510,7 +2609,7 @@ function closeWeightDropdown(): void {
 }
 
 function handleWeightDropdownOutside(e: MouseEvent): void {
-  if (activeWeightDropdown && e.target instanceof Element && !activeWeightDropdown.contains(e.target)) {
+  if (activeWeightDropdown && !eventPathIncludes(e, activeWeightDropdown)) {
     closeWeightDropdown()
   }
 }
@@ -2705,7 +2804,7 @@ function closeFontPreviewSelection(): void {
 function noop(): void {}
 
 function handleFontDropdownOutside(e: MouseEvent): void {
-  if (activeFontDropdown && e.target instanceof Element && !activeFontDropdown.contains(e.target)) {
+  if (activeFontDropdown && !eventPathIncludes(e, activeFontDropdown)) {
     closeFontDropdown()
   }
 }
@@ -3007,7 +3106,7 @@ function closeColorFormatDropdown(): void {
 }
 
 function handleColorFormatDropdownOutside(e: MouseEvent): void {
-  if (activeColorFormatDropdown && e.target instanceof Element && !activeColorFormatDropdown.contains(e.target)) {
+  if (activeColorFormatDropdown && !eventPathIncludes(e, activeColorFormatDropdown)) {
     closeColorFormatDropdown()
   }
 }
@@ -3144,13 +3243,13 @@ function parseLineHeightInput(value: string): string | null {
   if (!trimmed) return null
 
   if (trimmed.endsWith('%')) {
-    const numeric = parseFloat(trimmed.slice(0, -1))
-    if (!Number.isFinite(numeric) || numeric < 0) return null
+    const numeric = parseIntegerInput(trimmed.slice(0, -1))
+    if (numeric == null || numeric < 0) return null
     return `${numeric}%`
   }
 
-  const numeric = parseFloat(trimmed)
-  if (!Number.isFinite(numeric) || numeric < 0) return null
+  const numeric = parseIntegerInput(trimmed)
+  if (numeric == null || numeric < 0) return null
   return `${numeric}px`
 }
 
@@ -3196,7 +3295,7 @@ function createLineHeightField(value: string, onChange: (value: string) => void)
   return wrap
 }
 
-function createTextValueField(iconHtml: string, value: string, onCommit: (value: string) => void): HTMLDivElement {
+function createTextValueField(iconHtml: string, value: string, onCommit: (value: string) => void, preserveDecimal = false): HTMLDivElement {
   const wrap = el('div', 'ei-dp-field')
   const iconEl = el('div', 'ei-dp-field-icon')
   iconEl.innerHTML = iconHtml
@@ -3215,9 +3314,11 @@ function createTextValueField(iconHtml: string, value: string, onCommit: (value:
       input.value = lastCommitted
       return
     }
-    lastCommitted = trimmed
-    input.value = trimmed
-    onCommit(trimmed)
+    const numeric = preserveDecimal ? parseNumberInput(trimmed) : parseIntegerInput(trimmed)
+    const committed = numeric == null ? trimmed : formatNumberInputValue(numeric, preserveDecimal)
+    lastCommitted = committed
+    input.value = committed
+    onCommit(committed)
   }
 
   input.addEventListener('keydown', (event) => {
@@ -3271,8 +3372,8 @@ export function buildMultiSelectionContainerPanel(
   spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
     state.paddingLeft == null
       ? createTextValueField(PADDING_ICONS.left ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('padding-left', `${numeric}px`)
         callbacks.onStyleChange()
       })
@@ -3288,8 +3389,8 @@ export function buildMultiSelectionContainerPanel(
       }),
     state.paddingTop == null
       ? createTextValueField(PADDING_ICONS.top ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('padding-top', `${numeric}px`)
         callbacks.onStyleChange()
       })
@@ -3307,8 +3408,8 @@ export function buildMultiSelectionContainerPanel(
   spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
     state.paddingRight == null
       ? createTextValueField(PADDING_ICONS.right ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('padding-right', `${numeric}px`)
         callbacks.onStyleChange()
       })
@@ -3324,8 +3425,8 @@ export function buildMultiSelectionContainerPanel(
       }),
     state.paddingBottom == null
       ? createTextValueField(PADDING_ICONS.bottom ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('padding-bottom', `${numeric}px`)
         callbacks.onStyleChange()
       })
@@ -3344,8 +3445,8 @@ export function buildMultiSelectionContainerPanel(
   spacingContent.appendChild(el('div', 'ei-dp-grid')).append(
     state.gap == null
       ? createTextValueField(FIELD_ICONS.gap ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('gap', `${numeric}px`)
         callbacks.onStyleChange()
       })
@@ -3414,8 +3515,8 @@ export function buildMultiSelectionContainerPanel(
       event.stopPropagation()
       if (event.key === 'Enter') {
         event.preventDefault()
-        const numeric = Number.parseFloat(radiusInput.value)
-        if (!Number.isFinite(numeric) || numeric < 0) {
+        const numeric = parseIntegerInput(radiusInput.value)
+        if (numeric == null || numeric < 0) {
           radiusInput.value = radiusDisplayValue
           radiusInput.blur()
           return
@@ -3426,8 +3527,8 @@ export function buildMultiSelectionContainerPanel(
       }
     })
     radiusInput.addEventListener('blur', () => {
-      const numeric = Number.parseFloat(radiusInput.value)
-      if (!Number.isFinite(numeric) || numeric < 0) {
+      const numeric = parseIntegerInput(radiusInput.value)
+      if (numeric == null || numeric < 0) {
         radiusInput.value = radiusDisplayValue
         return
       }
@@ -3437,19 +3538,25 @@ export function buildMultiSelectionContainerPanel(
     })
   }
 
+  const backgroundColorOpacity = state.backgroundColor == null ? 100 : getColorOpacityPercent(state.backgroundColor)
   appearanceContent.appendChild(el('div', 'ei-dp-grid')).append(
     radiusField,
     createFillRow({
       value: state.backgroundColor ?? '#FFFFFF',
+      opacity: backgroundColorOpacity,
       textValue: state.backgroundColor == null ? mixedLabel : undefined,
       placeholder: state.backgroundColor == null ? mixedLabel : undefined,
       onChange: (value) => {
-        tracker.apply('background-color', value)
+        tracker.apply('background-color', backgroundColorOpacity < 100 ? formatColorValue(value, 'css', backgroundColorOpacity) : value)
+        callbacks.onStyleChange()
+      },
+      onOpacityChange: (opacity, currentHex) => {
+        tracker.apply('background-color', formatColorValue(currentHex, 'css', opacity))
         callbacks.onStyleChange()
       },
       onSwatchClick: (swatch) => {
-        openSolidColorPopover(swatch, state.backgroundColor ?? '#FFFFFF', 100, getCachedPageColors(), tracker, (nextColor) => {
-          tracker.apply('background-color', nextColor)
+        openSolidColorPopover(swatch, state.backgroundColor ?? '#FFFFFF', backgroundColorOpacity, getCachedPageColors(), tracker, (nextColor, opacity) => {
+          tracker.apply('background-color', formatColorValue(nextColor, 'css', opacity))
           callbacks.onStyleChange()
         }, callbacks.onStyleChange)
       },
@@ -3478,17 +3585,18 @@ export function buildMultiSelectionContainerPanel(
   strokeContent.appendChild(el('div', 'ei-dp-grid')).append(
     state.borderWidth == null
       ? createTextValueField(FIELD_ICONS.strokeWeight ?? '', mixedLabel, (value) => {
-        const numeric = Number.parseFloat(value)
-        if (!Number.isFinite(numeric) || numeric < 0) return
+        const numeric = parseIntegerInput(value)
+        if (numeric == null || numeric < 0) return
         tracker.apply('border-width', `${numeric}px`)
         tracker.apply('border-style', numeric > 0 ? 'solid' : '')
         callbacks.onStyleChange()
-      })
+      }, true)
       : createLabeledField({
         icon: '',
         iconHtml: FIELD_ICONS.strokeWeight,
-        value: parsePxValue(state.borderWidth),
+        value: parseFloat(state.borderWidth),
         min: 0,
+        preserveDecimal: true,
         onChange: (value) => {
           tracker.apply('border-width', `${value}px`)
           tracker.apply('border-style', value > 0 ? 'solid' : '')
@@ -3497,16 +3605,24 @@ export function buildMultiSelectionContainerPanel(
       }),
     createFillRow({
       value: state.borderColor ?? '#000000',
+      opacity: state.borderColor == null ? 100 : getColorOpacityPercent(state.borderColor),
       textValue: state.borderColor == null ? mixedLabel : undefined,
       placeholder: state.borderColor == null ? mixedLabel : undefined,
       onChange: (value) => {
-        tracker.apply('border-color', value)
+        const opacity = state.borderColor == null ? 100 : getColorOpacityPercent(state.borderColor)
+        tracker.apply('border-color', opacity < 100 ? formatColorValue(value, 'css', opacity) : value)
+        if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
+        callbacks.onStyleChange()
+      },
+      onOpacityChange: (opacity, currentHex) => {
+        tracker.apply('border-color', formatColorValue(currentHex, 'css', opacity))
         if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
         callbacks.onStyleChange()
       },
       onSwatchClick: (swatch) => {
-        openSolidColorPopover(swatch, state.borderColor ?? '#000000', 100, getCachedPageColors(), tracker, (nextColor) => {
-          tracker.apply('border-color', nextColor)
+        const opacity = state.borderColor == null ? 100 : getColorOpacityPercent(state.borderColor)
+        openSolidColorPopover(swatch, state.borderColor ?? '#000000', opacity, getCachedPageColors(), tracker, (nextColor, nextOpacity) => {
+          tracker.apply('border-color', formatColorValue(nextColor, 'css', nextOpacity))
           if ((parsePxValue(state.borderWidth ?? '0px') || 0) > 0) tracker.apply('border-style', 'solid')
           callbacks.onStyleChange()
         }, callbacks.onStyleChange)
@@ -3556,8 +3672,8 @@ export function buildMultiSelectionTypographyPanel(
   const sizeWeightGrid = el('div', 'ei-dp-grid')
   const fontSizeField = state.fontSize == null
     ? createTextValueField('Aa', mixedLabel, (value) => {
-      const numeric = Number.parseFloat(value)
-      if (!Number.isFinite(numeric) || numeric < 0) return
+      const numeric = parseIntegerInput(value)
+      if (numeric == null || numeric < 0) return
       tracker.apply('font-size', `${numeric}px`)
       callbacks.onStyleChange()
     })
@@ -3610,17 +3726,23 @@ export function buildMultiSelectionTypographyPanel(
   ))
   content.appendChild(row4)
 
+  const textColorOpacity = state.color == null ? 100 : getColorOpacityPercent(state.color)
   content.appendChild(createFillRow({
-    value: state.color ?? '#999999',
+    value: state.color ?? '#000000',
+    opacity: textColorOpacity,
     textValue: state.color == null ? mixedLabel : undefined,
     placeholder: state.color == null ? mixedLabel : undefined,
     onChange: (v) => {
-      tracker.apply('color', v)
+      tracker.apply('color', textColorOpacity < 100 ? formatColorValue(v, 'css', textColorOpacity) : v)
+      callbacks.onStyleChange()
+    },
+    onOpacityChange: (opacity, currentHex) => {
+      tracker.apply('color', formatColorValue(currentHex, 'css', opacity))
       callbacks.onStyleChange()
     },
     onSwatchClick: (swatch) => {
-      openSolidColorPopover(swatch, state.color ?? '#999999', 100, getCachedPageColors(), tracker, (nextColor) => {
-        tracker.apply('color', nextColor)
+      openSolidColorPopover(swatch, state.color ?? '#000000', textColorOpacity, getCachedPageColors(), tracker, (nextColor, opacity) => {
+        tracker.apply('color', formatColorValue(nextColor, 'css', opacity))
         callbacks.onStyleChange()
       }, callbacks.onStyleChange)
     },
@@ -3651,8 +3773,8 @@ function parseLetterSpacingInput(value: string): string | null {
   const trimmed = value.trim()
   if (!trimmed) return null
   if (trimmed.endsWith('%')) {
-    const numeric = parseFloat(trimmed.slice(0, -1))
-    if (!Number.isFinite(numeric)) return null
+    const numeric = parseIntegerInput(trimmed.slice(0, -1))
+    if (numeric == null) return null
     return `${numeric}%`
   }
   return null
@@ -3771,7 +3893,7 @@ function closePosDropdown(): void {
 }
 
 function handlePosDropdownOutside(e: MouseEvent): void {
-  if (activePosDropdown && e.target instanceof Element && !activePosDropdown.contains(e.target)) {
+  if (activePosDropdown && !eventPathIncludes(e, activePosDropdown)) {
     closePosDropdown()
   }
 }
@@ -3826,7 +3948,7 @@ function closeShadowDropdown(): void {
 }
 
 function handleShadowDropdownOutside(e: MouseEvent): void {
-  if (activeShadowDropdown && e.target instanceof Element && !activeShadowDropdown.contains(e.target)) {
+  if (activeShadowDropdown && !eventPathIncludes(e, activeShadowDropdown)) {
     closeShadowDropdown()
   }
 }
@@ -4121,6 +4243,7 @@ function createStrokePanel(
   const weightNumInput = createNumberInput({
     value: values.width,
     min: 0,
+    preserveDecimal: true,
     onChange: (v) => {
       values.width = v
       values.top = v
@@ -4128,10 +4251,10 @@ function createStrokePanel(
       values.bottom = v
       values.left = v
       applyStroke(tracker, values)
-      topInput.querySelector('input')!.value = String(v)
-      rightInput.querySelector('input')!.value = String(v)
-      bottomInput.querySelector('input')!.value = String(v)
-      leftInput.querySelector('input')!.value = String(v)
+      topInput.querySelector('input')!.value = formatNumberInputValue(v, true)
+      rightInput.querySelector('input')!.value = formatNumberInputValue(v, true)
+      bottomInput.querySelector('input')!.value = formatNumberInputValue(v, true)
+      leftInput.querySelector('input')!.value = formatNumberInputValue(v, true)
       onChange()
     },
   })
@@ -4160,6 +4283,7 @@ function createStrokePanel(
     iconHtml: STROKE_POSITION_ICONS.top ?? '',
     value: values.top,
     min: 0,
+    preserveDecimal: true,
     onChange: (v) => {
       values.top = v
       values.width = Math.max(values.top, values.right, values.bottom, values.left)
@@ -4173,6 +4297,7 @@ function createStrokePanel(
     iconHtml: STROKE_POSITION_ICONS.right ?? '',
     value: values.right,
     min: 0,
+    preserveDecimal: true,
     onChange: (v) => {
       values.right = v
       values.width = Math.max(values.top, values.right, values.bottom, values.left)
@@ -4186,6 +4311,7 @@ function createStrokePanel(
     iconHtml: STROKE_POSITION_ICONS.bottom ?? '',
     value: values.bottom,
     min: 0,
+    preserveDecimal: true,
     onChange: (v) => {
       values.bottom = v
       values.width = Math.max(values.top, values.right, values.bottom, values.left)
@@ -4199,6 +4325,7 @@ function createStrokePanel(
     iconHtml: STROKE_POSITION_ICONS.left ?? '',
     value: values.left,
     min: 0,
+    preserveDecimal: true,
     onChange: (v) => {
       values.left = v
       values.width = Math.max(values.top, values.right, values.bottom, values.left)
@@ -4954,16 +5081,16 @@ export function buildDesignPanel(
       })
     },
   })
-  appearanceSec.content.appendChild(grid(
-    createLabeledField({
-      icon: '',
-      iconHtml: FIELD_ICONS.opacity,
-      value: Math.round(parseFloat(info.visual.opacity) * 100),
-      min: 0, max: 100, step: 1, suffix: '%',
-      onChange: (v) => tracker.apply('opacity', String(v / 100)),
-    }),
-    radiusField,
-  ))
+  const opacityField = createLabeledField({
+    icon: '',
+    iconHtml: FIELD_ICONS.opacity,
+    value: Math.round(parseFloat(info.visual.opacity) * 100),
+    min: 0, max: 100, step: 1, suffix: '%',
+    onChange: (v) => tracker.apply('opacity', String(v / 100)),
+  })
+  appearanceSec.content.appendChild(supportsSvgSizeEditing
+    ? grid(opacityField, el('div'))
+    : grid(opacityField, radiusField))
   container.appendChild(appearanceSec.container)
 
   // === 4. Typography ===
@@ -5020,14 +5147,20 @@ export function buildDesignPanel(
     typoSec.content.appendChild(row4)
 
     // Row 5: Text color
+    const textColorOpacity = getColorOpacityPercent(info.typography.color)
     const textPageColors = getCachedPageColors().filter(color => color !== info.typography.color)
     typoSec.content.appendChild(createFillRow({
       value: info.typography.color,
-      onChange: (v) => tracker.apply('color', v),
+      opacity: textColorOpacity,
+      onChange: (v) => tracker.apply('color', textColorOpacity < 100 ? formatColorValue(v, 'css', textColorOpacity) : v),
+      onOpacityChange: (opacity, currentHex) => {
+        tracker.apply('color', formatColorValue(currentHex, 'css', opacity))
+        notifyStyleChange()
+      },
       onSwatchClick: (swatch) => {
-        openSolidColorPopover(swatch, info.typography.color, 100, textPageColors, tracker, (nextColor) => {
-          info.typography.color = nextColor
-          tracker.apply('color', nextColor)
+        openSolidColorPopover(swatch, info.typography.color, textColorOpacity, textPageColors, tracker, (nextColor, opacity) => {
+          info.typography.color = formatColorValue(nextColor, 'css', opacity)
+          tracker.apply('color', info.typography.color)
         }, notifyStyleChange)
       },
     }))
@@ -5037,12 +5170,136 @@ export function buildDesignPanel(
 
   // === 5. Fill ===
   if (supportsSvgSizeEditing) {
+    const svgStyle = window.getComputedStyle(element)
+    let svgFill = getSvgPaintValues(svgStyle, 'fill', 'fill-opacity')
+    let svgStroke = getSvgPaintValues(svgStyle, 'stroke', 'stroke-opacity')
+    let svgStrokeWidth = parseFloat(svgStyle.getPropertyValue('stroke-width')) || 1
+
+    function populateSvgFillContent(contentEl: HTMLDivElement, values: SvgPaintValues): void {
+      contentEl.innerHTML = ''
+      contentEl.appendChild(createFillRow({
+        value: values.color,
+        opacity: values.opacity,
+        onChange: (value) => {
+          svgFill = { color: value, opacity: svgFill?.opacity ?? values.opacity }
+          applySvgPaint(tracker, 'fill', 'fill-opacity', svgFill.color, svgFill.opacity)
+          notifyStyleChange()
+        },
+        onOpacityChange: (opacity, currentHex) => {
+          svgFill = { color: currentHex, opacity }
+          applySvgPaint(tracker, 'fill', 'fill-opacity', currentHex, opacity)
+          notifyStyleChange()
+        },
+        onSwatchClick: (swatch) => {
+          openSolidColorPopover(swatch, svgFill?.color ?? values.color, svgFill?.opacity ?? values.opacity, getCachedPageColors(), tracker, (nextColor, opacity) => {
+            svgFill = { color: nextColor, opacity }
+            applySvgPaint(tracker, 'fill', 'fill-opacity', nextColor, opacity)
+          }, notifyStyleChange)
+        },
+      }))
+    }
+
+    const svgFillSection = createSection(i18n.design.fill, {
+      addRemove: {
+        onAdd: () => {
+          svgFill = { color: '#FFFFFF', opacity: 100 }
+          applySvgPaint(tracker, 'fill', 'fill-opacity', svgFill.color, svgFill.opacity)
+          populateSvgFillContent(svgFillSection.content, svgFill)
+          svgFillSection.setHasContent(true)
+          notifyStyleChange()
+        },
+        onRemove: () => {
+          tracker.apply('fill', 'none')
+          tracker.apply('fill-opacity', '')
+          svgFill = null
+          svgFillSection.content.innerHTML = ''
+          svgFillSection.setHasContent(false)
+          notifyStyleChange()
+        },
+      },
+    })
+    if (svgFill) {
+      populateSvgFillContent(svgFillSection.content, svgFill)
+      svgFillSection.setHasContent(true)
+    } else {
+      svgFillSection.setHasContent(false)
+    }
+    container.appendChild(svgFillSection.container)
+
+    function populateSvgStrokeContent(contentEl: HTMLDivElement, values: SvgStrokeValues): void {
+      contentEl.innerHTML = ''
+      contentEl.appendChild(grid(
+        createLabeledField({
+          icon: '',
+          iconHtml: FIELD_ICONS.strokeWeight,
+          value: values.width,
+          min: 0,
+          preserveDecimal: true,
+          onChange: (value) => {
+            svgStrokeWidth = value
+            tracker.apply('stroke-width', `${value}px`)
+            notifyStyleChange()
+          },
+        }),
+        createFillRow({
+          value: values.color,
+          opacity: values.opacity,
+          onChange: (value) => {
+            svgStroke = { color: value, opacity: svgStroke?.opacity ?? values.opacity }
+            applySvgPaint(tracker, 'stroke', 'stroke-opacity', svgStroke.color, svgStroke.opacity)
+            notifyStyleChange()
+          },
+          onOpacityChange: (opacity, currentHex) => {
+            svgStroke = { color: currentHex, opacity }
+            applySvgPaint(tracker, 'stroke', 'stroke-opacity', currentHex, opacity)
+            notifyStyleChange()
+          },
+          onSwatchClick: (swatch) => {
+            openSolidColorPopover(swatch, svgStroke?.color ?? values.color, svgStroke?.opacity ?? values.opacity, getCachedPageColors(), tracker, (nextColor, opacity) => {
+              svgStroke = { color: nextColor, opacity }
+              applySvgPaint(tracker, 'stroke', 'stroke-opacity', nextColor, opacity)
+            }, notifyStyleChange)
+          },
+        }),
+      ))
+    }
+
+    const svgStrokeSection = createSection(i18n.design.stroke, {
+      addRemove: {
+        onAdd: () => {
+          svgStroke = { color: '#000000', opacity: 100 }
+          svgStrokeWidth = 1
+          applySvgPaint(tracker, 'stroke', 'stroke-opacity', svgStroke.color, svgStroke.opacity)
+          tracker.apply('stroke-width', '1px')
+          populateSvgStrokeContent(svgStrokeSection.content, { ...svgStroke, width: svgStrokeWidth })
+          svgStrokeSection.setHasContent(true)
+          notifyStyleChange()
+        },
+        onRemove: () => {
+          tracker.apply('stroke', 'none')
+          tracker.apply('stroke-opacity', '')
+          tracker.apply('stroke-width', '')
+          svgStroke = null
+          svgStrokeSection.content.innerHTML = ''
+          svgStrokeSection.setHasContent(false)
+          notifyStyleChange()
+        },
+      },
+    })
+    if (svgStroke) {
+      populateSvgStrokeContent(svgStrokeSection.content, { ...svgStroke, width: svgStrokeWidth })
+      svgStrokeSection.setHasContent(true)
+    } else {
+      svgStrokeSection.setHasContent(false)
+    }
+    container.appendChild(svgStrokeSection.container)
+
     return container
   }
 
   const htmlElement = element as HTMLElement
   const fillDraft = createFillDraft(htmlElement, info)
-  const hasFill = fillDraft.kind !== 'solid' || info.visual.backgroundColor !== 'transparent' && info.visual.backgroundColor !== 'rgba(0, 0, 0, 0)'
+  const hasFill = fillDraft.kind !== 'solid' || hasVisibleFill(info.visual.backgroundColor)
   const pageColors = getCachedPageColors().filter(color => color !== fillDraft.color)
 
   function populateFillContent(contentEl: HTMLDivElement): void {

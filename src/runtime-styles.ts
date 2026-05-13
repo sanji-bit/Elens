@@ -154,8 +154,15 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-toolbar-btn:hover .ei-toolbar-tip { opacity: 1; }
 .ei-toolbar-btn[data-active="true"] { background: var(--interactive-accent); color: var(--overlay-label-text); }
 .ei-toolbar-btn[data-active="true"]:hover { background: var(--interactive-accent); }
-.ei-toolbar-btn[data-disabled="true"] { opacity: 0.35; pointer-events: none; }
+.ei-toolbar-btn[data-disabled="true"] { opacity: 0.35; cursor: not-allowed; }
+.ei-toolbar-btn[data-disabled="true"]:hover { background: transparent; }
+.ei-toolbar-btn[data-disabled="true"]:hover .ei-toolbar-tip { opacity: 0; }
+.ei-toolbar-btn.is-success { color: var(--success); }
 .ei-toolbar-btn svg { width: var(--btn-icon-glyph-size); height: var(--btn-icon-glyph-size); flex-shrink: 0; }
+.ei-toolbar-btn-icon { display: inline-flex; align-items: center; justify-content: center; width: var(--btn-icon-glyph-size); height: var(--btn-icon-glyph-size); flex-shrink: 0; }
+.ei-toolbar-btn-icon svg,
+.ei-toolbar-btn-icon img { width: var(--btn-icon-glyph-size); height: var(--btn-icon-glyph-size); display: block; flex-shrink: 0; }
+.ei-toolbar-count { display: inline-flex; align-items: center; justify-content: center; width: calc(var(--btn-icon-size) - var(--space-2)); height: calc(var(--btn-icon-size) - var(--space-2)); border-radius: var(--radius-full); background: var(--surface-hover-strong); color: currentColor; font-family: var(--font-family); font-size: var(--text-sm); font-weight: var(--font-semibold); line-height: 1; letter-spacing: 0; }
 .ei-toolbar-divider { display: flex; align-items: center; padding: 0 var(--space-1); }
 .ei-toolbar-divider-line { width: 1px; height: var(--space-8); background: var(--surface-hover-strong); }
 .ei-toolbar-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: var(--space-4); padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg); background: var(--overlay-ruler); color: var(--text-primary); font-size: var(--text-base); font-weight: var(--font-medium); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity var(--duration-slow) var(--ease-default); font-family: var(--font-family); }

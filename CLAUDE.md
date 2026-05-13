@@ -12,6 +12,32 @@ For this project, respond with directness, honesty, clarity, and professional ju
 - Treat user plans, assumptions, and important decisions as a sparring-partner exercise by default: identify 3–5 overlooked risks, flawed premises, key variables, trade-offs, or potential self-deception before giving constructive recommendations.
 - Critique should be specific, evidence-aware, and useful. If something is reasonable, state why it is reasonable, then clarify boundary conditions and remaining risks.
 
+## Regression Prevention Rule
+
+Stable existing functionality must not regress when implementing new features or fixes.
+
+- Efficiency is important, but only when it does not sacrifice correctness, stability, or regression safety.
+- Do only the requested work and keep diffs narrow. Do not refactor, restyle, rewrite, or touch adjacent behavior unless it is necessary for the requested change.
+- Before editing, identify the likely impacted existing flows and shared utilities/components.
+- If a change may affect an existing feature, explicitly tell the user which feature may be affected and why.
+- If a task is likely to take a long time, require broad exploration, require multi-agent planning, require full regression testing, or exceed roughly 10 minutes, explain the expected scope, reason, risk, and faster alternative first; wait for user approval before proceeding.
+- If touching shared interaction code, event handling, rendering, design tokens, runtime styles, persistence, selection, inspector controls, toolbar behavior, overlay mounting, or extension/demo entry points, test both the requested path and adjacent existing paths that depend on the same code.
+- If the affected old functionality cannot be tested locally, state this clearly in the completion report and list exactly what the user should verify.
+- Do not claim a feature is safe or fully validated unless the relevant regression paths were actually tested.
+- When a fix intentionally changes existing behavior, explain the behavior change before or during implementation, not after the user discovers it.
+
+## Execution Efficiency Rule
+
+For clearly scoped, local changes, do not over-plan.
+
+- Classify each task as small, medium, or large before starting.
+- Small changes should be implemented directly after reading the minimum necessary code.
+- Do not use long Plan/Explore workflows for simple icon, tooltip, disabled-state, spacing, or localized style changes.
+- Keep progress updates short and frequent when work takes more than a few minutes.
+- Regression prevention should be proportional to the change scope: test directly affected and adjacent paths, not the entire product for every small change.
+- Ask the user only when product behavior, copy format, design intent, backwards compatibility, or long-running work approval is genuinely ambiguous.
+- Completion reports should be concise: what changed, what was verified, and what still needs user confirmation.
+
 ## Core Rule
 
 All UI work in this project must follow the Elens Design System.

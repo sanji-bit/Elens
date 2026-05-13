@@ -190,6 +190,8 @@ const {
 
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
 const CHANGES_HOVER_COPY_ICON = `<img src="${CHANGES_HOVER_COPY_URL}" alt="" />`
+const TOOLBAR_COPY_AI_ICON = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 12.5C7.5 10.143 7.5 8.9645 8.23223 8.23223C8.9645 7.5 10.143 7.5 12.5 7.5H13.3333C15.6903 7.5 16.8688 7.5 17.6011 8.23223C18.3333 8.9645 18.3333 10.143 18.3333 12.5V13.3333C18.3333 15.6903 18.3333 16.8688 17.6011 17.6011C16.8688 18.3333 15.6903 18.3333 13.3333 18.3333H12.5C10.143 18.3333 8.9645 18.3333 8.23223 17.6011C7.5 16.8688 7.5 15.6903 7.5 13.3333V12.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.1666 7.49984C14.1646 5.0356 14.1273 3.75918 13.41 2.8852C13.2715 2.71641 13.1167 2.56165 12.948 2.42314C12.026 1.6665 10.6562 1.6665 7.91666 1.6665C5.17709 1.6665 3.80731 1.6665 2.88535 2.42314C2.71656 2.56165 2.56181 2.71641 2.42329 2.8852C1.66666 3.80715 1.66666 5.17694 1.66666 7.9165C1.66666 10.6561 1.66666 12.0258 2.42329 12.9478C2.5618 13.1166 2.71656 13.2713 2.88535 13.4098C3.75933 14.1272 5.03575 14.1644 7.49999 14.1664" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+const TOOLBAR_COPY_SUCCESS_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#34C759" stroke-width="1.5"/><path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="#34C759" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 const CHANGES_HOVER_COPY_SUCCESS_ICON = `<img src="${CHANGES_HOVER_COPY_SUCCESS_URL}" alt="" />`
 const CHANGES_HOVER_PREVIEW_AFTER_ICON = `<img src="${CHANGES_HOVER_PREVIEW_AFTER_URL}" alt="" />`
 const CHANGES_HOVER_PREVIEW_BEFORE_ICON = `<img src="${CHANGES_HOVER_PREVIEW_BEFORE_URL}" alt="" />`
@@ -456,6 +458,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let disabledNoteByChangeId = new Set<string>()
   let changeFlashTimeout: number | null = null
   let changeFlashElement: HTMLElement | null = null
+  let toolbarCopySuccessTimeout: number | null = null
   let toolbarExpanded = false
   let layersOpen = false
   let layersCollapsed = false
@@ -674,6 +677,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return moveHandleEntries.find(entry => entry.handle === handle) ?? null
   }
 
+  function getMoveHandleEntryFromEvent(event: Event): { handle: HTMLButtonElement; element: HTMLElement } | null {
+    const path = event.composedPath()
+    for (const target of path) {
+      const entry = getMoveHandleEntryFromTarget(target)
+      if (entry) return entry
+    }
+    return getMoveHandleEntryFromTarget(event.target)
+  }
+
   function showMoveOverlay(element: HTMLElement): void {
     const container = getReorderContainer(element)
     if (!container) {
@@ -734,13 +746,28 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return btn
   }
 
+  function makeToolbarSlotBtn(icon: string, label: string): { button: HTMLButtonElement; slot: HTMLSpanElement; tip: HTMLSpanElement } {
+    const button = el('button', 'ei-toolbar-btn')
+    button.type = 'button'
+    button.setAttribute(IGNORE_ATTR, 'true')
+    const slot = el('span', 'ei-toolbar-btn-icon')
+    slot.setAttribute(IGNORE_ATTR, 'true')
+    slot.innerHTML = icon
+    const tip = el('span', 'ei-toolbar-tip', label)
+    tip.setAttribute(IGNORE_ATTR, 'true')
+    button.append(slot, tip)
+    return { button, slot, tip }
+  }
+
   const inspectorBtn = makeToolbarBtn(ICON_INSPECTOR, i18n.toolbar.inspectorTooltip)
   const designBtn = makeToolbarBtn(ICON_DESIGN, i18n.toolbar.designTooltip)
   designBtn.classList.add('ei-toolbar-extra')
   const moveBtn = makeToolbarBtn(ICON_MOVE, i18n.toolbar.moveTooltip)
   moveBtn.classList.add('ei-toolbar-extra')
-  const changesBtn = makeToolbarBtn(ICON_CHANGES, i18n.toolbar.changesTooltip)
+  const { button: changesBtn, slot: changesBtnSlot, tip: changesBtnTip } = makeToolbarSlotBtn(ICON_CHANGES, i18n.toolbar.changesTooltip)
   changesBtn.classList.add('ei-toolbar-extra')
+  const { button: toolbarCopyAIBtn, slot: toolbarCopyAISlot, tip: toolbarCopyAITip } = makeToolbarSlotBtn(TOOLBAR_COPY_AI_ICON, i18n.actions.copyAI)
+  toolbarCopyAIBtn.classList.add('ei-toolbar-extra')
   // Screenshot button with dropdown
   const viewportGroup = el('div', 'ei-toolbar-extra')
   viewportGroup.setAttribute(IGNORE_ATTR, 'true')
@@ -834,13 +861,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportMenu.append(viewportMode, ...viewportPresetItems, viewportCustom)
   moreMenu.append(guidesMenuItem, outlinesMenuItem)
 
-  const toolbarDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
-  toolbarDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
+  const toolbarActionsDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
+  toolbarActionsDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
+  const toolbarExitDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
+  toolbarExitDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
 
   const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exitTooltip)
   exitBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, screenshotGroup, changesBtn, moreBtn, toolbarDivider, exitBtn)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, screenshotGroup, moreBtn, toolbarActionsDivider, changesBtn, toolbarCopyAIBtn, toolbarExitDivider, exitBtn)
   root.append(viewportMenu, moreMenu, outputDetailMenu)
 
   const layersPanel = el('div', 'ei-layers-panel')
@@ -940,9 +969,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function isIgnoredEvent(event: Event): boolean {
+    if (getMoveHandleEntryFromEvent(event)) return false
     const target = event.target
     if (!(target instanceof Element)) return false
-    if (target.closest('.ei-move-handle')) return false
     return Boolean(target.closest(`[${IGNORE_ATTR}="true"]`))
   }
 
@@ -1403,11 +1432,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       sibling.style.transition = ''
     })
 
-    if (moveDragState.started && moveDragState.target !== null || moveDragState.lastIndex !== moveDragState.initialIndex) {
-      // Apply the actual DOM insertion
+    delete moveDragState.element.dataset.eiMoving
+    const didMove = moveDragState.started && moveDragState.lastIndex !== moveDragState.initialIndex
+    if (didMove) {
       applyMoveInsertion(moveDragState.container, moveDragState.element, moveDragState.target, moveDragState.placement)
       const newIndex = getReorderableSiblings(moveDragState.element).indexOf(moveDragState.element)
-      delete moveDragState.element.dataset.eiMoving
       saveMoveChange(moveDragState.element, moveDragState.initialIndex, newIndex)
     }
 
@@ -1470,6 +1499,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     )
     moveDragState.target = insertion.target
     moveDragState.placement = insertion.placement
+    moveDragState.lastIndex = insertion.index
 
     const currentIndex = siblings.indexOf(moveDragState.element)
     const newIndex = insertion.index
@@ -2338,7 +2368,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderMarkers()
   }
 
+  function getDisplayedChangeCount(items: Change[] = changes): number {
+    const grouped = new Set<string>()
+    let count = 0
+    items.forEach((change) => {
+      if (change.type === 'design' && change.meta.groupKey) {
+        grouped.add(`${change.meta.route || getRoute()}::${change.meta.groupKey}`)
+        return
+      }
+      count += 1
+    })
+    return count + grouped.size
+  }
+
   function renderMarkers(): void {
+    updateToolbar()
     markersContainer.innerHTML = ''
     if (currentMode === 'off' || (currentMode === 'design' && !designOverlaysVisible)) return
     const seenGroupKeys = new Set<string>()
@@ -2456,6 +2500,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function getOutputDetailLabel(detail: OutputDetail): string {
     return i18n.outputDetail[detail]
+  }
+
+  function formatCopyAILabel(detail: OutputDetail = outputDetail): string {
+    return `${i18n.actions.copyAI} (${getOutputDetailLabel(detail)})`
+  }
+
+  async function copyCurrentAIPayload(): Promise<void> {
+    try {
+      await writeClipboardText(buildAIPayload(changes, outputDetail))
+    } catch (error) {
+      console.error('[Elens] Copy AI failed:', error)
+      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+      throw error
+    }
   }
 
   function positionOutputDetailMenu(anchor: HTMLElement): void {
@@ -3113,17 +3171,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const exportRow = el('div', 'ei-ann-export')
     const exportPrimary = el('div', 'ei-ann-export-primary')
-    const copyAIBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-primary', `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})`)
+    const copyAIBtn = el('button', 'ei-ann-export-btn ei-ann-export-btn-primary', formatCopyAILabel())
     copyAIBtn.type = 'button'
     copyAIBtn.setAttribute(IGNORE_ATTR, 'true')
     copyAIBtn.addEventListener('click', async () => {
       try {
-        await writeClipboardText(buildAIPayload(changes, outputDetail))
+        await copyCurrentAIPayload()
         copyAIBtn.textContent = i18n.actions.copied
-        setTimeout(() => { copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(outputDetail)})` }, 1500)
-      } catch (error) {
-        console.error('[Elens] Copy AI failed:', error)
-        showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
+        setTimeout(() => { copyAIBtn.textContent = formatCopyAILabel() }, 1500)
+      } catch {
+        return
       }
     })
 
@@ -3136,7 +3193,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     copyJSONBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       toggleOutputDetailMenu(copyJSONBtn, (detail) => {
-        copyAIBtn.textContent = `${i18n.actions.copyAI} (${getOutputDetailLabel(detail)})`
+        copyAIBtn.textContent = formatCopyAILabel(detail)
+        updateToolbar()
       })
     })
 
@@ -5111,7 +5169,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function onMouseDown(event: MouseEvent): void {
     if (!isInteractiveMode() || isPanelEvent(event) || isEditableTarget(event.target)) return
     if (currentMode !== 'move' || event.button !== 0) return
-    const handleEntry = getMoveHandleEntryFromTarget(event.target)
+    const handleEntry = getMoveHandleEntryFromEvent(event)
     if (!handleEntry) return
     startMoveDragFromHandle(handleEntry, event)
   }
@@ -6144,6 +6202,49 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   syncLayersPanelVisibility()
 
+  function setToolbarCopyIcon(icon: string): void {
+    toolbarCopyAISlot.innerHTML = icon
+  }
+
+  function updateToolbarChangesState(): void {
+    const count = getDisplayedChangeCount()
+    if (count > 0) {
+      changesBtnSlot.className = 'ei-toolbar-count'
+      changesBtnSlot.textContent = count > 99 ? '99+' : String(count)
+      changesBtn.dataset.hasCount = 'true'
+      changesBtn.ariaLabel = `${i18n.toolbar.changesTooltip} · ${count}`
+    } else {
+      changesBtnSlot.className = 'ei-toolbar-btn-icon'
+      changesBtnSlot.innerHTML = ICON_CHANGES
+      delete changesBtn.dataset.hasCount
+      changesBtn.ariaLabel = i18n.toolbar.changesTooltip
+    }
+    changesBtnTip.textContent = i18n.toolbar.changesTooltip
+
+    const hasChanges = count > 0
+    toolbarCopyAIBtn.disabled = !hasChanges
+    toolbarCopyAIBtn.dataset.disabled = hasChanges ? 'false' : 'true'
+    toolbarCopyAIBtn.ariaDisabled = hasChanges ? 'false' : 'true'
+    toolbarCopyAIBtn.ariaLabel = i18n.actions.copyAI
+    toolbarCopyAIBtn.title = hasChanges ? formatCopyAILabel() : ''
+    toolbarCopyAITip.textContent = hasChanges ? i18n.actions.copyAI : ''
+  }
+
+  function setToolbarCopySuccess(): void {
+    if (toolbarCopySuccessTimeout) {
+      window.clearTimeout(toolbarCopySuccessTimeout)
+      toolbarCopySuccessTimeout = null
+    }
+    toolbarCopyAIBtn.classList.add('is-success')
+    setToolbarCopyIcon(TOOLBAR_COPY_SUCCESS_ICON)
+    toolbarCopySuccessTimeout = window.setTimeout(() => {
+      toolbarCopySuccessTimeout = null
+      toolbarCopyAIBtn.classList.remove('is-success')
+      setToolbarCopyIcon(TOOLBAR_COPY_AI_ICON)
+      updateToolbarChangesState()
+    }, 1500)
+  }
+
   function updateToolbar(): void {
     root.dataset.mode = currentMode
     inspectorBtn.dataset.active = currentMode === 'inspector' ? 'true' : 'false'
@@ -6153,6 +6254,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     guidesMenuItem.dataset.active = currentMode === 'guides' ? 'true' : 'false'
     outlinesMenuItem.dataset.active = outlinesEnabled ? 'true' : 'false'
     moreBtn.dataset.active = currentMode === 'guides' || outlinesEnabled ? 'true' : 'false'
+    updateToolbarChangesState()
   }
 
   function expandToolbar(): void {
@@ -6540,6 +6642,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   designBtn.addEventListener('click', () => toggleToolbarMode('design'))
   moveBtn.addEventListener('click', () => toggleToolbarMode('move'))
   changesBtn.addEventListener('click', () => toggleToolbarMode('changes'))
+  toolbarCopyAIBtn.addEventListener('click', async () => {
+    if (changes.length === 0) return
+    try {
+      await copyCurrentAIPayload()
+      setToolbarCopySuccess()
+    } catch {
+      return
+    }
+  })
   exitBtn.addEventListener('click', () => {
     setMode('off')
     clearOutlines()

@@ -256,7 +256,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-design-action-btn[data-active="true"] [fill*="var(--fill-0, white)"],
 .ei-design-action-btn[data-active="true"] [stroke="currentColor"] { color: inherit; fill: currentColor; stroke: currentColor; }
 .ei-design-action-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--interactive-accent); }
-.ei-design-action-btn:disabled { opacity: 1; color: var(--text-muted); cursor: default; }
+.ei-design-action-btn:disabled { opacity: 1; color: var(--text-muted); cursor: not-allowed; }
 .ei-design-action-btn:disabled img { filter: none; }
 .ei-drag-handle { position: absolute; top: 0; left: 0; width: 100%; height: 12px; border: 0; background: transparent; cursor: grab; display: block; padding: 0; }
 .ei-drag-handle:active { cursor: grabbing; }

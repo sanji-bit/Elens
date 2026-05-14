@@ -469,6 +469,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let layersKeyboardActive = false
   let layersHoverElement: HTMLElement | null = null
   let styleTracker: StyleTracker | null = null
+  const styleResetTargets = new WeakMap<InspectableElement, Map<string, { rule: CSSStyleRule | null; ruleValue: string; inlineValue: string }>>()
+  const ruleResetOverrides = new Map<CSSStyleRule, Map<HTMLElement, Map<string, string>>>()
   let activeDesignTextChangeTarget: HTMLElement | null = null
   let activeDesignTextChangeHandler: ((original: string, modified: string) => void) | null = null
   let activeDesignTextDraft = ''
@@ -1980,10 +1982,75 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
-  function resetChangeToBefore(change: Change): void {
+  function restoreInlineStyle(element: HTMLElement, property: string, value: string): void {
+    if (value) element.style.setProperty(property, value)
+    else element.style.removeProperty(property)
+    if (!element.getAttribute('style')?.trim()) element.removeAttribute('style')
+  }
+
+  function rememberStyleResetTarget(element: HTMLElement, property: string, rule: CSSStyleRule | null): void {
+    let resetTargets = styleResetTargets.get(element)
+    if (!resetTargets) {
+      resetTargets = new Map()
+      styleResetTargets.set(element, resetTargets)
+    }
+    if (resetTargets.has(property)) return
+    resetTargets.set(property, {
+      rule,
+      ruleValue: rule?.style.getPropertyValue(property) ?? '',
+      inlineValue: element.style.getPropertyValue(property),
+    })
+  }
+
+  function resetRuleOverrides(rule: CSSStyleRule, property: string): void {
+    const ruleOverrides = ruleResetOverrides.get(rule)
+    if (!ruleOverrides) return
+    for (const [element, overrides] of ruleOverrides) {
+      if (!overrides.has(property)) continue
+      const inlineValue = overrides.get(property) ?? ''
+      restoreInlineStyle(element, property, inlineValue)
+      overrides.delete(property)
+      if (!overrides.size) ruleOverrides.delete(element)
+    }
+    if (!ruleOverrides.size) ruleResetOverrides.delete(rule)
+  }
+
+  function resetChangeToBefore(change: Change, options?: { preserveRemainingRuleChanges?: boolean }): void {
     if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.from
+    const resetTargets = styleResetTargets.get(change.element)
     for (const diff of change.patch.styleDiffs) {
-      if (diff.original) change.element.style.setProperty(diff.property, diff.original)
+      const resetTarget = resetTargets?.get(diff.property)
+      const hasRemainingRuleChange = !!resetTarget?.rule && !!options?.preserveRemainingRuleChanges && changes.some((otherChange) => {
+        if (otherChange.id === change.id || otherChange.type !== 'design') return false
+        if (!otherChange.patch.styleDiffs.some(otherDiff => otherDiff.property === diff.property)) return false
+        return styleResetTargets.get(otherChange.element)?.get(diff.property)?.rule === resetTarget.rule
+      })
+      if (hasRemainingRuleChange) {
+        if (change.element instanceof HTMLElement && resetTarget?.rule) {
+          let ruleOverrides = ruleResetOverrides.get(resetTarget.rule)
+          if (!ruleOverrides) {
+            ruleOverrides = new Map()
+            ruleResetOverrides.set(resetTarget.rule, ruleOverrides)
+          }
+          let elementOverrides = ruleOverrides.get(change.element)
+          if (!elementOverrides) {
+            elementOverrides = new Map()
+            ruleOverrides.set(change.element, elementOverrides)
+          }
+          if (!elementOverrides.has(diff.property)) elementOverrides.set(diff.property, resetTarget.inlineValue)
+          restoreInlineStyle(change.element, diff.property, diff.original)
+        }
+      } else if (resetTarget) {
+        if (resetTarget.rule) {
+          if (resetTarget.ruleValue) resetTarget.rule.style.setProperty(diff.property, resetTarget.ruleValue)
+          else resetTarget.rule.style.removeProperty(diff.property)
+          resetRuleOverrides(resetTarget.rule, diff.property)
+        }
+        if (change.element instanceof HTMLElement) {
+          restoreInlineStyle(change.element, diff.property, resetTarget.inlineValue)
+        }
+      } else if (change.element instanceof HTMLElement) restoreInlineStyle(change.element, diff.property, diff.original)
+      else if (diff.original) change.element.style.setProperty(diff.property, diff.original)
       else change.element.style.removeProperty(diff.property)
     }
     if (change.patch.moveDiff && change.element instanceof HTMLElement) {
@@ -2035,7 +2102,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function clearAllChanges(options?: { skipAutoCopy?: boolean }): void {
-    changes.forEach(resetChangeToBefore)
+    changes.forEach(change => resetChangeToBefore(change))
     changes = []
     changeIdCounter = 0
     clearPendingAutoCopy()
@@ -2345,12 +2412,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function removeChange(id: string): void {
     const change = changes.find(c => c.id === id)
-    // Revert design styles when removing a design change
-    if (change?.type === 'design' && change.diffs) {
-      for (const diff of change.diffs) {
-        change.element.style.removeProperty(diff.property)
-      }
-    }
+    if (change?.type === 'design') resetChangeToBefore(change, { preserveRemainingRuleChanges: true })
     changes = changes.filter(c => c.id !== id)
     disabledStyleDiffsByChangeId.delete(id)
     disabledTextDiffByChangeId.delete(id)
@@ -4117,20 +4179,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function createDesignStyleTrackerAdapter(element: HTMLElement) {
-    if (designApplyToElementOnly) return undefined
     const rules = new Map<string, CSSStyleRule>()
     const originals = new Map<string, string>()
 
     return {
       getOriginal(property: string): string {
-        const rule = getEditableMatchedStyleRule(element, property)
+        const rule = designApplyToElementOnly ? null : getEditableMatchedStyleRule(element, property)
+        rememberStyleResetTarget(element, property, rule)
         if (!rule) return window.getComputedStyle(element).getPropertyValue(property)
         rules.set(property, rule)
         if (!originals.has(property)) originals.set(property, rule.style.getPropertyValue(property) || window.getComputedStyle(element).getPropertyValue(property))
         return originals.get(property) ?? ''
       },
       apply(property: string, value: string): void {
-        const rule = rules.get(property) ?? getEditableMatchedStyleRule(element, property)
+        const rule = designApplyToElementOnly ? null : rules.get(property) ?? getEditableMatchedStyleRule(element, property)
+        rememberStyleResetTarget(element, property, rule)
         if (rule) {
           rule.style.setProperty(property, value)
           element.style.removeProperty(property)
@@ -4139,7 +4202,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         element.style.setProperty(property, value)
       },
       reset(property: string): void {
-        const rule = rules.get(property)
+        const rule = designApplyToElementOnly ? null : rules.get(property)
         if (!rule) {
           element.style.removeProperty(property)
           return
@@ -4265,15 +4328,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return getEffectiveDesignScopeElements(element)
   }
 
-  function hasDesignScopedChanges(element: InspectableElement): boolean {
-    if (!(element instanceof HTMLElement)) {
-      return changes.some((change) => change.type === 'design' && change.element === element)
-    }
-    const scopeElements = new Set(getCurrentDesignScopeElements(element))
-    const scopeGroupKey = getDesignChangeGroupKey(element)
-    return changes.some((change) => change.type === 'design' && (
-      scopeElements.has(change.element as HTMLElement) || change.meta.groupKey === scopeGroupKey
-    ))
+  function getDesignResetElements(element: InspectableElement): InspectableElement[] {
+    if (!(element instanceof HTMLElement)) return [element]
+    return getCurrentDesignScopeElements(element)
+  }
+
+  function hasDesignSelectionChanges(element: InspectableElement): boolean {
+    const resetElements = new Set(getDesignResetElements(element))
+    return changes.some((change) => change.type === 'design' && resetElements.has(change.element))
   }
 
   function hasExistingMatchingLayerGroup(element: InspectableElement): boolean {
@@ -4289,28 +4351,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function resetDesignSelectionChanges(element: InspectableElement): void {
-    if (!(element instanceof HTMLElement)) {
-      const idsToRemove = changes.filter((change) => change.type === 'design' && change.element === element).map(change => change.id)
-      if (idsToRemove.length === 0) return
-      idsToRemove.forEach(removeChange)
-      resetDesignTracker()
-      if (!document.contains(element)) {
-        clearDesignSelection()
-        renderDesign(null)
-        return
-      }
-      if (element instanceof HTMLElement) {
-        selectedElements = [element]
-      }
-      renderDesign(extractInspectorInfo(element))
-      return
-    }
-    const scopeElements = new Set(getCurrentDesignScopeElements(element))
-    const scopeGroupKey = getDesignChangeGroupKey(element)
+    const resetElements = new Set(getDesignResetElements(element))
     const idsToRemove = changes
-      .filter((change) => change.type === 'design' && (
-        (change.element instanceof HTMLElement && scopeElements.has(change.element)) || change.meta.groupKey === scopeGroupKey
-      ))
+      .filter((change) => change.type === 'design' && resetElements.has(change.element))
       .map(change => change.id)
 
     if (idsToRemove.length === 0) return
@@ -4321,8 +4364,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       renderDesign(null)
       return
     }
-    selectedElements = [element]
-    lockedElement = element
+    if (element instanceof HTMLElement) {
+      selectedElements = [element]
+      lockedElement = element
+    }
     renderDesign(extractInspectorInfo(element))
   }
 
@@ -4434,6 +4479,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const existingChange = changes.find(c => c.type === 'design' && c.element === info.element)
     let activeChangeId: string | null = existingChange?.id ?? null
     let currentTextDiff: { property: string; original: string; modified: string } | null = null
+    let resetBtn: HTMLButtonElement | null = null
+
+    const syncResetButtonState = (): void => {
+      if (!resetBtn) return
+      resetBtn.disabled = !hasDesignSelectionChanges(info.element)
+    }
 
     const getExistingDesignNote = (): string => {
       if (!activeChangeId) return ''
@@ -4467,6 +4518,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
           const freshInfo = extractInspectorInfo(info.element)
           currentInfo = freshInfo
           updateHighlight(freshInfo)
+          syncResetButtonState()
         })
         return
       }
@@ -4474,6 +4526,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         if (element !== primaryElement) {
           diffs.forEach((diff) => {
             if (diff.property === 'textContent') return
+            if (element instanceof HTMLElement) rememberStyleResetTarget(element, diff.property, null)
             element.style.setProperty(diff.property, diff.modified)
           })
         }
@@ -4503,6 +4556,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const freshInfo = extractInspectorInfo(info.element)
         currentInfo = freshInfo
         updateHighlight(freshInfo)
+        syncResetButtonState()
       })
     }
 
@@ -4585,8 +4639,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const layerActionGroup = el('div', 'ei-design-action-btn-group')
     layerActionGroup.append(matchBtn, layersToggleBtn)
 
-    const resetBtn = createDesignActionIconButton(i18n.design.reset, DESIGN_RESET_ICON)
-    resetBtn.disabled = !hasDesignScopedChanges(info.element)
+    resetBtn = createDesignActionIconButton(i18n.design.reset, DESIGN_RESET_ICON)
+    syncResetButtonState()
     resetBtn.addEventListener('click', () => {
       resetDesignSelectionChanges(info.element)
     })

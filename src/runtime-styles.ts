@@ -383,7 +383,7 @@ export function createInspectorStyles(zIndex: number): string {
 .ei-panel:not(.is-changes) .ei-annotate { border-top: 0; padding: 0 var(--space-4) var(--space-4); }
 .ei-annotate-input { width: 100%; min-height: var(--annotate-min-height); resize: vertical; background: var(--surface-field); border: 1px solid var(--border-hover); border-radius: var(--annotate-radius); color: var(--text-primary); font-size: var(--text-base); font-family: inherit; padding: var(--annotate-padding); outline: none; overflow: auto; user-select: text; -webkit-user-select: text; }
 .ei-annotate-input:hover { border-color: var(--border-hover); }
-.ei-annotate-input:focus { border-color: var(--border-hover); }
+.ei-annotate-input:focus { border-color: var(--interactive-accent); }
 .ei-annotate-input:focus-visible { border-color: var(--interactive-accent); }
 .ei-annotate-input::placeholder { color: var(--text-muted); }
 .ei-annotate-input::-webkit-scrollbar { width: 8px; height: 8px; }

@@ -2472,7 +2472,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     wrap.append(textarea, actionsRow)
     requestAnimationFrame(() => {
-      if (annotateInput === textarea && document.contains(textarea)) {
+      if (annotateInput === textarea && textarea.isConnected) {
         textarea.focus()
         textarea.setSelectionRange(textarea.value.length, textarea.value.length)
       }
@@ -3882,7 +3882,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       syncInspectorExpanded()
       if (inspectorDetailsExpanded && annotateInput) {
         requestAnimationFrame(() => {
-          if (annotateInput && document.contains(annotateInput)) {
+          if (annotateInput?.isConnected) {
             annotateInput.focus()
             annotateInput.setSelectionRange(annotateInput.value.length, annotateInput.value.length)
           }

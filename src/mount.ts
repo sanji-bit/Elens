@@ -16,14 +16,14 @@ import {
   ICON_VIEWPORT,
 } from './icons'
 import type { Change, ElementInspectorInstance, ElementInspectorOptions, InspectableElement, InspectorInfo, InspectorMode, LayersTreeBuildResult, LayersTreeNode, OutputDetail, StyleDiff, ThemeConfig, ViewportControllerCapabilities, ViewportPreset, ViewportState, ViewportTarget, WindowBounds } from './types'
-import { buildDesignDevEditor, buildDesignPanel, buildMultiSelectionContainerPanel, buildMultiSelectionTypographyPanel, createStyleTracker, type MultiSelectionContainerState, type MultiSelectionTypographyState, type StyleTracker } from './design'
+import { buildDesignPanel, buildMultiSelectionContainerPanel, buildMultiSelectionTypographyPanel, createStyleTracker, type MultiSelectionContainerState, type MultiSelectionTypographyState, type StyleTracker } from './design'
 import { analyzeDesignScope, type DesignScopeAnalysis, type DesignScopeMode } from './design-scope'
 import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
 import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
 import { applyViewportSize as applyHostViewportSize, applyWindowBounds as applyHostWindowBounds, canResizeViewport as canHostResizeViewport, canResizeWindow as canHostResizeWindow, captureElementImageBlob as captureHostElementImageBlob, performCaptureForDesign, resolveInitialViewportState, resolveViewportCapabilities, writeClipboardImage as writeHostClipboardImage, writeClipboardText as writeHostClipboardText } from './host-runtime'
-import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, getInspectableElementFromPoint, getRoute, rgbToHex, truncate } from './utils'
+import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, getInspectableElementFromPoint, getRoute, loadLayerTreeNodeChildren, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
@@ -160,7 +160,6 @@ const {
   changesPanelChevron: CHANGES_PANEL_CHEVRON_URL,
   changesUpload: CHANGES_UPLOAD_URL,
   changesDownload: CHANGES_DOWNLOAD_URL,
-  designDevMode: DESIGN_DEV_MODE_URL,
   designReset: DESIGN_RESET_URL,
 } = ICON_URLS
 
@@ -175,7 +174,6 @@ const {
   toolbarChanges: ICON_CHANGES,
   toolbarDesign: ICON_DESIGN,
   designModeFigma: DESIGN_MODE_ICON,
-  designDevModeFigma: DESIGN_DEV_MODE_ICON,
   designSelectMatchingLayers: DESIGN_SELECT_MATCHING_LAYERS_ICON,
   designReset: DESIGN_RESET_ICON,
   panelMinimizeUi: PANEL_MINIMIZE_UI_ICON,
@@ -210,7 +208,6 @@ preloadImage(CHANGES_PANEL_CLOSE_URL)
 preloadImage(CHANGES_PANEL_CHEVRON_URL)
 preloadImage(CHANGES_UPLOAD_URL)
 preloadImage(CHANGES_DOWNLOAD_URL)
-preloadImage(DESIGN_DEV_MODE_URL)
 preloadImage(DESIGN_RESET_URL)
 
 function codeRow(property: string, value: string, swatch?: string): HTMLDivElement {
@@ -439,7 +436,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let latestPoint: { x: number; y: number } | null = null
   let panelAnchor: { x: number; y: number } | null = null
   let panelPosition: { left: number; top: number } | null = null
+  let layersPanelPosition: { left: number; top: number } | null = null
   let isDraggingPanel = false
+  let isDraggingLayersPanel = false
   let changes: Change[] = []
   let changeIdCounter = 0
   let annotateInput: HTMLTextAreaElement | null = null
@@ -484,14 +483,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     blurHandler: () => void
   } | null = null
   let designApplyToElementOnly = false
-  let designPanelView: 'visual' | 'dev' = 'visual'
   let designScopeModeOverride: DesignScopeMode | null = null
   let designScopeSelectionKey: string | null = null
   let panelCollapsed = false
   let panelExpandedHeight = 0
-  let designDevDraft = ''
-  let designDevError = ''
-  let designDevSessionBaseline: Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }> = []
   let moveChangeIdByElement = new WeakMap<HTMLElement, string>()
   // Guides mode state
   let guidesAnchorElement: HTMLElement | null = null
@@ -1094,6 +1089,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function positionPanel(anchor: { x: number; y: number } | null, info: InspectorInfo | null = currentInfo): void {
+    if (panelPosition) {
+      panel.style.right = 'auto'
+      const next = clampPanelPosition(panelPosition.left, panelPosition.top)
+      panelPosition = next
+      panel.style.left = `${next.left}px`
+      panel.style.top = `${next.top}px`
+      return
+    }
+
     if (currentMode === 'design') {
       panel.style.left = 'auto'
       panel.style.right = 'var(--panel-offset)'
@@ -1102,14 +1106,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     panel.style.right = 'auto'
-
-    if (panelPosition) {
-      const next = clampPanelPosition(panelPosition.left, panelPosition.top)
-      panelPosition = next
-      panel.style.left = `${next.left}px`
-      panel.style.top = `${next.top}px`
-      return
-    }
 
     const measuredPanelWidth = Math.max(panel.offsetWidth || 0, 380)
 
@@ -1792,7 +1788,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     lockedElement = element
     if (anchor) {
       panelAnchor = anchor
-      panelPosition = null
     }
   }
 
@@ -1816,7 +1811,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     lockedElement = nextPrimary
     if (nextPrimary) {
       panelAnchor = anchor ?? { x: Math.max(nextPrimary.getBoundingClientRect().left, 120), y: Math.max(nextPrimary.getBoundingClientRect().top, 120) }
-      panelPosition = null
     }
   }
 
@@ -3208,27 +3202,63 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Inspector rendering ---
 
+  function clampLayersPanelPosition(left: number, top: number): { left: number; top: number } {
+    const panelWidth = Math.max(layersPanel.offsetWidth || 0, 320)
+    const estimatedHeight = Math.min(Math.max(layersPanel.offsetHeight || 360, 220), window.innerHeight - 24)
+    return {
+      left: Math.max(12, Math.min(left, window.innerWidth - panelWidth - 12)),
+      top: Math.max(12, Math.min(top, window.innerHeight - estimatedHeight - 12)),
+    }
+  }
+
+  function positionLayersPanel(): void {
+    if (!layersPanelPosition) return
+    const next = clampLayersPanelPosition(layersPanelPosition.left, layersPanelPosition.top)
+    layersPanelPosition = next
+    layersPanel.style.left = `${next.left}px`
+    layersPanel.style.top = `${next.top}px`
+    layersPanel.style.right = 'auto'
+  }
+
   function syncLayersPanelVisibility(): void {
     layersPanel.style.display = layersOpen ? '' : 'none'
     layersPanel.dataset.collapsed = layersCollapsed ? 'true' : 'false'
     layersCollapseBtn.innerHTML = layersCollapsed ? ICON_LAYER_EXPAND : ICON_LAYER_COLLAPSE
+    positionLayersPanel()
   }
 
-  function collectLayerAncestorIds(node: LayersTreeNode, targetId: string, trail: string[] = []): string[] | null {
-    if (node.id === targetId) return trail
-    for (const child of node.children) {
-      const result = collectLayerAncestorIds(child, targetId, [...trail, node.id])
-      if (result) return result
+  function getLayerAncestorIdsForElement(element: HTMLElement): string[] {
+    const ancestorIds: string[] = []
+    let current = element.parentElement
+    while (current instanceof HTMLElement && current !== document.documentElement) {
+      ancestorIds.unshift(buildTreeNodeId(current))
+      if (current === document.body) break
+      current = current.parentElement
     }
-    return null
+    return ancestorIds
   }
 
-  function expandLayersSelection(tree: LayersTreeNode | null, selectedId: string | null): void {
-    if (!tree || !selectedId) return
-    const ancestorIds = collectLayerAncestorIds(tree, selectedId)
-    if (!ancestorIds) return
+  function ensureLayerPathLoaded(tree: LayersTreeNode, ancestorIds: string[]): void {
+    let current: LayersTreeNode | null = tree
+    for (const ancestorId of ancestorIds) {
+      if (!current) return
+      if (current.id === ancestorId) {
+        loadLayerTreeNodeChildren(current, IGNORE_ATTR)
+        annotateLayersTreeIcons(current)
+        continue
+      }
+      loadLayerTreeNodeChildren(current, IGNORE_ATTR)
+      annotateLayersTreeIcons(current)
+      current = current.children.find(child => child.id === ancestorId) ?? null
+    }
+  }
+
+  function expandLayersSelection(tree: LayersTreeNode | null, selectedElement: HTMLElement | null): void {
+    if (!tree || !selectedElement) return
+    const ancestorIds = getLayerAncestorIdsForElement(selectedElement)
     ancestorIds.forEach((id) => layersExpandedIds.add(id))
     layersExpandedIds.add(tree.id)
+    ensureLayerPathLoaded(tree, ancestorIds)
   }
 
   function annotateLayersTreeIcons(node: LayersTreeNode | null): void {
@@ -3238,20 +3268,20 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function rebuildLayersTree(): void {
-    layersTreeBuildResult = buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, maxNodes: 700 })
+    layersTreeBuildResult = buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR })
     annotateLayersTreeIcons(layersTreeBuildResult?.root ?? null)
     const selectedId = lockedElement instanceof HTMLElement ? buildTreeNodeId(lockedElement) : null
     layersSelectedId = selectedId
     if (layersTreeBuildResult?.root) {
       layersExpandedIds.add(layersTreeBuildResult.root.id)
-      expandLayersSelection(layersTreeBuildResult.root, selectedId)
+      expandLayersSelection(layersTreeBuildResult.root, lockedElement instanceof HTMLElement ? lockedElement : null)
     }
   }
 
   function syncLayersTreeSelection(): void {
     layersSelectedId = lockedElement instanceof HTMLElement ? buildTreeNodeId(lockedElement) : null
     if (layersTreeBuildResult?.root && layersSelectedId) {
-      expandLayersSelection(layersTreeBuildResult.root, layersSelectedId)
+      expandLayersSelection(layersTreeBuildResult.root, lockedElement instanceof HTMLElement ? lockedElement : null)
     }
     const selectedRow = layersBody.querySelector<HTMLElement>('.ei-layer-row[data-active="true"]')
     selectedRow?.scrollIntoView({ block: 'nearest' })
@@ -3269,7 +3299,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   function selectLayersElement(element: HTMLElement, options: { scroll?: boolean; focusLayersRow?: boolean } = {}): void {
     lockedElement = element
     panelAnchor = { x: Math.max(element.getBoundingClientRect().left, 120), y: Math.max(element.getBoundingClientRect().top, 120) }
-    panelPosition = null
     const info = extractInspectorInfo(element)
     currentInfo = info
     pendingLayersFocusId = options.focusLayersRow === false ? null : buildTreeNodeId(element)
@@ -3314,9 +3343,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const disclosure = el('button', 'ei-layer-disclosure') as HTMLButtonElement
     disclosure.type = 'button'
     disclosure.setAttribute(IGNORE_ATTR, 'true')
-    const isExpanded = layersExpandedIds.has(node.id)
+    const isExpanded = layersExpandedIds.has(node.id) || Boolean(layersSearchQuery.trim())
     disclosure.innerHTML = isExpanded ? ICON_LAYER_DISCLOSURE_EXPANDED : ICON_LAYER_DISCLOSURE_COLLAPSED
-    if (node.children.length === 0) disclosure.dataset.empty = 'true'
+    if (!node.hasChildren) disclosure.dataset.empty = 'true'
     if (isExpanded) disclosure.dataset.expanded = 'true'
 
     const icon = el('span', 'ei-layer-icon')
@@ -3330,10 +3359,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     disclosure.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
-      if (node.children.length === 0) return
+      if (!node.hasChildren) return
       if (layersExpandedIds.has(node.id)) {
         layersExpandedIds.delete(node.id)
       } else {
+        loadLayerTreeNodeChildren(node, IGNORE_ATTR)
+        annotateLayersTreeIcons(node)
         layersExpandedIds.add(node.id)
       }
       renderLayersPanel()
@@ -3368,7 +3399,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     container.appendChild(row)
 
-    if (node.children.length > 0 && layersExpandedIds.has(node.id)) {
+    if (node.hasChildren && isExpanded) {
+      loadLayerTreeNodeChildren(node, IGNORE_ATTR)
+      annotateLayersTreeIcons(node)
       node.children.forEach((child) => renderLayersTreeNode(child, container))
     }
   }
@@ -3391,18 +3424,18 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    const filteredRoot = filterLayersTree(layersTreeBuildResult.root, layersSearchQuery)
+    const query = layersSearchQuery.trim()
+    const sourceTree = query
+      ? buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, loadAll: true })?.root ?? layersTreeBuildResult.root
+      : layersTreeBuildResult.root
+    if (query) annotateLayersTreeIcons(sourceTree)
+    const filteredRoot = filterLayersTree(sourceTree, query)
     if (!filteredRoot) {
       layersBody.innerHTML = `<div class="ei-empty ei-layers-empty">${i18n.panel.noLayerResults}</div>`
       return
     }
 
     syncLayersTreeSelection()
-
-    if (layersTreeBuildResult.truncated) {
-      const truncatedNotice = el('div', 'ei-layers-notice', `${i18n.panel.truncatedLayers} (${layersTreeBuildResult.nodeCount})`)
-      layersBody.appendChild(truncatedNotice)
-    }
 
     renderLayersTreeNode(filteredRoot, layersBody)
     focusSelectedLayersRow()
@@ -3911,10 +3944,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     activeDesignTextChangeTarget = null
     activeDesignTextChangeHandler = null
     designApplyToElementOnly = false
-    designPanelView = 'visual'
-    designDevDraft = ''
-    designDevError = ''
-    designDevSessionBaseline = []
     clearDesignScopeOverlay()
   }
 
@@ -4357,252 +4386,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
 
-  function createDesignModeSegmentButton(label: string, icon: string, active: boolean, iconKind: 'design' | 'code'): HTMLButtonElement {
-    const button = el('button', 'ei-tab ei-design-mode-tab') as HTMLButtonElement
-    button.dataset.iconOnly = 'true'
-    button.dataset.iconKind = iconKind
-    button.innerHTML = `<span class="ei-design-mode-tab-icon">${icon}</span>`
-    button.setAttribute('aria-pressed', active ? 'true' : 'false')
-    button.type = 'button'
-    button.title = label
-    button.setAttribute('aria-label', label)
-    button.setAttribute(IGNORE_ATTR, 'true')
-    if (active) button.dataset.active = 'true'
-    return button
-  }
-
-  function createDesignModeSegmentedControl(info: InspectorInfo): HTMLDivElement {
-    const control = el('div', 'ei-tabs ei-design-mode-tabs')
-    control.setAttribute(IGNORE_ATTR, 'true')
-
-    const visualBtn = createDesignModeSegmentButton('设计模式', DESIGN_MODE_ICON, designPanelView === 'visual', 'design')
-    visualBtn.addEventListener('click', () => {
-      if (designPanelView === 'visual') return
-      designDevSessionBaseline = []
-      designPanelView = 'visual'
-      designDevDraft = ''
-      designDevError = ''
-      renderDesign(extractInspectorInfo(currentInfo?.element ?? info.element))
-    })
-
-    const devBtn = createDesignModeSegmentButton('代码模式', DESIGN_DEV_MODE_ICON, designPanelView === 'dev', 'code')
-    devBtn.addEventListener('click', () => {
-      if (designPanelView === 'dev') return
-      designPanelView = 'dev'
-      designDevError = ''
-      renderDesign(extractInspectorInfo(currentInfo?.element ?? info.element))
-    })
-
-    control.append(visualBtn, devBtn)
-    return control
-  }
-
-  function getCssPatchSelector(element: HTMLElement): string {
-    const classes = Array.from(element.classList).filter(name => !name.startsWith('ei-'))
-    const firstClass = classes[0]
-    if (firstClass) return `.${CSS.escape(firstClass)}`
-    const tagName = element.tagName.toLowerCase()
-    return element.id ? `${tagName}#${CSS.escape(element.id)}` : tagName
-  }
-
-  function formatCssBoxValue(edges: { top: string; right: string; bottom: string; left: string }): string {
-    const { top, right, bottom, left } = edges
-    if (top === right && right === bottom && bottom === left) return top
-    if (top === bottom && right === left) return `${top} ${right}`
-    if (right === left) return `${top} ${right} ${bottom}`
-    return `${top} ${right} ${bottom} ${left}`
-  }
-
-  function formatCssBorderWidth(edges: { top: string; right: string; bottom: string; left: string }): string {
-    return formatCssBoxValue(edges)
-  }
-
-  function normalizeCssBackgroundValue(value: string): string {
-    return value === 'rgba(0, 0, 0, 0)' ? 'transparent' : value
-  }
-
-  function collectMatchedRuleDeclarations(element: HTMLElement): Map<string, string> {
-    const declarations = new Map<string, string>()
-
-    const visitRules = (rules: CSSRuleList): void => {
-      for (const rule of Array.from(rules)) {
-        if (rule instanceof CSSStyleRule) {
-          try {
-            if (!element.matches(rule.selectorText)) continue
-          } catch {
-            continue
-          }
-          for (const property of Array.from(rule.style)) {
-            const value = rule.style.getPropertyValue(property).trim()
-            if (value) declarations.set(property, value)
-          }
-          continue
-        }
-
-        if ('cssRules' in rule) {
-          try {
-            visitRules((rule as CSSMediaRule | CSSSupportsRule).cssRules)
-          } catch {
-            // Ignore nested rule access failures.
-          }
-        }
-      }
-    }
-
-    for (const sheet of Array.from(document.styleSheets)) {
-      try {
-        visitRules(sheet.cssRules)
-      } catch {
-        // Ignore cross-origin or restricted stylesheets.
-      }
-    }
-
-    return declarations
-  }
-
-  function pickPreferredDeclaration(authored: Map<string, string>, property: string, fallback: string): string {
-    return authored.get(property) ?? fallback
-  }
-
-  function hasVisiblePadding(edges: { top: string; right: string; bottom: string; left: string }): boolean {
-    return [edges.top, edges.right, edges.bottom, edges.left].some(value => value !== '0px')
-  }
-
-  function hasVisibleBorder(edges: { top: string; right: string; bottom: string; left: string }, style: string, color: string): boolean {
-    const hasWidth = [edges.top, edges.right, edges.bottom, edges.left].some(value => value !== '0px')
-    return hasWidth && style !== 'none' && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)'
-  }
-
-  function hasVisibleBackground(value: string): boolean {
-    return value !== 'transparent' && value !== 'rgba(0, 0, 0, 0)' && value !== 'none'
-  }
-
-  function buildInitialCssPatch(info: InspectorInfo, existingChange?: Change): string {
-    const selector = getCssPatchSelector(info.element instanceof HTMLElement ? info.element : info.element.parentElement as HTMLElement)
-    const diffs = existingChange?.diffs?.filter(diff => diff.property !== 'textContent' && !isInternalResetDiff(diff))
-    const hasText = info.element instanceof HTMLElement && info.text.trim().length > 0 && !Array.from(info.element.children).some((child) => {
-      const display = window.getComputedStyle(child).display
-      return display === 'block' || display === 'flex' || display === 'grid' || display === 'table' || display === 'list-item'
-    })
-    const authored = info.element instanceof HTMLElement ? collectMatchedRuleDeclarations(info.element) : new Map<string, string>()
-
-    const boxDeclarations: Array<[string, string]> = []
-    if (hasVisiblePadding(info.boxModel.padding)) {
-      boxDeclarations.push(['padding', pickPreferredDeclaration(authored, 'padding', formatCssBoxValue(info.boxModel.padding))])
-    }
-    if (info.boxModel.borderRadius !== '0px') {
-      boxDeclarations.push(['border-radius', pickPreferredDeclaration(authored, 'border-radius', info.boxModel.borderRadius)])
-    }
-    if (hasVisibleBackground(info.visual.backgroundColor)) {
-      boxDeclarations.push(['background', pickPreferredDeclaration(authored, 'background', normalizeCssBackgroundValue(info.visual.backgroundColor))])
-    }
-    if (info.visual.boxShadow !== 'none') {
-      boxDeclarations.push(['box-shadow', pickPreferredDeclaration(authored, 'box-shadow', info.visual.boxShadow)])
-    }
-    if (hasVisibleBorder(info.boxModel.borderWidth, info.visual.borderStyle, info.visual.borderColor)) {
-      boxDeclarations.push(['border', pickPreferredDeclaration(authored, 'border', `${formatCssBorderWidth(info.boxModel.borderWidth)} ${info.visual.borderStyle} ${info.visual.borderColor}`)])
-    }
-
-    const textDeclarations: Array<[string, string]> = [
-      ['font-size', pickPreferredDeclaration(authored, 'font-size', info.typography.fontSize)],
-      ['font-weight', pickPreferredDeclaration(authored, 'font-weight', info.typography.fontWeight)],
-      ['color', pickPreferredDeclaration(authored, 'color', info.typography.color)],
-    ]
-    if (info.typography.textAlign !== 'start') {
-      textDeclarations.push(['text-align', pickPreferredDeclaration(authored, 'text-align', info.typography.textAlign)])
-    }
-    if (hasVisiblePadding(info.boxModel.padding)) {
-      textDeclarations.push(['padding', pickPreferredDeclaration(authored, 'padding', formatCssBoxValue(info.boxModel.padding))])
-    }
-    if (info.typography.textTransform !== 'none') {
-      textDeclarations.push(['text-transform', pickPreferredDeclaration(authored, 'text-transform', info.typography.textTransform)])
-    }
-    if (info.typography.letterSpacing !== 'normal') {
-      textDeclarations.push(['letter-spacing', pickPreferredDeclaration(authored, 'letter-spacing', info.typography.letterSpacing)])
-    }
-    if (hasVisibleBackground(info.visual.backgroundColor)) {
-      textDeclarations.push(['background', pickPreferredDeclaration(authored, 'background', normalizeCssBackgroundValue(info.visual.backgroundColor))])
-    }
-
-    const declarations: Array<[string, string]> = diffs?.length
-      ? diffs.map(diff => [diff.property, diff.modified])
-      : hasText
-        ? textDeclarations
-        : boxDeclarations
-    return `${selector} {\n${declarations.map(([property, value]) => `  ${property}: ${value};`).join('\n')}\n}`
-  }
-
-  function captureDesignDevBaseline(elements: HTMLElement[]): Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }> {
-    return elements.map((element) => ({
-      element,
-      inlineStyle: element.getAttribute('style') ?? '',
-      changeIds: changes.filter(change => change.type === 'design' && change.element === element).map(change => change.id),
-    }))
-  }
-
-  function rollbackDesignDevSession(baseline: Array<{ element: HTMLElement; inlineStyle: string; changeIds: string[] }>): void {
-    baseline.forEach(({ element, inlineStyle, changeIds }) => {
-      if (!document.contains(element)) return
-      if (inlineStyle) element.setAttribute('style', inlineStyle)
-      else element.removeAttribute('style')
-      changeIds.forEach((id) => {
-        changes = changes.filter(change => change.id !== id)
-        disabledStyleDiffsByChangeId.delete(id)
-        disabledTextDiffByChangeId.delete(id)
-        disabledMoveDiffByChangeId.delete(id)
-        disabledNoteByChangeId.delete(id)
-      })
-    })
-    persistChangesState()
-    renderMarkers()
-  }
-
-  function parseCssPatch(input: string, element: HTMLElement): { declarations: StyleDiff[]; error?: string; line?: number } {
-    const trimmed = input.trim()
-    if (!trimmed) return { declarations: [], error: '请输入 CSS 声明。', line: 1 }
-    if (/@|:is\(|:where\(|:has\(|:[\w-]+|,/i.test(trimmed.split('{')[0] ?? '')) return { declarations: [], error: 'Dev Mode MVP 只支持单个普通选择器。', line: 1 }
-
-    let bodyText = trimmed
-    let bodyStartLine = 1
-    const openIndex = trimmed.indexOf('{')
-    const closeIndex = trimmed.lastIndexOf('}')
-    if (openIndex >= 0 || closeIndex >= 0) {
-      if (openIndex < 0 || closeIndex < 0 || closeIndex < openIndex) return { declarations: [], error: 'CSS block 不完整。', line: 1 }
-      const selectorText = trimmed.slice(0, openIndex).trim()
-      if (!selectorText || /[{},]/.test(selectorText)) return { declarations: [], error: 'Dev Mode MVP 只支持单个普通选择器。', line: 1 }
-      const tail = trimmed.slice(closeIndex + 1).trim()
-      if (tail) return { declarations: [], error: 'Dev Mode MVP 只支持一个 CSS block。', line: trimmed.slice(0, closeIndex + 1).split('\n').length + 1 }
-      bodyText = trimmed.slice(openIndex + 1, closeIndex)
-      bodyStartLine = trimmed.slice(0, openIndex + 1).split('\n').length
-      if (/[{}]/.test(bodyText)) return { declarations: [], error: 'Dev Mode MVP 不支持嵌套规则。', line: bodyStartLine }
-    }
-    if (!bodyText.trim()) return { declarations: [], error: '没有可保存的 CSS 声明。', line: bodyStartLine }
-
-    const computed = window.getComputedStyle(element)
-    const declarations: StyleDiff[] = []
-    const seen = new Set<string>()
-    const segments = bodyText.split(';')
-    let consumed = 0
-    for (const raw of segments) {
-      const rawLine = raw
-      const line = raw.trim()
-      const lineNumber = bodyStartLine + rawLine.slice(0, rawLine.length - rawLine.trimStart().length).split('\n').length - 1 + bodyText.slice(0, consumed).split('\n').length - 1
-      consumed += raw.length + 1
-      if (!line) continue
-      const separator = line.indexOf(':')
-      if (separator <= 0) return { declarations: [], error: `无法解析声明：${line}`, line: lineNumber }
-      const property = line.slice(0, separator).trim().toLowerCase()
-      const value = line.slice(separator + 1).trim()
-      if (!/^-[\w-]+$|^[a-z][\w-]*$/.test(property)) return { declarations: [], error: `不支持的属性名：${property}`, line: lineNumber }
-      if (!value || /[{}]/.test(value)) return { declarations: [], error: `不支持的属性值：${property}`, line: lineNumber }
-      if (seen.has(property)) return { declarations: [], error: `重复声明：${property}`, line: lineNumber }
-      seen.add(property)
-      declarations.push({ property, original: computed.getPropertyValue(property), modified: value })
-    }
-    if (!declarations.length) return { declarations: [], error: '没有可保存的 CSS 声明。', line: bodyStartLine }
-    return { declarations }
-  }
-
   function toggleDesignOverlays(): void {
     if (currentMode !== 'design') return
     designOverlaysVisible = !designOverlaysVisible
@@ -4644,7 +4427,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     body.innerHTML = ''
     body.style.paddingTop = selectedElements.length > 1 ? '0' : ''
-    body.style.paddingLeft = designPanelView === 'dev' ? '8px' : ''
+    body.style.paddingLeft = ''
 
     // Create tracker and design panel with auto-save to Changes
     // Resume existing change if this element already has one
@@ -4698,7 +4481,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         if (existingScopedChange) {
           updateChange(existingScopedChange.id, autoComment, diffs)
           existingScopedChange.meta.groupKey = info.element instanceof HTMLElement ? getDesignChangeGroupKey(info.element) : undefined
-          existingScopedChange.meta.designInputMode = designPanelView
+          existingScopedChange.meta.designInputMode = 'visual'
           if (note) existingScopedChange.meta.note = note
           activeChangeId = element === primaryElement ? existingScopedChange.id : activeChangeId
           return
@@ -4707,7 +4490,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const createdChange = changes.find(c => c.id === changeId)
         if (createdChange) {
           createdChange.meta.groupKey = info.element instanceof HTMLElement ? getDesignChangeGroupKey(info.element) : undefined
-          createdChange.meta.designInputMode = designPanelView
+          createdChange.meta.designInputMode = 'visual'
           if (note) {
             createdChange.meta.note = note
             createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
@@ -4747,7 +4530,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
         if (!change) return
         change.meta.groupKey = info.element instanceof HTMLElement ? getDesignChangeGroupKey(info.element) : undefined
-        change.meta.designInputMode = designPanelView
+        change.meta.designInputMode = 'visual'
         change.meta.note = trimmedNote
         const styleComment = (change.diffs ?? [])
           .filter(d => !isInternalResetDiff(d))
@@ -4799,7 +4582,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (info.element instanceof HTMLElement && currentScopeElements.length > 1 && designOverlaysVisible) renderDesignScopeOverlay(currentScopeElements)
     else clearDesignScopeOverlay()
 
-    const modeControl = createDesignModeSegmentedControl(info)
     const layerActionGroup = el('div', 'ei-design-action-btn-group')
     layerActionGroup.append(matchBtn, layersToggleBtn)
 
@@ -4809,7 +4591,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       resetDesignSelectionChanges(info.element)
     })
 
-    actionsLeft.append(modeControl, layerActionGroup)
+    actionsLeft.append(layerActionGroup)
     actionsRight.append(resetBtn)
     designActions.append(actionsLeft, actionsRight)
     panel.insertBefore(designActions, body)
@@ -4827,7 +4609,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const primaryElement = (scopeElements[0] ?? info.element) as InspectableElement
     styleTracker = createStyleTracker(
       primaryElement,
-      designPanelView === 'dev' ? undefined : saveToChanges,
+      saveToChanges,
       primaryElement instanceof HTMLElement ? createDesignStyleTrackerAdapter(primaryElement) : undefined,
     )
 
@@ -4856,56 +4638,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const multiSelectionProfile = getMultiSelectionProfile()
     const isTextOnlyMultiSelection = multiSelectionProfile === 'text'
     const isContainerMultiSelection = multiSelectionProfile === 'container'
-
-    if (designPanelView === 'dev') {
-      if (!designDevDraft) {
-        designDevDraft = buildInitialCssPatch(extractInspectorInfo(primaryElement), existingChange)
-      }
-      if (!designDevSessionBaseline.length) {
-        designDevSessionBaseline = captureDesignDevBaseline(scopeElements)
-      }
-      const syncDesignHighlight = (): void => {
-        const freshInfo = extractInspectorInfo(info.element)
-        currentInfo = freshInfo
-        updateHighlight(freshInfo)
-      }
-      activeDesignTextChangeTarget = null
-      activeDesignTextChangeHandler = null
-
-      const applyDevPatch = (value: string, setError: (message: string, line?: number) => void) => {
-        designDevDraft = value
-        const parsed = parseCssPatch(value, primaryElement instanceof HTMLElement ? primaryElement : (primaryElement.parentElement as HTMLElement))
-        if (parsed.error) {
-          designDevError = parsed.error
-          setError(parsed.error, parsed.line)
-          return
-        }
-        styleTracker?.reset()
-        parsed.declarations.forEach((diff) => {
-          styleTracker?.apply(diff.property, diff.modified)
-        })
-        currentTextDiff = null
-        saveToChanges()
-        syncDesignHighlight()
-        designDevError = ''
-        setError('')
-      }
-      const devEditor = buildDesignDevEditor(designDevDraft, {
-        onInput: (value, setError) => {
-          applyDevPatch(value, setError)
-        },
-      })
-      if (designDevError) {
-        const errorEl = devEditor.querySelector<HTMLElement>('.ei-design-dev-error')
-        if (errorEl) {
-          errorEl.hidden = false
-          errorEl.textContent = designDevError
-        }
-      }
-      body.appendChild(devEditor)
-      updateHighlight(info)
-      return
-    }
 
     activeDesignTextChangeTarget = !isMultiSelection && primaryElement instanceof HTMLElement ? primaryElement : null
     activeDesignTextChangeHandler = !isMultiSelection && primaryElement instanceof HTMLElement ? applyTextChange : null
@@ -5485,6 +5217,35 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     const onUp = () => {
       isDraggingPanel = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  function startLayersPanelDrag(event: MouseEvent): void {
+    const target = event.target
+    if (target instanceof Element && target.closest('button, input, textarea, select')) return
+    event.preventDefault()
+    event.stopPropagation()
+    isDraggingLayersPanel = true
+    const rect = layersPanel.getBoundingClientRect()
+    const offsetX = event.clientX - rect.left
+    const offsetY = event.clientY - rect.top
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingLayersPanel) return
+      const next = clampLayersPanelPosition(moveEvent.clientX - offsetX, moveEvent.clientY - offsetY)
+      layersPanelPosition = next
+      layersPanel.style.left = `${next.left}px`
+      layersPanel.style.top = `${next.top}px`
+      layersPanel.style.right = 'auto'
+    }
+
+    const onUp = () => {
+      isDraggingLayersPanel = false
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
@@ -6959,6 +6720,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   copyBtn.addEventListener('click', copyCurrent)
   unlockBtn.addEventListener('click', unlockCurrent)
   dragHandle.addEventListener('mousedown', startPanelDrag)
+  layersHeader.addEventListener('mousedown', startLayersPanelDrag)
   window.addEventListener('resize', syncMarkersPosition)
   window.addEventListener('scroll', syncMarkersPosition, true)
 

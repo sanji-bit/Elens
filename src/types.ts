@@ -195,6 +195,8 @@ export type LayersTreeNode = {
   secondaryLabel: string
   searchText: string
   icon?: string
+  hasChildren: boolean
+  childrenLoaded: boolean
   children: LayersTreeNode[]
 }
 
@@ -212,7 +214,7 @@ export type ChangeMeta = {
   route?: string
   note?: string
   groupKey?: string
-  designInputMode?: 'visual' | 'dev'
+  designInputMode?: 'visual'
 }
 
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'guides' | 'changes'

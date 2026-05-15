@@ -391,8 +391,57 @@ export function shouldIncludeInLayersTree(element: HTMLElement, ignoreAttribute:
   return true
 }
 
-export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttribute: string; maxNodes?: number } ): LayersTreeBuildResult | null {
-  const maxNodes = options.maxNodes ?? 600
+export function buildLayerTreeNode(element: HTMLElement, options: { ignoreAttribute: string; depth: number; parentId: string | null; loadChildren?: boolean }): LayersTreeNode | null {
+  if (!shouldIncludeInLayersTree(element, options.ignoreAttribute)) return null
+
+  const id = buildTreeNodeId(element)
+  const label = getLayerNodeLabel(element)
+  const secondaryLabel = getLayerNodeSecondaryLabel(element)
+  const childElements = Array.from(element.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement && shouldIncludeInLayersTree(child, options.ignoreAttribute),
+  )
+  const children = options.loadChildren
+    ? childElements
+        .map(child => buildLayerTreeNode(child, {
+          ignoreAttribute: options.ignoreAttribute,
+          depth: options.depth + 1,
+          parentId: id,
+          loadChildren: false,
+        }))
+        .filter((child): child is LayersTreeNode => Boolean(child))
+    : []
+
+  return {
+    id,
+    element,
+    parentId: options.parentId,
+    depth: options.depth,
+    label,
+    secondaryLabel,
+    searchText: `${label} ${secondaryLabel} ${buildDomPath(element)}`.toLowerCase(),
+    hasChildren: childElements.length > 0,
+    childrenLoaded: Boolean(options.loadChildren),
+    children,
+  }
+}
+
+export function loadLayerTreeNodeChildren(node: LayersTreeNode, ignoreAttribute: string): void {
+  if (node.childrenLoaded) return
+  node.children = Array.from(node.element.children)
+    .filter((child): child is HTMLElement => child instanceof HTMLElement)
+    .map(child => buildLayerTreeNode(child, {
+      ignoreAttribute,
+      depth: node.depth + 1,
+      parentId: node.id,
+      loadChildren: false,
+    }))
+    .filter((child): child is LayersTreeNode => Boolean(child))
+  node.hasChildren = node.children.length > 0
+  node.childrenLoaded = true
+}
+
+export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttribute: string; maxNodes?: number; loadAll?: boolean } ): LayersTreeBuildResult | null {
+  const maxNodes = options.maxNodes ?? Number.POSITIVE_INFINITY
   let nodeCount = 0
   let truncated = false
 
@@ -424,13 +473,26 @@ export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttr
       label,
       secondaryLabel,
       searchText: `${label} ${secondaryLabel} ${buildDomPath(element)}`.toLowerCase(),
+      hasChildren: children.length > 0,
+      childrenLoaded: true,
       children,
     }
   }
 
-  const tree = walk(root, 0, null)
+  if (options.loadAll) {
+    const tree = walk(root, 0, null)
+    if (!tree) return null
+    return { root: tree, truncated, nodeCount }
+  }
+
+  const tree = buildLayerTreeNode(root, {
+    ignoreAttribute: options.ignoreAttribute,
+    depth: 0,
+    parentId: null,
+    loadChildren: true,
+  })
   if (!tree) return null
-  return { root: tree, truncated, nodeCount }
+  return { root: tree, truncated: false, nodeCount: tree.children.length + 1 }
 }
 
 export function filterLayersTree(node: LayersTreeNode, query: string): LayersTreeNode | null {
@@ -443,6 +505,8 @@ export function filterLayersTree(node: LayersTreeNode, query: string): LayersTre
   if (!matchedSelf && matchedChildren.length === 0) return null
   return {
     ...node,
+    hasChildren: matchedChildren.length > 0,
+    childrenLoaded: true,
     children: matchedChildren,
   }
 }

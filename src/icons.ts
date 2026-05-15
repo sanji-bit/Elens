@@ -8,8 +8,6 @@ import STATE_CAPTURE_SVG from './assets/state-capture.svg?raw'
 import TOOLBAR_CHANGES_SVG from './assets/toolbar-changes.svg?raw'
 import TOOLBAR_DESIGN_SVG from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_FIGMA_SVG from './assets/design-mode-figma.svg?raw'
-import DESIGN_DEV_MODE_FIGMA_SVG from './assets/design-dev-mode-figma.svg?raw'
-import DESIGN_DEV_MODE_SVG from './assets/design-dev-mode.svg?raw'
 import DESIGN_SELECT_MATCHING_LAYERS_SVG from './assets/design-select-matching-layers.svg?raw'
 import DESIGN_RESET_SVG from './assets/design-reset.svg?raw'
 import PANEL_MINIMIZE_UI_SVG from './assets/panel-minimize-ui.svg?raw'
@@ -33,7 +31,6 @@ const CHANGES_PANEL_CLOSE_URL = new URL('./assets/changes-panel-close.svg', impo
 const CHANGES_PANEL_CHEVRON_URL = new URL('./assets/changes-panel-chevron.svg', import.meta.url).href
 const CHANGES_UPLOAD_URL = new URL('./assets/changes-upload.svg', import.meta.url).href
 const CHANGES_DOWNLOAD_URL = new URL('./assets/changes-download.svg', import.meta.url).href
-const DESIGN_DEV_MODE_URL = new URL('./assets/design-dev-mode.svg', import.meta.url).href
 const DESIGN_RESET_URL = new URL('./assets/design-reset.svg', import.meta.url).href
 const EXTENSION_ICON_URL = new URL('../extension/icon.svg', import.meta.url).href
 const EXTENSION_ICON_16_URL = new URL('../extension/icons/icon-16.png', import.meta.url).href
@@ -82,7 +79,6 @@ export const ICON_URLS = {
   changesPanelChevron: CHANGES_PANEL_CHEVRON_URL,
   changesUpload: CHANGES_UPLOAD_URL,
   changesDownload: CHANGES_DOWNLOAD_URL,
-  designDevMode: DESIGN_DEV_MODE_URL,
   designReset: DESIGN_RESET_URL,
   extensionIcon: EXTENSION_ICON_URL,
   extensionIcon16: EXTENSION_ICON_16_URL,
@@ -102,8 +98,6 @@ export const ICON_SVGS = {
   toolbarChanges: TOOLBAR_CHANGES_SVG,
   toolbarDesign: TOOLBAR_DESIGN_SVG,
   designModeFigma: DESIGN_MODE_FIGMA_SVG,
-  designDevModeFigma: DESIGN_DEV_MODE_FIGMA_SVG,
-  designDevMode: DESIGN_DEV_MODE_SVG,
   designSelectMatchingLayers: DESIGN_SELECT_MATCHING_LAYERS_SVG,
   designReset: DESIGN_RESET_SVG,
   panelMinimizeUi: PANEL_MINIMIZE_UI_SVG,
@@ -143,8 +137,6 @@ export const ELENS_ICONS: ElensIconDefinition[] = [
   { id: 'toolbar-layers', name: 'Layers', group: 'toolbar', source: 'src/icons.ts inline', usage: 'Toolbar layers action', renderMode: 'svg', svg: ICON_LAYERS },
 
   { id: 'design-mode-figma', name: 'Design Mode', group: 'design', source: 'src/assets/design-mode-figma.svg', usage: 'Design panel visual mode segment', renderMode: 'svg', svg: DESIGN_MODE_FIGMA_SVG },
-  { id: 'design-dev-mode-figma', name: 'Code Mode', group: 'design', source: 'src/assets/design-dev-mode-figma.svg', usage: 'Design panel code mode segment', renderMode: 'svg', svg: DESIGN_DEV_MODE_FIGMA_SVG },
-  { id: 'design-dev-mode', name: 'Dev Mode Image', group: 'design', source: 'src/assets/design-dev-mode.svg', usage: 'Design action image asset', renderMode: 'image', svg: DESIGN_DEV_MODE_SVG, url: DESIGN_DEV_MODE_URL, fixedColor: true },
   { id: 'design-select-matching-layers', name: 'Select Matching Layers', group: 'design', source: 'src/assets/design-select-matching-layers.svg', usage: 'Design action button', renderMode: 'svg', svg: DESIGN_SELECT_MATCHING_LAYERS_SVG },
   { id: 'design-layers-panel', name: 'Layers Panel', group: 'design', source: 'src/icons.ts inline', usage: 'Design action button', renderMode: 'svg', svg: ICON_DESIGN_LAYERS_PANEL },
   { id: 'design-reset', name: 'Reset', group: 'design', source: 'src/assets/design-reset.svg', usage: 'Design action button image asset', renderMode: 'image', svg: DESIGN_RESET_SVG, url: DESIGN_RESET_URL, fixedColor: true },

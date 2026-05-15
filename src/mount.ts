@@ -4289,34 +4289,84 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return matchingChildren.length > 1 ? [element, ...matchingChildren.filter(match => match !== element)] : [element]
   }
 
-  function createDesignScopeSwitch(element: HTMLElement, analysis: DesignScopeAnalysis, activeMode: DesignScopeMode): HTMLElement {
-    const wrap = el('div', 'ei-design-scope-switch')
-    wrap.setAttribute(IGNORE_ATTR, 'true')
-    const activeCandidate = analysis.candidates[activeMode]
-    const label = el('div', 'ei-design-scope-switch-label', `作用范围：${activeCandidate?.label ?? '当前元素'}`)
-    const tabs = el('div', 'ei-tabs ei-design-scope-tabs')
-    const options: Array<{ mode: DesignScopeMode; label: string }> = [
-      { mode: 'single', label: '当前元素' },
+  function createDesignScopeSwitch(element: HTMLElement, analysis: DesignScopeAnalysis, activeMode: DesignScopeMode): HTMLElement | null {
+    const allOptions: Array<{ mode: DesignScopeMode; label: string }> = [
+      { mode: 'single', label: '仅此元素' },
       { mode: 'same-component', label: '同组件实例' },
       { mode: 'same-slot', label: '同槽位' },
       { mode: 'same-group-type', label: '同组同类型' },
     ]
+    const options = allOptions.filter(option => analysis.candidates[option.mode]?.enabled)
+
+    if (options.length <= 1) return null
+
+    const activeCandidate = analysis.candidates[activeMode] ?? analysis.candidates.single
+    const activeCount = activeCandidate.elements.filter(candidate => document.contains(candidate)).length
+    const wrap = el('div', 'ei-design-scope-switch')
+    wrap.setAttribute(IGNORE_ATTR, 'true')
+
+    const summary = el('button', 'ei-design-scope-summary')
+    summary.type = 'button'
+    summary.setAttribute(IGNORE_ATTR, 'true')
+    summary.setAttribute('aria-haspopup', 'menu')
+    summary.setAttribute('aria-expanded', 'false')
+    summary.innerHTML = `
+      <span class="ei-design-scope-summary-label">应用到 ${activeCount} 个元素</span>
+      <span class="ei-design-scope-summary-arrow">⌄</span>
+    `
+
+    const menu = el('div', 'ei-design-scope-menu')
+    menu.setAttribute(IGNORE_ATTR, 'true')
+    menu.setAttribute('role', 'menu')
+    menu.style.display = 'none'
+
+    const closeMenu = () => {
+      menu.style.display = 'none'
+      summary.setAttribute('aria-expanded', 'false')
+    }
+
     options.forEach((option) => {
-      const button = el('button', 'ei-tab ei-design-scope-tab', option.label)
-      button.type = 'button'
-      button.setAttribute(IGNORE_ATTR, 'true')
       const scopeCandidate = analysis.candidates[option.mode]
-      button.disabled = !scopeCandidate.enabled
-      if (option.mode === activeMode) button.dataset.active = 'true'
-      button.addEventListener('click', () => {
-        if (!scopeCandidate.enabled) return
+      const count = scopeCandidate.elements.filter(candidate => document.contains(candidate)).length
+      const item = el('button', 'ei-design-scope-menu-item')
+      item.type = 'button'
+      item.setAttribute(IGNORE_ATTR, 'true')
+      item.setAttribute('role', 'menuitemradio')
+      item.setAttribute('aria-checked', option.mode === activeMode ? 'true' : 'false')
+      if (option.mode === activeMode) item.dataset.active = 'true'
+      item.innerHTML = `
+        <span class="ei-design-scope-menu-check">${option.mode === activeMode ? '✓' : ''}</span>
+        <span class="ei-design-scope-menu-label">${option.label}</span>
+        <span class="ei-design-scope-menu-count">${count}</span>
+      `
+      const selectOption = (event: Event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        closeMenu()
         designScopeModeOverride = option.mode === analysis.recommendedMode ? null : option.mode
         designScopeSelectionKey = getDesignScopeSelectionKey(element)
         renderDesign(extractInspectorInfo(element))
-      })
-      tabs.appendChild(button)
+      }
+      item.addEventListener('mousedown', selectOption)
+      item.addEventListener('click', selectOption)
+      menu.appendChild(item)
     })
-    wrap.append(label, tabs)
+
+    summary.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const nextOpen = menu.style.display === 'none'
+      menu.style.display = nextOpen ? '' : 'none'
+      summary.setAttribute('aria-expanded', nextOpen ? 'true' : 'false')
+    })
+
+    wrap.addEventListener('focusout', () => {
+      window.setTimeout(() => {
+        if (!wrap.contains(document.activeElement)) closeMenu()
+      }, 0)
+    })
+
+    wrap.append(summary, menu)
     return wrap
   }
 
@@ -4650,7 +4700,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designActions.append(actionsLeft, actionsRight)
     panel.insertBefore(designActions, body)
     if (!isMultiSelection && info.element instanceof HTMLElement && scopeAnalysis) {
-      panel.insertBefore(createDesignScopeSwitch(info.element, scopeAnalysis, activeScopeMode), body)
+      const scopeSwitch = createDesignScopeSwitch(info.element, scopeAnalysis, activeScopeMode)
+      if (scopeSwitch) panel.insertBefore(scopeSwitch, body)
     }
 
     const scopeElements = info.element instanceof HTMLElement ? consumeDesignScopeElements(info.element) : []

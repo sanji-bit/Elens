@@ -1,136 +1,46 @@
-# Elens Design System Enforcement
+# Elens Project Instructions
 
-## Project Conversation Defaults
+Elens is a standalone DOM element inspector SDK for Web, Electron, and Tauri apps.
 
-For this project, respond with directness, honesty, clarity, and professional judgment.
+中文备注：Elens 是 DOM 元素检查器 SDK。主要风险不是普通页面开发，而是 Inspector、Toolbar、Selection、Move/Drag、Runtime Styles、Design Tokens、Overlay、Extension/Demo 入口这些地方发生回归。
 
-- Do not agree just to be agreeable. Evaluate proposals directly and point out risks, weak assumptions, missing constraints, and likely consequences.
-- If uncertain, explicitly say “不确定” and explain why. Do not present guesses as facts or conclusions.
-- End every substantive response with a confidence score in the format `可信度：X/10`. If the score is below 7, clearly mark it and explain the main uncertainty.
-- For factual claims, numbers, quotes, important conclusions, or claims about external people/products/events, provide verifiable sources where possible. If no reliable source is available, say so.
-- For business, product, strategy, operations, content positioning, commercial model, career, client, or other context-dependent decisions, do not give generic advice when information is insufficient. First ask a few high-quality questions about role, business context, target customers, current stage, real pain points, available resources, constraints, success criteria, and directions to avoid.
-- Treat user plans, assumptions, and important decisions as a sparring-partner exercise by default: identify 3–5 overlooked risks, flawed premises, key variables, trade-offs, or potential self-deception before giving constructive recommendations.
-- Critique should be specific, evidence-aware, and useful. If something is reasonable, state why it is reasonable, then clarify boundary conditions and remaining risks.
+## Core Principles
 
-## Regression Prevention Rule
+- Think before coding. Identify the task type, affected area, likely regression risk, and completion criteria before editing.
+  - 中文备注：编码前先判断任务类型、影响范围、回归风险和完成标准，不要一上来就改代码。
 
-Stable existing functionality must not regress when implementing new features or fixes.
+- Use the smallest safe change. Prefer the narrowest diff that fully solves the requested problem.
+  - 中文备注：坚持最小安全修改，能局部解决就不要扩大改动范围。
 
-- Efficiency is important, but only when it does not sacrifice correctness, stability, or regression safety.
-- Do only the requested work and keep diffs narrow. Do not refactor, restyle, rewrite, or touch adjacent behavior unless it is necessary for the requested change.
-- Before editing, identify the likely impacted existing flows and shared utilities/components.
-- If a change may affect an existing feature, explicitly tell the user which feature may be affected and why.
-- If a task is likely to take a long time, require broad exploration, require multi-agent planning, require full regression testing, or exceed roughly 10 minutes, explain the expected scope, reason, risk, and faster alternative first; wait for user approval before proceeding.
-- When both a fast path and a safer path are reasonable, present them as options with estimated cost and risk, then let the user choose.
-- Treat inspector controls, toolbar behavior, changes/copy flows, selection, move/drag, runtime styles, design tokens, overlay mounting, and extension/demo entry points as high-risk areas that require adjacent regression checks when touched.
-- If touching shared interaction code, event handling, rendering, design tokens, runtime styles, persistence, selection, inspector controls, toolbar behavior, overlay mounting, or extension/demo entry points, test both the requested path and adjacent existing paths that depend on the same code.
-- If the affected old functionality cannot be tested locally, state this clearly in the completion report and list exactly what the user should verify.
-- Do not claim a feature is safe or fully validated unless the relevant regression paths were actually tested.
-- When a fix intentionally changes existing behavior, explain the behavior change before or during implementation, not after the user discovers it.
+- Only fix the requested problem. Do not refactor, restyle, rewrite, or improve unrelated code unless necessary.
+  - 中文备注：只解决指定问题，不要顺手重构、改样式、重写或优化无关代码。
 
-## Execution Efficiency Rule
+- Define completion criteria before implementation.
+  - 中文备注：开始前要清楚做到什么算完成，避免越改越多或无限循环。
 
-For clearly scoped, local changes, do not over-plan.
+- Stable existing functionality must not regress.
+  - 中文备注：旧功能不能因为新修复或新功能坏掉。
 
-- Classify each task as small, medium, or large before starting.
-- Small changes should be implemented directly after reading the minimum necessary code.
-- Do not use long Plan/Explore workflows for simple icon, tooltip, disabled-state, spacing, or localized style changes.
-- Keep progress updates short and frequent when work takes more than a few minutes.
-- Regression prevention should be proportional to the change scope: test directly affected and adjacent paths, not the entire product for every small change.
-- Ask the user only when product behavior, copy format, design intent, backwards compatibility, or long-running work approval is genuinely ambiguous.
-- Completion reports should be concise: what changed, what was verified, what was not verified, and what still needs user confirmation.
+- Follow the Elens Design System for all UI work.
+  - 中文备注：所有 UI 改动必须遵守 Elens 设计系统，优先复用已有组件和 token。
 
-## Core Rule
+- If uncertain, say “不确定” and explain why. Do not present guesses as facts.
+  - 中文备注：不确定必须明说，不能把猜测说成结论。
 
-All UI work in this project must follow the Elens Design System.
+- End substantive responses with `可信度：X/10`.
+  - 中文备注：重要回答最后给可信度评分。
 
-Before implementing or modifying UI, first check the existing Workbench and existing `.ei-*` / `.ei-dp-*` component patterns. Reuse existing components, tokens, class patterns, and interaction states whenever possible.
+## Rule Files
 
-Do not create new visual styles just to complete a local feature. If an existing component is not enough, explain why and decide whether to extend an existing component or add a pending component to the Workbench.
+Read the applicable rule files under `.claude/rules/` before editing:
 
-## Required AI Workflow For UI Tasks
+- `00-project-defaults.md` — response style and judgment rules
+- `01-rule-maintenance.md` — how to classify and place new project rules
+- `10-execution-scope.md` — task sizing, scope control, and completion criteria
+- `20-regression-guardrails.md` — regression prevention and high-risk flows
+- `30-ui-design-system.md` — UI reuse and design-system rules
+- `31-inspector-panel.md` — inspector numeric/color/floating UI guardrails
+- `40-validation-reporting.md` — validation commands and completion report
+- `50-docs-and-design-system-docs.md` — DESIGN_SYSTEM.md and Workbench documentation rules
 
-For every UI-related task:
-
-1. Identify whether the task affects UI, visual style, interaction state, layout, or component behavior.
-2. If yes, inspect existing Elens Design System patterns before editing code.
-3. Reuse existing components and styles first.
-4. If reuse is not possible, state:
-   - which existing component is closest
-   - why it cannot be reused directly
-   - whether the solution is an extension, a new pending component, or a one-off layout detail
-5. Do not invent new colors, border radii, shadows, spacing systems, dropdown styles, input styles, color picker styles, panel styles, or button styles unless explicitly justified.
-6. If a new reusable UI pattern is introduced, add it to the Workbench pending component area before treating it as a stable component.
-7. Every new pending component entry must include:
-   - the closest stable component
-   - why the stable component cannot be reused directly
-   - review status
-   - last reviewed date
-   - proposed review decision
-8. New components must inherit existing theme constraints, tokens, CSS variables, and shared interaction patterns instead of creating an independent visual system.
-
-## Must Reuse
-
-These patterns are established design system components and must be reused:
-
-- Color picker
-- Input fields
-- Dropdown/select
-- Segmented input groups
-- Panel/popover
-- Tabs
-- Buttons
-- Menu items
-- Tooltip
-- Annotation input
-
-## Hard Rules
-
-- All color selection must use the shared color picker.
-- Do not use native `input[type=color]` outside the shared color picker implementation.
-- Dropdowns must use the existing dropdown style and arrow icon.
-- Inputs must follow the existing default / hover / focus behavior.
-- Segmented inputs should use a connected segment group instead of unrelated standalone fields.
-- New `.ei-*` or `.ei-dp-*` component classes must be justified.
-- Avoid hardcoded visual values when an existing token, CSS variable, or component pattern can be used.
-- Workbench samples must use real runtime classes and real component structure, not fake mock components.
-- `DESIGN_SYSTEM.md` component specifications must be token-first: stable UI colors, sizes, spacing, radii, shadows, borders, z-indexes, and motion values must use tokens or CSS variables as the primary value.
-- Token definition sections may include concrete values because they are the source of truth; component specification sections must not use raw `px`, hex, `rgb/rgba`, named colors, or duration values as the primary spec.
-- When changing stable UI tokens, component dimensions, color, radius, shadow, border, spacing, or interaction states, update `DESIGN_SYSTEM.md` and the matching Workbench sample or explicitly explain why they remain valid.
-- New stable UI tokens must be added to `src/design-tokens.ts` and exposed through `generateCSSVariables()` before documentation or component specs reference them.
-- Do not invent local one-off CSS variables or raw values to bypass the design system; if a reusable value is missing, add or propose a semantic token first.
-
-## Inspector Panel Regression Guardrails
-
-These rules are stable product behavior and must not regress when adding or refactoring inspector features:
-
-- Numeric inspector fields that represent pixel, size, spacing, radius, position, or similar visual values must display and commit integers only. Do not allow manual input, blur, Enter, arrow keys, or drag scrubbing to produce decimals.
-- Color text fields must display six-digit HEX values without CSS color functions. Show values like `FFFFFF` or `09090B`; do not show `lab(...)`, `oklab(...)`, `rgb(...)`, `rgba(...)`, named colors, or raw computed color strings in the input.
-- Color swatches and color text fields must reflect the real computed color. Do not use white or black fallbacks when parsing fails in a way that could misrepresent the selected element.
-- Transparent or absent backgrounds must not be presented as a white fill. Only show `FFFFFF` when the element actually has a visible white background or fill.
-- Color opacity controls must reflect the real alpha channel from computed colors, including `rgba(...)`, `rgb(... / alpha)`, `lab(... / alpha)`, `oklab(... / alpha)`, `lch(... / alpha)`, and `oklch(... / alpha)`. Do not default visible color rows to `100%` when the source color contains alpha.
-- When changing a color while an existing alpha is present, preserve that alpha unless the user explicitly changes opacity.
-- Dropdowns, popovers, and floating controls inside the inspector must remain visually isolated from host pages. In extension and embedded contexts, mount floating UI under the Elens root/shadow host when needed, and use Shadow DOM-safe outside-click handling such as `event.composedPath()`.
-- Every inspector UI fix that touches color, numeric fields, dropdowns, popovers, or floating controls must be validated against realistic host-page CSS conditions, not only the demo page.
-
-## Required Completion Report For UI Changes
-
-When finishing a UI-related task, report:
-
-- Which existing design system components or patterns were reused
-- Whether any new visual pattern was introduced
-- Whether the Workbench stable area or pending registry was updated
-- If a new pending component was added: closest stable component, why it could not be reused, review status, last reviewed date, and proposed review decision
-- Which validation commands were run
-
-## Validation
-
-For UI changes, run:
-
-```bash
-npx tsc --noEmit
-npx vite build --outDir demo-dist
-npm run check:design-system
-```
-
-If `check:design-system` reports warnings, inspect them before finishing. Fix clear violations instead of ignoring them.
+中文备注：根文件只保留最高优先级原则和规则索引。具体细节放进 `.claude/rules/`，避免根文件越来越臃肿。

@@ -23,7 +23,7 @@ import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
 import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
 import { applyViewportSize as applyHostViewportSize, applyWindowBounds as applyHostWindowBounds, canResizeViewport as canHostResizeViewport, canResizeWindow as canHostResizeWindow, captureElementImageBlob as captureHostElementImageBlob, performCaptureForDesign, resolveInitialViewportState, resolveViewportCapabilities, writeClipboardImage as writeHostClipboardImage, writeClipboardText as writeHostClipboardText } from './host-runtime'
-import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, getInspectableElementFromPoint, getRoute, loadLayerTreeNodeChildren, rgbToHex, truncate } from './utils'
+import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, formatColorHexDisplay, getInspectableElementFromPoint, getRoute, loadLayerTreeNodeChildren, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
 const MODE_STORAGE_KEY = 'elens-mode'
@@ -1601,7 +1601,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     tooltip.appendChild(head)
 
     const rows: Array<{ label: string; value: string; swatch?: string }> = [
-      { label: 'color', value: rgbToHex(info.typography.color), swatch: info.typography.color },
+      { label: 'color', value: formatColorHexDisplay(info.typography.color), swatch: info.typography.color },
       { label: 'font-size', value: info.typography.fontSize },
       { label: 'font-weight', value: info.typography.fontWeight },
       { label: 'font-family', value: truncate(info.typography.fontFamily, 36) },
@@ -6583,6 +6583,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     void captureEntireScreen()
   }
 
+  async function captureForDesign(target: 'page' | 'window' = 'page'): Promise<void> {
+    if (target === 'window') {
+      await captureWindow()
+      return
+    }
+    await captureEntireScreen()
+  }
+
   // Capture functions for each mode
   async function captureEntireScreen(): Promise<void> {
     if (currentMode !== 'off') setMode('off')
@@ -6876,6 +6884,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     setViewportSize,
     getViewportPreset: () => currentViewportPreset,
     getViewportState: () => currentViewportState,
+    toggleLayersPanel,
+    captureForDesign,
     destroy,
     getCurrentInfo: () => currentInfo,
     getChanges: () => [...changes],

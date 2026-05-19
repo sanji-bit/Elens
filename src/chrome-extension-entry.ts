@@ -50,7 +50,7 @@ function unmountInspector(): void {
 
 window.addEventListener('message', event => {
   if (event.source !== window) return
-  const data = event.data as { source?: string; type?: string; selector?: string; requestId?: string; scroll?: boolean } | undefined
+  const data = event.data as { source?: string; type?: string; command?: string; width?: number; height?: number; selector?: string; requestId?: string; scroll?: boolean } | undefined
   if (!data) return
 
   if (data.source === 'elens-extension-control' && data.type === 'ELENS_TOGGLE_INSPECTOR') {
@@ -59,6 +59,35 @@ window.addEventListener('message', event => {
       return
     }
     mountInspector()
+    return
+  }
+
+  if (data.source === 'elens-extension-control' && data.type === 'ELENS_RUN_COMMAND' && data.command) {
+    if (data.command === 'show-hide') {
+      if (window.__ELEMENT_INSPECTOR__) unmountInspector()
+      else mountInspector()
+      return
+    }
+    if (data.command === 'figma-capture') {
+      void runPageCapture('body', { scroll: true })
+      return
+    }
+    const inspector = window.__ELEMENT_INSPECTOR__ ?? mountInspector()
+    if (data.command === 'inspector') {
+      inspector.setMode('inspector')
+      return
+    }
+    if (data.command === 'design') {
+      inspector.setMode('design')
+      return
+    }
+    if (data.command === 'layers') {
+      inspector.toggleLayersPanel()
+      return
+    }
+    if (data.command === 'viewport-size' && typeof data.width === 'number' && typeof data.height === 'number') {
+      void inspector.setViewportSize(data.width, data.height)
+    }
     return
   }
 

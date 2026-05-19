@@ -1,5 +1,50 @@
 const OFFSCREEN_PATH = 'offscreen.html'
 
+const CONTEXT_MENU_ROOT_ID = 'elens-root'
+const VIEWPORT_PRESETS = [
+  { id: 'viewport-1920x1080', title: '1920 × 1080', width: 1920, height: 1080 },
+  { id: 'viewport-1440x900', title: '1440 × 900', width: 1440, height: 900 },
+  { id: 'viewport-1280x800', title: '1280 × 800', width: 1280, height: 800 },
+  { id: 'viewport-768x1024', title: '768 × 1024', width: 768, height: 1024 },
+  { id: 'viewport-414x896', title: '414 × 896', width: 414, height: 896 },
+  { id: 'viewport-375x812', title: '375 × 812', width: 375, height: 812 },
+]
+
+function sendTabCommand(tabId, command, options = {}) {
+  if (!tabId) return
+  void chrome.tabs.sendMessage(tabId, { type: 'ELENS_RUN_COMMAND', command, ...options }).catch(() => {})
+}
+
+function createContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: CONTEXT_MENU_ROOT_ID, title: 'Elens', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'show-hide', parentId: CONTEXT_MENU_ROOT_ID, title: '显示 / 隐藏', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'inspector', parentId: CONTEXT_MENU_ROOT_ID, title: '检查模式', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'design', parentId: CONTEXT_MENU_ROOT_ID, title: '设计模式', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'figma-capture', parentId: CONTEXT_MENU_ROOT_ID, title: 'Figma 捕获', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'viewport-root', parentId: CONTEXT_MENU_ROOT_ID, title: '视口尺寸', contexts: ['all'] })
+    VIEWPORT_PRESETS.forEach((preset) => {
+      chrome.contextMenus.create({ id: preset.id, parentId: 'viewport-root', title: preset.title, contexts: ['all'] })
+    })
+    chrome.contextMenus.create({ id: 'layers', parentId: CONTEXT_MENU_ROOT_ID, title: '图层面板', contexts: ['all'] })
+  })
+}
+
+chrome.runtime.onInstalled.addListener(createContextMenus)
+chrome.runtime.onStartup.addListener(createContextMenus)
+createContextMenus()
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  const tabId = tab?.id
+  if (!tabId || info.menuItemId === CONTEXT_MENU_ROOT_ID || info.menuItemId === 'viewport-root') return
+  const viewportPreset = VIEWPORT_PRESETS.find(preset => preset.id === info.menuItemId)
+  if (viewportPreset) {
+    sendTabCommand(tabId, 'viewport-size', { width: viewportPreset.width, height: viewportPreset.height })
+    return
+  }
+  sendTabCommand(tabId, String(info.menuItemId))
+})
+
 chrome.action.onClicked.addListener((tab) => {
   if (!tab.id) return
   void chrome.tabs.sendMessage(tab.id, { type: 'ELENS_TOGGLE_INSPECTOR' }).catch(() => {})

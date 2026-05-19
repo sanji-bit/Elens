@@ -31,12 +31,33 @@ function ensureInspectorScript(callback) {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (!message || message.type !== 'ELENS_TOGGLE_INSPECTOR') return
+  if (!message || (message.type !== 'ELENS_TOGGLE_INSPECTOR' && message.type !== 'ELENS_RUN_COMMAND')) return
+
+  if (message.type === 'ELENS_RUN_COMMAND' && message.command === 'viewport-size') {
+    sendRuntimeMessage({
+      source: 'elens-extension-content',
+      type: 'ELENS_SET_VIEWPORT_SIZE',
+      bounds: { width: message.width, height: message.height },
+      viewportMetrics: getViewportMetrics(),
+    }, () => {})
+    return
+  }
 
   ensureInspectorScript(() => {
+    if (message.type === 'ELENS_TOGGLE_INSPECTOR') {
+      window.postMessage({
+        source: 'elens-extension-control',
+        type: 'ELENS_TOGGLE_INSPECTOR',
+      }, '*')
+      return
+    }
+
     window.postMessage({
       source: 'elens-extension-control',
-      type: 'ELENS_TOGGLE_INSPECTOR',
+      type: 'ELENS_RUN_COMMAND',
+      command: message.command,
+      width: message.width,
+      height: message.height,
     }, '*')
   })
 })

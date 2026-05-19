@@ -214,13 +214,22 @@ export function extractInspectorInfo(element: InspectableElement): InspectorInfo
   }
 }
 
-export function rgbToHex(rgb: string): string {
-  const match = rgb.match(/rgba?\(\s*(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/i)
-  if (!match) return rgb
+function rgbStringToHex(value: string): string | null {
+  const match = value.match(/rgba?\(\s*(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/i)
+  if (!match) return null
   const r = Math.round(Number(match[1]))
   const g = Math.round(Number(match[2]))
   const b = Math.round(Number(match[3]))
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`
+}
+
+export function rgbToHex(rgb: string): string {
+  const hex = rgbStringToHex(rgb) ?? cssColorToHex(rgb) ?? canvasColorToHex(rgb)
+  return hex ?? rgb
+}
+
+export function formatColorHexDisplay(value: string): string {
+  return rgbStringToHex(value) ?? cssColorToHex(value) ?? canvasColorToHex(value) ?? '—'
 }
 
 function canvasColorToHex(value: string): string | null {
@@ -254,8 +263,8 @@ export function cssColorToHex(value: string): string | null {
   const normalized = window.getComputedStyle(probe).color
   probe.remove()
   if (!normalized || normalized === 'transparent' || normalized === 'rgba(0, 0, 0, 0)' || normalized === 'rgba(0,0,0,0)') return null
-  const hex = rgbToHex(normalized)
-  if (hex.startsWith('#')) return hex
+  const hex = rgbStringToHex(normalized)
+  if (hex) return hex
   return canvasColorToHex(normalized) ?? canvasColorToHex(trimmed)
 }
 
@@ -280,7 +289,8 @@ export function normalizeColorValue(value: string): string | null {
     return null
   }
   if (normalized.startsWith('#')) return normalized.toUpperCase()
-  if (normalized.startsWith('rgb')) return rgbToHex(normalized)
+  const hex = rgbStringToHex(normalized)
+  if (hex) return hex
   return cssColorToHex(normalized) ?? canvasColorToHex(normalized) ?? canvasColorToHex(trimmed)
 }
 

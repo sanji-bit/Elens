@@ -1351,7 +1351,6 @@ const ICON_GROUP_LABELS: Record<ElensIconGroup, string> = {
   toolbar: 'Toolbar',
   design: 'Design',
   changes: 'Changes',
-  capture: 'Capture',
   layers: 'Layers',
   inline: 'Inline',
   extension: 'Extension',

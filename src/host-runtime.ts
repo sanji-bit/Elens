@@ -1,18 +1,7 @@
-import captureScriptText from './assets/capture.js?raw'
 import type { ViewportController, ViewportControllerCapabilities, ViewportPreset, ViewportState, WindowBounds } from './types'
-
-const CAPTURE_SCRIPT_REMOTE_URL = 'https://mcp.figma.com/mcp/html-to-design/capture.js'
-
-export type CaptureForDesignOptions = {
-  scroll: boolean
-}
 
 export type ClipboardWriteHandlers = {
   write?: ViewportController['writeClipboard']
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
 export async function blobToDataUrl(blob: Blob, fallbackMessage: string): Promise<string> {
@@ -90,55 +79,6 @@ export async function captureElementImageBlob(target: HTMLElement, captureVisibl
   })
 }
 
-async function ensureCaptureScript(): Promise<void> {
-  if (window.figma?.captureForDesign) return
-  let scriptText = ''
-  try {
-    const response = await fetch(CAPTURE_SCRIPT_REMOTE_URL)
-    if (!response.ok) throw new Error(`Failed to fetch remote capture.js: ${response.status}`)
-    scriptText = await response.text()
-  } catch {
-    scriptText = captureScriptText
-  }
-  const script = document.createElement('script')
-  script.textContent = scriptText
-  document.head.appendChild(script)
-  await sleep(1200)
-}
-
-async function warmPageForCapture(scroll: boolean): Promise<void> {
-  if (scroll) {
-    const step = Math.max(400, Math.floor(window.innerHeight * 0.8))
-    for (let y = 0; y < document.body.scrollHeight; y += step) {
-      window.scrollTo(0, y)
-      await sleep(180)
-    }
-    await sleep(600)
-    window.scrollTo(0, 0)
-  }
-
-  const imgs = Array.from(document.images || [])
-  await Promise.allSettled(
-    imgs.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
-      img.addEventListener('load', resolve, { once: true })
-      img.addEventListener('error', resolve, { once: true })
-      window.setTimeout(resolve, 4000)
-    }))
-  )
-  if (document.fonts?.ready) await Promise.race([document.fonts.ready, sleep(3000)])
-  await sleep(500)
-}
-
-export async function performCaptureForDesign(selector: string, options: CaptureForDesignOptions, captureForDesign?: ViewportController['captureForDesign']): Promise<unknown> {
-  if (captureForDesign) {
-    return await captureForDesign(selector, { scroll: options.scroll })
-  }
-
-  await ensureCaptureScript()
-  await warmPageForCapture(options.scroll)
-  return await window.figma?.captureForDesign({ selector })
-}
-
 export function canResizeWindow(controller: ViewportController | undefined, capabilities: ViewportControllerCapabilities): boolean {
   return Boolean(controller?.setWindowBounds && capabilities.resizeWindow !== false)
 }
@@ -207,7 +147,6 @@ export function createDesktopViewportController(overrides: Partial<ViewportContr
       resizeWindow: false,
       moveWindow: false,
       writeClipboard: false,
-      captureForDesign: false,
       ...overrides.capabilities,
     },
     setViewportSize: overrides.setViewportSize ?? (() => false),
@@ -216,8 +155,6 @@ export function createDesktopViewportController(overrides: Partial<ViewportContr
     getWindowBounds: overrides.getWindowBounds,
     captureVisibleTab: overrides.captureVisibleTab,
     writeClipboard: overrides.writeClipboard,
-    captureForDesign: overrides.captureForDesign,
     getCapabilities: overrides.getCapabilities,
   }
 }
-

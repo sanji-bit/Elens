@@ -5,7 +5,7 @@ export type BoxEdges = {
   left: string
 }
 
-export type InspectableElement = HTMLElement | SVGSVGElement
+export type InspectableElement = HTMLElement | SVGElement
 
 export type InspectorInfo = {
   element: InspectableElement
@@ -188,7 +188,10 @@ export type ChangeSnapshot = {
 
 export type LayersTreeNode = {
   id: string
-  element: HTMLElement
+  kind: 'element' | 'text'
+  element: HTMLElement | SVGElement
+  selectionElement: InspectableElement
+  textNode?: Text
   parentId: string | null
   depth: number
   label: string
@@ -215,6 +218,7 @@ export type ChangeMeta = {
   note?: string
   groupKey?: string
   designInputMode?: 'visual'
+  designState?: 'default' | 'hover'
 }
 
 export type InspectorMode = 'off' | 'inspector' | 'design' | 'move' | 'guides' | 'changes'
@@ -465,7 +469,6 @@ export type ViewportControllerCapabilities = {
   resizeWindow?: boolean
   moveWindow?: boolean
   writeClipboard?: boolean
-  captureForDesign?: boolean
 }
 
 export type ViewportPreset = {
@@ -497,7 +500,6 @@ export type ViewportController = {
   getWindowBounds?: () => WindowBounds | null | Promise<WindowBounds | null>
   captureVisibleTab?: () => string | null | Promise<string | null>
   writeClipboard?: (content: ClipboardContent) => void | boolean | Promise<void | boolean>
-  captureForDesign?: (selector: string, options?: { scroll?: boolean }) => Promise<unknown>
 }
 
 export type InspectorTheme = ThemeConfig
@@ -527,7 +529,6 @@ export type ElementInspectorInstance = {
   getViewportPreset: () => ViewportPreset | null
   getViewportState: () => ViewportState | null
   toggleLayersPanel: (force?: boolean) => void
-  captureForDesign: (target?: 'page' | 'window') => Promise<void>
   destroy: () => void
   getCurrentInfo: () => InspectorInfo | null
   getChanges: () => Change[]
@@ -536,13 +537,4 @@ export type ElementInspectorInstance = {
   exportJSON: (detail?: OutputDetail) => string
   exportArchiveJSON: () => string
   importChanges: (json: string) => { restored: number; skipped: number }
-}
-
-// Figma capture global
-declare global {
-  interface Window {
-    figma?: {
-      captureForDesign: (options: { selector: string }) => Promise<unknown>
-    }
-  }
 }

@@ -1,18 +1,41 @@
 import { ICON_SVGS } from './icons'
 import type { InspectableElement, InspectorInfo, StyleDiff } from './types'
+import {
+  hexToHsva as colorHexToHsva,
+  hsvaFromHorizontalSlider,
+  hsvaFromPlane,
+  hsvaHueColor,
+  hsvaToHex,
+  hsvaToOpacity,
+  moveHsvaByKey,
+  type HsvaColor,
+} from './color-picker-core'
 
 const CHANGES_PANEL_CLOSE_ICON = ICON_SVGS.changesPanelClose
 import { i18n } from './i18n'
 import { collectPageColors, getColorOpacityPercent, normalizeColorValue, rgbToHex } from './utils'
 
 let cachedPageColors: { colors: string[]; collectedAt: number } | null = null
+let pageColorsRefreshPending = false
+const pageColorsSubscribers = new Set<(colors: string[]) => void>()
 
 function getCachedPageColors(): string[] {
   const now = Date.now()
-  if (cachedPageColors && now - cachedPageColors.collectedAt < 2000) return cachedPageColors.colors
-  const colors = collectPageColors(document)
-  cachedPageColors = { colors, collectedAt: now }
-  return colors
+  if (!cachedPageColors) cachedPageColors = { colors: [], collectedAt: 0 }
+  if (now - cachedPageColors.collectedAt > 2000 && !pageColorsRefreshPending) {
+    pageColorsRefreshPending = true
+    window.setTimeout(() => {
+      cachedPageColors = { colors: collectPageColors(document), collectedAt: Date.now() }
+      pageColorsRefreshPending = false
+      for (const subscriber of pageColorsSubscribers) subscriber(cachedPageColors.colors)
+    }, 0)
+  }
+  return cachedPageColors.colors
+}
+
+function subscribePageColors(subscriber: (colors: string[]) => void): () => void {
+  pageColorsSubscribers.add(subscriber)
+  return () => pageColorsSubscribers.delete(subscriber)
 }
 
 export type MultiSelectionTypographyState = {
@@ -370,7 +393,7 @@ const SIZING_FULL_LABELS: Record<string, Record<SizingMode, string>> = {
 
 function detectSizingMode(element: InspectableElement, dimension: 'width' | 'height'): SizingMode {
   const inlineVal = element.style.getPropertyValue(dimension)
-  if (element instanceof SVGSVGElement) return inlineVal && inlineVal !== 'auto' ? 'fixed' : 'fixed'
+  if (element instanceof SVGElement) return inlineVal && inlineVal !== 'auto' ? 'fixed' : 'fixed'
   const style = window.getComputedStyle(element)
   if (inlineVal === 'fit-content' || inlineVal === 'auto') return 'hug'
   if (inlineVal === '100%') return 'fill'
@@ -384,18 +407,18 @@ function detectSizingMode(element: InspectableElement, dimension: 'width' | 'hei
 }
 
 function canFillContainer(element: InspectableElement): boolean {
-  if (element instanceof SVGSVGElement) return false
+  if (element instanceof SVGElement) return false
   if (!element.parentElement) return false
   const parentDisplay = window.getComputedStyle(element.parentElement).display
   return parentDisplay.includes('flex') || parentDisplay.includes('grid')
 }
 
 function supportsFlexibleSizing(element: InspectableElement): boolean {
-  return !(element instanceof SVGSVGElement)
+  return !(element instanceof SVGElement)
 }
 
-function isSvgElement(element: InspectableElement): element is SVGSVGElement {
-  return element instanceof SVGSVGElement
+function isSvgElement(element: InspectableElement): element is SVGElement {
+  return element instanceof SVGElement
 }
 
 const GAP_DROPDOWN_ICON = `<svg width="23" height="24" viewBox="0 0 23 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.24404 11.1816C9.28855 11.137 9.34143 11.1016 9.39965 11.0774C9.45786 11.0533 9.52027 11.0408 9.58329 11.0408C9.64632 11.0408 9.70873 11.0533 9.76694 11.0774C9.82516 11.1016 9.87803 11.137 9.92254 11.1816L11.5 12.76L13.0774 11.1816C13.1219 11.1371 13.1748 11.1017 13.233 11.0776C13.2912 11.0535 13.3536 11.0411 13.4166 11.0411C13.4796 11.0411 13.542 11.0535 13.6002 11.0776C13.6584 11.1017 13.7113 11.1371 13.7559 11.1816C13.8004 11.2262 13.8358 11.279 13.8599 11.3373C13.884 11.3955 13.8964 11.4579 13.8964 11.5209C13.8964 11.5839 13.884 11.6462 13.8599 11.7045C13.8358 11.7627 13.8004 11.8156 13.7559 11.8601L11.8392 13.7768C11.7947 13.8214 11.7418 13.8568 11.6836 13.881C11.6254 13.9051 11.563 13.9175 11.5 13.9175C11.4369 13.9175 11.3745 13.9051 11.3163 13.881C11.2581 13.8568 11.2052 13.8214 11.1607 13.7768L9.24404 11.8601C9.19942 11.8156 9.16402 11.7627 9.13986 11.7045C9.11571 11.6463 9.10327 11.5839 9.10327 11.5209C9.10327 11.4578 9.11571 11.3954 9.13986 11.3372C9.16402 11.279 9.19942 11.2261 9.24404 11.1816Z" fill="currentColor"/></svg>`
@@ -1326,7 +1349,9 @@ function createColorSegmentGroup(
   applySolid: () => void,
   applyGradient: () => void,
   applyImage: () => void,
-  render: () => void,
+  sync: () => void,
+  getHsva?: () => HsvaColor,
+  setHsva?: (value: HsvaColor) => void,
 ): HTMLDivElement {
   const group = el('div', 'ei-dp-color-segment-group')
   group.dataset.format = format
@@ -1341,143 +1366,41 @@ function createColorSegmentGroup(
     return group
   }
 
-  if (draft.kind === 'gradient') {
-    const activeStop = getActiveGradientStop(draft)
-    const activeColor = activeStop.color
-    const activeOpacity = activeStop.opacity
-    const activeRgb = hexToRgb(activeColor)
-    const activeHsl = rgbToHslColor(activeRgb)
-    const activeHsv = rgbToHsvColor(activeRgb)
-
-    if (format === 'hex') {
-      group.append(
-        createColorSegmentInput(formatColorValue(activeColor, 'hex'), (value) => {
-          updateGradientStop(draft, activeStop.id, { color: ensureHexColor(value.startsWith('#') ? value : `#${value}`, activeColor) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
-          updateGradientStop(draft, activeStop.id, { opacity: value })
-          applyGradient()
-          render()
-        }),
-        el('span', 'ei-dp-color-segment-suffix', '%'),
-      )
-      return group
+  const currentColor = (): string => draft.kind === 'gradient' ? getActiveGradientStop(draft).color : draft.color
+  const currentOpacity = (): number => draft.kind === 'gradient' ? getActiveGradientStop(draft).opacity : draft.opacity
+  const currentHsva = (): HsvaColor => getHsva?.() ?? colorHexToHsva(currentColor(), currentOpacity())
+  const applyColor = (color: string): void => {
+    if (draft.kind === 'gradient') {
+      updateGradientStop(draft, draft.activeGradientStopId, { color })
+      applyGradient()
+    } else {
+      draft.color = color
+      applySolid()
     }
-
-    if (format === 'css') {
-      group.dataset.single = 'true'
-      group.appendChild(createColorSegmentInput(formatColorValue(activeColor, 'css', activeOpacity), (value) => {
-        const hex = rgbToHex(value)
-        if (hex) {
-          const alphaMatch = value.match(/rgba?\([^)]*,\s*([\d.]+)\s*\)/i)
-          updateGradientStop(draft, activeStop.id, {
-            color: hex,
-            opacity: alphaMatch ? clamp(Number(alphaMatch[1]) * 100, 0, 100) : activeOpacity,
-          })
-          applyGradient()
-          render()
-        }
-      }))
-      return group
-    }
-
-    if (format === 'rgb') {
-      group.append(
-        createColorNumberSegment(activeRgb.r, 0, 255, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, r: value }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(activeRgb.g, 0, 255, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, g: value }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(activeRgb.b, 0, 255, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: rgbToHexColor({ ...activeRgb, b: value }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
-          updateGradientStop(draft, activeStop.id, { opacity: value })
-          applyGradient()
-          render()
-        }),
-        el('span', 'ei-dp-color-segment-suffix', '%'),
-      )
-      return group
-    }
-
-    if (format === 'hsl') {
-      group.append(
-        createColorNumberSegment(Math.round(activeHsl.h), 0, 360, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, h: value }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(Math.round(activeHsl.s * 100), 0, 100, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, s: value / 100 }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(Math.round(activeHsl.l * 100), 0, 100, (value) => {
-          updateGradientStop(draft, activeStop.id, { color: hslToHexColor({ ...activeHsl, l: value / 100 }) })
-          applyGradient()
-          render()
-        }),
-        createColorNumberSegment(activeOpacity, 0, 100, (value) => {
-          updateGradientStop(draft, activeStop.id, { opacity: value })
-          applyGradient()
-          render()
-        }),
-        el('span', 'ei-dp-color-segment-suffix', '%'),
-      )
-      return group
-    }
-
-    group.append(
-      createColorNumberSegment(Math.round(activeHsv.h), 0, 360, (value) => {
-        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, h: value }) })
-        applyGradient()
-        render()
-      }),
-      createColorNumberSegment(Math.round(activeHsv.s * 100), 0, 100, (value) => {
-        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, s: value / 100 }) })
-        applyGradient()
-        render()
-      }),
-      createColorNumberSegment(Math.round(activeHsv.v * 100), 0, 100, (value) => {
-        updateGradientStop(draft, activeStop.id, { color: hsvToHexColor({ ...activeHsv, v: value / 100 }) })
-        applyGradient()
-        render()
-      }),
-      createColorNumberSegment(activeOpacity, 0, 100, (value) => {
-        updateGradientStop(draft, activeStop.id, { opacity: value })
-        applyGradient()
-        render()
-      }),
-      el('span', 'ei-dp-color-segment-suffix', '%'),
-    )
-    return group
+    sync()
   }
-
-  const rgb = hexToRgb(draft.color)
+  const applyOpacity = (opacity: number): void => {
+    if (draft.kind === 'gradient') {
+      updateGradientStop(draft, draft.activeGradientStopId, { opacity })
+      applyGradient()
+    } else {
+      draft.opacity = opacity
+      applySolid()
+    }
+    sync()
+  }
+  const color = currentColor()
+  const opacity = currentOpacity()
+  const rgb = hexToRgb(color)
   const hsl = rgbToHslColor(rgb)
   const hsv = rgbToHsvColor(rgb)
 
   if (format === 'hex') {
     group.append(
-      createColorSegmentInput(formatColorValue(draft.color, 'hex'), (value) => {
-        draft.color = ensureHexColor(value.startsWith('#') ? value : `#${value}`, draft.color)
-        applySolid()
-        render()
+      createColorSegmentInput(formatColorValue(color, 'hex'), (value) => {
+        applyColor(ensureHexColor(value.startsWith('#') ? value : `#${value}`, currentColor()))
       }),
-      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
-        draft.opacity = value
-        applySolid()
-      }),
+      createColorNumberSegment(opacity, 0, 100, applyOpacity),
       el('span', 'ei-dp-color-segment-suffix', '%'),
     )
     return group
@@ -1485,15 +1408,20 @@ function createColorSegmentGroup(
 
   if (format === 'css') {
     group.dataset.single = 'true'
-    group.appendChild(createColorSegmentInput(formatColorValue(draft.color, 'css', draft.opacity), (value) => {
+    group.appendChild(createColorSegmentInput(formatColorValue(color, 'css', opacity), (value) => {
       const hex = rgbToHex(value)
-      if (hex) {
+      if (!hex) return
+      const alphaMatch = value.match(/rgba?\([^)]*,\s*([\d.]+)\s*\)/i)
+      const nextOpacity = alphaMatch ? clamp(Number(alphaMatch[1]) * 100, 0, 100) : currentOpacity()
+      if (draft.kind === 'gradient') {
+        updateGradientStop(draft, draft.activeGradientStopId, { color: hex, opacity: nextOpacity })
+        applyGradient()
+      } else {
         draft.color = hex
-        const alphaMatch = value.match(/rgba?\([^)]*,\s*([\d.]+)\s*\)/i)
-        if (alphaMatch) draft.opacity = clamp(Number(alphaMatch[1]) * 100, 0, 100)
+        draft.opacity = nextOpacity
         applySolid()
-        render()
       }
+      sync()
     }))
     return group
   }
@@ -1501,24 +1429,15 @@ function createColorSegmentGroup(
   if (format === 'rgb') {
     group.append(
       createColorNumberSegment(rgb.r, 0, 255, (value) => {
-        draft.color = rgbToHexColor({ ...rgb, r: value })
-        applySolid()
-        render()
+        applyColor(rgbToHexColor({ ...hexToRgb(currentColor()), r: value }))
       }),
       createColorNumberSegment(rgb.g, 0, 255, (value) => {
-        draft.color = rgbToHexColor({ ...rgb, g: value })
-        applySolid()
-        render()
+        applyColor(rgbToHexColor({ ...hexToRgb(currentColor()), g: value }))
       }),
       createColorNumberSegment(rgb.b, 0, 255, (value) => {
-        draft.color = rgbToHexColor({ ...rgb, b: value })
-        applySolid()
-        render()
+        applyColor(rgbToHexColor({ ...hexToRgb(currentColor()), b: value }))
       }),
-      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
-        draft.opacity = value
-        applySolid()
-      }),
+      createColorNumberSegment(opacity, 0, 100, applyOpacity),
       el('span', 'ei-dp-color-segment-suffix', '%'),
     )
     return group
@@ -1527,24 +1446,21 @@ function createColorSegmentGroup(
   if (format === 'hsl') {
     group.append(
       createColorNumberSegment(Math.round(hsl.h), 0, 360, (value) => {
-        draft.color = hslToHexColor({ ...hsl, h: value })
-        applySolid()
-        render()
+        if (setHsva) {
+          setHsva({ ...currentHsva(), h: value })
+          return
+        }
+        applyColor(hslToHexColor({ ...rgbToHslColor(hexToRgb(currentColor())), h: value }))
       }),
       createColorNumberSegment(Math.round(hsl.s * 100), 0, 100, (value) => {
-        draft.color = hslToHexColor({ ...hsl, s: value / 100 })
-        applySolid()
-        render()
+        const current = rgbToHslColor(hexToRgb(currentColor()))
+        applyColor(hslToHexColor({ ...current, h: current.s === 0 ? currentHsva().h : current.h, s: value / 100 }))
       }),
       createColorNumberSegment(Math.round(hsl.l * 100), 0, 100, (value) => {
-        draft.color = hslToHexColor({ ...hsl, l: value / 100 })
-        applySolid()
-        render()
+        const current = rgbToHslColor(hexToRgb(currentColor()))
+        applyColor(hslToHexColor({ ...current, h: current.s === 0 ? currentHsva().h : current.h, l: value / 100 }))
       }),
-      createColorNumberSegment(draft.opacity, 0, 100, (value) => {
-        draft.opacity = value
-        applySolid()
-      }),
+      createColorNumberSegment(opacity, 0, 100, applyOpacity),
       el('span', 'ei-dp-color-segment-suffix', '%'),
     )
     return group
@@ -1552,27 +1468,56 @@ function createColorSegmentGroup(
 
   group.append(
     createColorNumberSegment(Math.round(hsv.h), 0, 360, (value) => {
-      draft.color = hsvToHexColor({ ...hsv, h: value })
-      applySolid()
-      render()
+      const next = { ...currentHsva(), h: value }
+      if (setHsva) setHsva(next)
+      else applyColor(hsvaToHex(next))
     }),
     createColorNumberSegment(Math.round(hsv.s * 100), 0, 100, (value) => {
-      draft.color = hsvToHexColor({ ...hsv, s: value / 100 })
-      applySolid()
-      render()
+      const next = { ...currentHsva(), s: value / 100 }
+      if (setHsva) setHsva(next)
+      else applyColor(hsvaToHex(next))
     }),
     createColorNumberSegment(Math.round(hsv.v * 100), 0, 100, (value) => {
-      draft.color = hsvToHexColor({ ...hsv, v: value / 100 })
-      applySolid()
-      render()
+      const next = { ...currentHsva(), v: value / 100 }
+      if (setHsva) setHsva(next)
+      else applyColor(hsvaToHex(next))
     }),
-    createColorNumberSegment(draft.opacity, 0, 100, (value) => {
-      draft.opacity = value
-      applySolid()
-    }),
+    createColorNumberSegment(opacity, 0, 100, applyOpacity),
     el('span', 'ei-dp-color-segment-suffix', '%'),
   )
   return group
+}
+
+function syncColorSegmentGroup(group: HTMLDivElement, format: ColorFormat, draft: FillDraft, hsva?: HsvaColor): void {
+  const inputs = Array.from(group.querySelectorAll('input')) as HTMLInputElement[]
+  if (draft.kind === 'image') {
+    const input = inputs[0]
+    if (input && document.activeElement !== input) input.value = draft.imageUrl
+    return
+  }
+
+  const color = draft.kind === 'gradient' ? getActiveGradientStop(draft).color : draft.color
+  const opacity = draft.kind === 'gradient' ? getActiveGradientStop(draft).opacity : draft.opacity
+  const rgb = hexToRgb(color)
+  const hsl = rgbToHslColor(rgb)
+  const hsv = rgbToHsvColor(rgb)
+  const displayHue = hsva && (hsv.s === 0 || hsl.s === 0) ? hsva.h : hsv.h
+  const values = format === 'hex'
+    ? [formatColorValue(color, 'hex'), Math.round(opacity).toString()]
+    : format === 'css'
+      ? [formatColorValue(color, 'css', opacity)]
+      : format === 'rgb'
+        ? [rgb.r, rgb.g, rgb.b, Math.round(opacity)].map(String)
+        : format === 'hsl'
+          ? [Math.round(hsl.s === 0 ? displayHue : hsl.h), Math.round(hsl.s * 100), Math.round(hsl.l * 100), Math.round(opacity)].map(String)
+          : [Math.round(displayHue), Math.round(hsv.s * 100), Math.round(hsv.v * 100), Math.round(opacity)].map(String)
+
+  inputs.forEach((input, index) => {
+    const value = values[index]
+    if (value == null) return
+    if (!input.classList.contains('ei-dp-color-segment-number')) input.dataset.validValue = value
+    if (document.activeElement !== input) input.value = value
+  })
 }
 
 function createColorSegmentInput(value: string, onChange: (value: string) => void): HTMLInputElement {
@@ -1580,12 +1525,22 @@ function createColorSegmentInput(value: string, onChange: (value: string) => voi
   input.type = 'text'
   input.className = 'ei-dp-color-segment-input'
   input.value = value
+  input.dataset.validValue = value
   input.setAttribute(IGNORE_ATTR, 'true')
-  input.addEventListener('input', (event) => {
-    event.stopPropagation()
+
+  const commit = (): void => {
     onChange(input.value.trim())
+    input.value = input.dataset.validValue ?? value
+  }
+
+  input.addEventListener('input', (event) => event.stopPropagation())
+  input.addEventListener('keydown', (event) => {
+    event.stopPropagation()
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    input.blur()
   })
-  input.addEventListener('keydown', (event) => event.stopPropagation())
+  input.addEventListener('blur', commit)
   return input
 }
 
@@ -1601,6 +1556,12 @@ function createColorNumberSegment(value: number, min: number, max: number, onCha
   return input
 }
 
+const visibleFillModeKinds = new Set<FillKind>(['solid', 'gradient'])
+
+export function getVisibleFillModeKinds(): FillKind[] {
+  return Array.from(visibleFillModeKinds)
+}
+
 function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void): HTMLDivElement {
   const tabs = el('div', 'ei-inspector-radio-group ei-dp-fill-modebar')
   tabs.setAttribute('role', 'radiogroup')
@@ -1610,6 +1571,7 @@ function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void
     { kind: 'image', label: 'Image', icon: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 0C10.5304 0 11.0391 0.210714 11.4142 0.585786C11.7893 0.960859 12 1.46957 12 2V10C12 10.5304 11.7893 11.0391 11.4142 11.4142C11.0391 11.7893 10.5304 12 10 12H2C1.46957 12 0.960859 11.7893 0.585786 11.4142C0.210714 11.0391 0 10.5304 0 10V2C0 1.46957 0.210714 0.960859 0.585786 0.585786C0.960859 0.210714 1.46957 0 2 0H10ZM2 1C1.73478 1 1.48043 1.10536 1.29289 1.29289C1.10536 1.48043 1 1.73478 1 2V10C1 10.2652 1.10536 10.5196 1.29289 10.7071C1.48043 10.8946 1.73478 11 2 11H10C10.2652 11 10.5196 10.8946 10.7071 10.7071C10.8946 10.5196 11 10.2652 11 10V2C11 1.73478 10.8946 1.48043 10.7071 1.29289C10.5196 1.10536 10.2652 1 10 1H2ZM4.225 5.082C4.32117 5.01857 4.43629 4.9903 4.5509 5.00196C4.66551 5.01362 4.77258 5.0645 4.854 5.146L8.854 9.146C8.90176 9.19212 8.93985 9.2473 8.96605 9.3083C8.99226 9.3693 9.00605 9.43491 9.00663 9.5013C9.0072 9.56769 8.99455 9.63353 8.96941 9.69498C8.94427 9.75642 8.90714 9.81225 8.8602 9.8592C8.81325 9.90614 8.75743 9.94327 8.69598 9.96841C8.63453 9.99355 8.56869 10.0062 8.5023 10.0056C8.43591 10.005 8.3703 9.99126 8.3093 9.96505C8.2483 9.93885 8.19312 9.90075 8.147 9.853L4.5 6.208L2.854 7.854C2.80758 7.90049 2.75245 7.93738 2.69177 7.96256C2.6311 7.98775 2.56605 8.00073 2.50035 8.00078C2.43466 8.00082 2.36959 7.98793 2.30888 7.96283C2.24816 7.93773 2.19299 7.90092 2.1465 7.8545C2.10001 7.80808 2.06312 7.75295 2.03794 7.69228C2.01275 7.6316 1.99977 7.56655 1.99972 7.50085C1.99968 7.43516 2.01257 7.37009 2.03767 7.30938C2.06277 7.24866 2.09958 7.19349 2.146 7.147L4.146 5.147L4.225 5.082ZM8.5 2C8.89782 2 9.27936 2.15804 9.56066 2.43934C9.84196 2.72064 10 3.10218 10 3.5C10 3.89782 9.84196 4.27936 9.56066 4.56066C9.27936 4.84196 8.89782 5 8.5 5C8.10218 5 7.72064 4.84196 7.43934 4.56066C7.15804 4.27936 7 3.89782 7 3.5C7 3.10218 7.15804 2.72064 7.43934 2.43934C7.72064 2.15804 8.10218 2 8.5 2ZM8.5 3C8.36739 3 8.24021 3.05268 8.14645 3.14645C8.05268 3.24021 8 3.36739 8 3.5C8 3.63261 8.05268 3.75979 8.14645 3.85355C8.24021 3.94732 8.36739 4 8.5 4C8.63261 4 8.75979 3.94732 8.85355 3.85355C8.94732 3.75979 9 3.63261 9 3.5C9 3.36739 8.94732 3.24021 8.85355 3.14645C8.75979 3.05268 8.63261 3 8.5 3Z" fill="currentColor"/></svg>' },
   ]
   for (const item of items) {
+    if (!visibleFillModeKinds.has(item.kind)) continue
     const activeClass = item.kind === active ? ' is-active' : ''
     const btn = el('button', `ei-ann-filter ei-dp-fill-mode-btn${activeClass}`)
     btn.type = 'button'
@@ -1628,13 +1590,19 @@ function createFillModeTabs(active: FillKind, onSelect: (kind: FillKind) => void
   return tabs
 }
 
-function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
+type FillPanelView = {
+  custom: HTMLDivElement
+  libraries: HTMLDivElement
+  updatePageColors: (colors: string[], loading: boolean) => void
+}
+
+function createFillPopoverChrome(view: FillPanelView): HTMLDivElement {
   const chrome = el('div', 'ei-dp-fill-chrome')
   const header = el('div', 'ei-dp-fill-chrome-header')
   const tabs = el('div', 'ei-inspector-radio-group ei-dp-fill-chrome-tabs')
   tabs.setAttribute('role', 'radiogroup')
   const custom = el('button', 'ei-ann-filter is-active', 'Custom')
-  const libraries = el('button', 'ei-ann-filter', 'Libraries')
+  const libraries = el('button', 'ei-ann-filter', 'Page Colors')
   custom.type = 'button'
   libraries.type = 'button'
   custom.setAttribute('role', 'radio')
@@ -1649,6 +1617,8 @@ function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
     libraries.classList.toggle('is-active', !customActive)
     custom.setAttribute('aria-checked', customActive ? 'true' : 'false')
     libraries.setAttribute('aria-checked', customActive ? 'false' : 'true')
+    view.custom.hidden = !customActive
+    view.libraries.hidden = customActive
   }
   custom.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -1672,7 +1642,8 @@ function createFillPopoverChrome(content: HTMLElement): HTMLDivElement {
   })
   actions.append(close)
   header.append(tabs, actions)
-  chrome.append(header, content)
+  view.libraries.hidden = true
+  chrome.append(header, view.custom, view.libraries)
   return chrome
 }
 
@@ -1926,6 +1897,7 @@ function openFillTriggerFromContainer(
 
 let activeFillPopover: HTMLDivElement | null = null
 let fillPopoverDragCleanup: (() => void) | null = null
+let fillPopoverPageColorsCleanup: (() => void) | null = null
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -1972,9 +1944,14 @@ function enableFillPopoverDrag(popover: HTMLDivElement): void {
 }
 
 function closeFillPopover(): void {
+  closeColorFormatDropdown()
   if (fillPopoverDragCleanup) {
     fillPopoverDragCleanup()
     fillPopoverDragCleanup = null
+  }
+  if (fillPopoverPageColorsCleanup) {
+    fillPopoverPageColorsCleanup()
+    fillPopoverPageColorsCleanup = null
   }
   if (activeFillPopover) {
     activeFillPopover.remove()
@@ -2008,7 +1985,12 @@ function openFillPopover(
   closeFillPopover()
   const popover = el('div', 'ei-dp-fill-popover')
   popover.setAttribute(IGNORE_ATTR, 'true')
-  popover.appendChild(createFillPopoverChrome(createFillPanel(draft, pageColors, tracker, onChange, onDraftChange, panelOptions)))
+  const view = createFillPanel(draft, pageColors, tracker, onChange, onDraftChange, panelOptions)
+  popover.appendChild(createFillPopoverChrome(view))
+  fillPopoverPageColorsCleanup = subscribePageColors((colors) => {
+    if (!popover.isConnected) return
+    view.updatePageColors(colors, false)
+  })
 
   getFloatingLayerHost(anchor).appendChild(popover)
   popover.style.pointerEvents = 'auto'
@@ -2032,8 +2014,33 @@ function createFillPanel(
   onChange: () => void,
   onDraftChange: () => void,
   options: FillPanelOptions = {},
-): HTMLDivElement {
+): FillPanelView {
   const panel = el('div', 'ei-dp-fill-panel')
+  const libraries = el('div', 'ei-dp-fill-panel ei-dp-fill-libraries')
+  let syncColorControls = (): void => {}
+
+  const updatePageColors = (colors: string[], loading: boolean): void => {
+    libraries.innerHTML = ''
+    if (loading && colors.length === 0) {
+      libraries.appendChild(el('div', 'ei-dp-page-colors-status', i18n.design.pageColorsLoading))
+      return
+    }
+    if (colors.length === 0) {
+      libraries.appendChild(el('div', 'ei-dp-page-colors-status', i18n.design.pageColorsEmpty))
+      return
+    }
+    libraries.appendChild(createPageColorGrid(colors, (color) => {
+      if (draft.kind === 'image') {
+        draft.kind = 'solid'
+        draft.color = ensureHexColor(color, draft.color)
+        applySolid()
+        render()
+        return
+      }
+      updateEditableColor(color)
+      syncColorControls()
+    }))
+  }
 
   function applySolid(): void {
     if (options.applySolid) {
@@ -2086,88 +2093,128 @@ function createFillPanel(
     return draft.color
   }
 
-  function updateEditableColor(hex: string): void {
-    const nextColor = ensureHexColor(hex, editableColor())
-    if (draft.kind === 'gradient') {
-      updateGradientStop(draft, draft.activeGradientStopId, { color: nextColor })
-      applyGradient()
-    } else {
-      draft.color = nextColor
-      if (draft.kind === 'solid') applySolid()
-    }
+  function editableOpacity(): number {
+    if (draft.kind === 'gradient') return getActiveGradientStop(draft).opacity
+    return draft.opacity
   }
 
-  function bindColorPlane(area: HTMLDivElement, handle: HTMLDivElement): void {
-    let hsv = rgbToHsvColor(hexToRgb(editableColor()))
+  let editableHsvaState: HsvaColor | null = null
+  let editableHsvaSource = ''
 
+  function editableHsva(): HsvaColor {
+    const source = `${draft.kind}:${draft.activeGradientStopId}:${editableColor()}:${editableOpacity()}`
+    if (!editableHsvaState || editableHsvaSource !== source) {
+      const next = colorHexToHsva(ensureHexColor(editableColor()), editableOpacity())
+      if (editableHsvaState && next.s === 0) next.h = editableHsvaState.h
+      editableHsvaState = next
+      editableHsvaSource = source
+    }
+    return editableHsvaState
+  }
+
+  function updateEditableHsva(value: HsvaColor): void {
+    editableHsvaState = value
+    const color = hsvaToHex(value)
+    const opacity = hsvaToOpacity(value)
+    if (draft.kind === 'gradient') {
+      updateGradientStop(draft, draft.activeGradientStopId, { color, opacity })
+      applyGradient()
+    } else {
+      draft.color = color
+      draft.opacity = opacity
+      applySolid()
+    }
+    editableHsvaSource = `${draft.kind}:${draft.activeGradientStopId}:${editableColor()}:${editableOpacity()}`
+  }
+
+  function updateEditableColor(hex: string): void {
+    const nextColor = ensureHexColor(hex, editableColor())
+    updateEditableHsva(colorHexToHsva(nextColor, editableOpacity()))
+  }
+
+  function bindColorPlane(area: HTMLDivElement): void {
+    area.tabIndex = 0
+    area.setAttribute('role', 'slider')
+    area.setAttribute('aria-label', '饱和度与明度')
+    area.setAttribute('aria-valuemin', '0')
+    area.setAttribute('aria-valuemax', '100')
     const updateFromPointer = (event: PointerEvent): void => {
       const rect = area.getBoundingClientRect()
-      const x = clamp(event.clientX - rect.left, 0, rect.width)
-      const y = clamp(event.clientY - rect.top, 0, rect.height)
-      hsv = { ...hsv, s: x / rect.width, v: 1 - y / rect.height }
-      const nextColor = hsvToHexColor(hsv)
-      handle.style.left = `${x}px`
-      handle.style.top = `${y}px`
-      handle.style.setProperty('--control-handle-fill', nextColor)
-      updateEditableColor(nextColor)
-    }
-
-    const onMove = (event: PointerEvent): void => updateFromPointer(event)
-    const onUp = (): void => {
-      document.removeEventListener('pointermove', onMove)
-      document.removeEventListener('pointerup', onUp)
-      render()
+      updateEditableHsva(hsvaFromPlane(editableHsva(), event.clientX - rect.left, event.clientY - rect.top, rect.width, rect.height))
+      syncColorControls()
     }
 
     area.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return
       event.stopPropagation()
       event.preventDefault()
+      area.focus({ preventScroll: true })
+      area.setPointerCapture(event.pointerId)
       updateFromPointer(event)
-      document.addEventListener('pointermove', onMove)
-      document.addEventListener('pointerup', onUp)
+    })
+    area.addEventListener('pointermove', (event) => {
+      if (!area.hasPointerCapture(event.pointerId)) return
+      updateFromPointer(event)
+    })
+    const releasePointer = (event: PointerEvent): void => {
+      if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId)
+    }
+    area.addEventListener('pointerup', releasePointer)
+    area.addEventListener('pointercancel', releasePointer)
+    area.addEventListener('keydown', (event) => {
+      const next = moveHsvaByKey(editableHsva(), 'plane', event.key, event.shiftKey)
+      if (next.s === editableHsva().s && next.v === editableHsva().v) return
+      event.stopPropagation()
+      event.preventDefault()
+      updateEditableHsva(next)
+      syncColorControls()
     })
   }
 
-  function bindColorSlider(slider: HTMLDivElement, handle: HTMLDivElement, type: 'hue' | 'alpha'): void {
+  function bindColorSlider(slider: HTMLDivElement, type: 'hue' | 'alpha'): void {
+    const channel = type === 'hue' ? 'hue' : 'alpha'
+    slider.tabIndex = 0
+    slider.setAttribute('role', 'slider')
+    slider.setAttribute('aria-label', type === 'hue' ? '色相' : '不透明度')
+    slider.setAttribute('aria-valuemin', '0')
+    slider.setAttribute('aria-valuemax', type === 'hue' ? '360' : '100')
     const updateFromPointer = (event: PointerEvent): void => {
       const rect = slider.getBoundingClientRect()
-      const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
-      handle.style.left = `${ratio * 100}%`
-      if (type === 'hue') {
-        const hsv = rgbToHsvColor(hexToRgb(editableColor()))
-        const nextColor = hsvToHexColor({ ...hsv, h: ratio * 360 })
-        handle.style.setProperty('--control-handle-fill', nextColor)
-        updateEditableColor(nextColor)
-      } else {
-        const nextOpacity = Math.round(ratio * 100)
-        if (draft.kind === 'gradient') {
-          updateGradientStop(draft, draft.activeGradientStopId, { opacity: nextOpacity })
-          applyGradient()
-        } else {
-          draft.opacity = nextOpacity
-          if (draft.kind === 'solid') applySolid()
-        }
-        handle.style.setProperty('--control-handle-fill', editableColor())
-      }
-    }
-
-    const onMove = (event: PointerEvent): void => updateFromPointer(event)
-    const onUp = (): void => {
-      document.removeEventListener('pointermove', onMove)
-      document.removeEventListener('pointerup', onUp)
-      render()
+      updateEditableHsva(hsvaFromHorizontalSlider(editableHsva(), type === 'hue' ? 'h' : 'a', event.clientX - rect.left, rect.width))
+      syncColorControls()
     }
 
     slider.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return
       event.stopPropagation()
       event.preventDefault()
+      slider.focus({ preventScroll: true })
+      slider.setPointerCapture(event.pointerId)
       updateFromPointer(event)
-      document.addEventListener('pointermove', onMove)
-      document.addEventListener('pointerup', onUp)
+    })
+    slider.addEventListener('pointermove', (event) => {
+      if (!slider.hasPointerCapture(event.pointerId)) return
+      updateFromPointer(event)
+    })
+    const releasePointer = (event: PointerEvent): void => {
+      if (slider.hasPointerCapture(event.pointerId)) slider.releasePointerCapture(event.pointerId)
+    }
+    slider.addEventListener('pointerup', releasePointer)
+    slider.addEventListener('pointercancel', releasePointer)
+    slider.addEventListener('keydown', (event) => {
+      const current = editableHsva()
+      const next = moveHsvaByKey(current, channel, event.key, event.shiftKey)
+      const changed = type === 'hue' ? next.h !== current.h : next.a !== current.a
+      if (!changed) return
+      event.stopPropagation()
+      event.preventDefault()
+      updateEditableHsva(next)
+      syncColorControls()
     })
   }
 
   function render(): void {
+    syncColorControls = (): void => {}
     panel.innerHTML = ''
     if (options.showModes !== false) {
       panel.appendChild(createFillModeTabs(draft.kind, (kind) => {
@@ -2179,32 +2226,30 @@ function createFillPanel(
 
     const body = el('div', 'ei-dp-fill-body')
     const pickerArea = el('div', 'ei-dp-color-square')
-    const pickerBase = editableColor()
-    pickerArea.style.background = draft.kind === 'gradient'
-      ? `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pickerBase})`
-      : `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pickerBase})`
     const pickerHandle = el('div', 'ei-dp-color-square-handle')
-    const pickerHsv = rgbToHsvColor(hexToRgb(pickerBase))
-    pickerHandle.style.left = `${pickerHsv.s * 100}%`
-    pickerHandle.style.top = `${(1 - pickerHsv.v) * 100}%`
-    pickerHandle.style.setProperty('--control-handle-fill', pickerBase)
     pickerArea.appendChild(pickerHandle)
-    bindColorPlane(pickerArea, pickerHandle)
+    bindColorPlane(pickerArea)
     const eyedropper = el('button', 'ei-dp-eyedropper ei-dp-gradient-icon-btn') as HTMLButtonElement
     eyedropper.type = 'button'
     eyedropper.setAttribute(IGNORE_ATTR, 'true')
     eyedropper.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.1411 0.65752C10.5631 0.236302 11.135 -0.000187389 11.7313 1.1141e-07C12.3275 0.000187612 12.8993 0.237036 13.3211 0.65852L13.4761 0.82852C13.8025 1.22977 13.9808 1.73125 13.9808 2.24852C13.9808 2.7658 13.8025 3.26727 13.4761 3.66852L13.3221 3.84052L11.6261 5.53252C11.8516 5.79919 11.977 6.1362 11.9806 6.48542C11.9843 6.83464 11.866 7.17419 11.6461 7.44552L11.5421 7.55952C11.2796 7.82198 10.9291 7.97778 10.5584 7.99681C10.1877 8.01583 9.82305 7.89673 9.53507 7.66252L9.51507 7.64452L5.07207 12.0915C4.84814 12.3149 4.57945 12.4883 4.28368 12.6003C3.98791 12.7123 3.67177 12.7605 3.35607 12.7415L2.54207 13.5565C2.25916 13.8298 1.88026 13.9809 1.48697 13.9775C1.09367 13.9741 0.717452 13.8164 0.43934 13.5382C0.161227 13.2601 0.00347433 12.8839 5.6704e-05 12.4906C-0.00336092 12.0973 0.147831 11.7184 0.421068 11.4355L1.23707 10.6175C1.22029 10.303 1.26975 9.98841 1.38223 9.69419C1.49472 9.39997 1.66773 9.13265 1.89007 8.90952L6.33307 4.46352C6.0918 4.17614 5.967 3.80878 5.98329 3.43391C5.99958 3.05904 6.15578 2.70388 6.42107 2.43852L6.53507 2.33552C6.80559 2.11571 7.14421 1.99698 7.49276 1.99972C7.84132 2.00245 8.17803 2.12649 8.44507 2.35052L10.1411 0.65752ZM2.59707 9.61652C2.46472 9.74902 2.36384 9.90956 2.30188 10.0863C2.23991 10.263 2.21845 10.4514 2.23907 10.6375C2.26007 10.8345 2.22507 11.0435 2.08507 11.1835L1.12707 12.1435C1.03611 12.2379 0.985887 12.3643 0.987208 12.4954C0.988529 12.6265 1.04129 12.7519 1.13413 12.8444C1.22697 12.937 1.35245 12.9894 1.48356 12.9904C1.61466 12.9913 1.7409 12.9407 1.83507 12.8495L2.79007 11.8935C2.93007 11.7535 3.14207 11.7175 3.34007 11.7405C3.70407 11.7825 4.08507 11.6635 4.36507 11.3845L8.80307 6.94252L7.03607 5.17552L2.59707 9.61652ZM12.6151 1.36552C12.499 1.24941 12.3612 1.15731 12.2095 1.09447C12.0578 1.03163 11.8952 0.999287 11.7311 0.999287C11.5669 0.999287 11.4043 1.03163 11.2526 1.09447C11.101 1.15731 10.9631 1.24941 10.8471 1.36552L9.06507 3.14552L9.00007 3.20552C8.83294 3.34159 8.62125 3.41079 8.40602 3.3997C8.19079 3.38862 7.98733 3.29804 7.83507 3.14552C7.74077 3.05444 7.61447 3.00404 7.48337 3.00518C7.35227 3.00632 7.22686 3.05891 7.13416 3.15161C7.04145 3.24432 6.98887 3.36972 6.98773 3.50082C6.98659 3.63192 7.03699 3.75822 7.12807 3.85252L10.1281 6.85252C10.2094 6.93377 10.3163 6.9845 10.4307 6.99615C10.5451 7.00781 10.66 6.97969 10.7561 6.91652L10.8351 6.85252C10.9288 6.75876 10.9815 6.6316 10.9815 6.49902C10.9815 6.36644 10.9288 6.23928 10.8351 6.14552L10.8311 6.14152C10.6693 5.97746 10.5789 5.7561 10.5797 5.5257C10.5804 5.29529 10.6722 5.07452 10.8351 4.91152L12.6151 3.13352C12.7312 3.01744 12.8233 2.87963 12.8861 2.72795C12.949 2.57627 12.9813 2.4137 12.9813 2.24952C12.9813 2.08534 12.949 1.92277 12.8861 1.77109C12.8233 1.61941 12.7312 1.4816 12.6151 1.36552Z" fill="white"/></svg>'
+    const EyeDropperCtor = (window as Window & { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
+    if (!EyeDropperCtor) {
+      eyedropper.disabled = true
+      eyedropper.title = i18n.design.eyedropperUnsupported
+      eyedropper.setAttribute('aria-label', i18n.design.eyedropperUnsupported)
+    }
     eyedropper.addEventListener('click', async (e) => {
       e.stopPropagation()
-      const EyeDropperCtor = (window as Window & { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
       if (!EyeDropperCtor) return
       try {
         const result = await new EyeDropperCtor().open()
         updateEditableColor(result.sRGBHex)
-        render()
+        syncColorControls()
       } catch {}
     })
     const sliderStack = el('div', 'ei-dp-color-sliders')
+    let gradientPreview: HTMLDivElement | null = null
     body.appendChild(pickerArea)
 
     if (draft.kind === 'solid') {
@@ -2234,28 +2279,31 @@ function createFillPanel(
       body.appendChild(gradientTypeRow)
 
       const preview = el('div', 'ei-dp-gradient-strip')
+      gradientPreview = preview
       preview.style.background = createGradientCss(draft)
       const onPreviewPointerDown = (stopId: string) => (event: PointerEvent): void => {
+        if (event.button !== 0) return
         event.stopPropagation()
         event.preventDefault()
         setActiveGradientStop(draft, stopId)
-        const onMove = (moveEvent: PointerEvent): void => {
-          const rect = preview.getBoundingClientRect()
-          updateGradientStop(draft, stopId, { position: Math.round(clamp((moveEvent.clientX - rect.left) / rect.width, 0, 1) * 100) })
-          preview.style.background = createGradientCss(draft)
-          const stopEl = preview.querySelector(`[data-stop-id="${stopId}"]`) as HTMLButtonElement | null
-          if (stopEl) stopEl.style.left = `calc(${getActiveGradientStop(draft).position}% - 10px)`
-        }
-        const onUp = (): void => {
-          document.removeEventListener('pointermove', onMove)
-          document.removeEventListener('pointerup', onUp)
-          applyGradient()
-          render()
-        }
-        onMove(event)
-        document.addEventListener('pointermove', onMove)
-        document.addEventListener('pointerup', onUp)
+        preview.setPointerCapture(event.pointerId)
+        const rect = preview.getBoundingClientRect()
+        updateGradientStop(draft, stopId, { position: Math.round(clamp((event.clientX - rect.left) / rect.width, 0, 1) * 100) })
+        applyGradient()
+        syncColorControls()
       }
+      preview.addEventListener('pointermove', (event) => {
+        if (!preview.hasPointerCapture(event.pointerId)) return
+        const rect = preview.getBoundingClientRect()
+        updateGradientStop(draft, draft.activeGradientStopId, { position: Math.round(clamp((event.clientX - rect.left) / rect.width, 0, 1) * 100) })
+        applyGradient()
+        syncColorControls()
+      })
+      const releasePreviewPointer = (event: PointerEvent): void => {
+        if (preview.hasPointerCapture(event.pointerId)) preview.releasePointerCapture(event.pointerId)
+      }
+      preview.addEventListener('pointerup', releasePreviewPointer)
+      preview.addEventListener('pointercancel', releasePreviewPointer)
       for (const stop of draft.gradientStops) {
         const stopBtn = el('button', `ei-dp-gradient-stop${stop.color === '#737373' ? ' ei-dp-gradient-stop-dark' : ''}`) as HTMLButtonElement
         stopBtn.type = 'button'
@@ -2296,6 +2344,7 @@ function createFillPanel(
       const createStopRow = (stop: GradientStop): HTMLDivElement => {
         const active = stop.id === draft.activeGradientStopId
         const row = el('div', 'ei-dp-gradient-stop-row')
+        row.dataset.stopId = stop.id
         if (active) row.dataset.active = 'true'
         row.addEventListener('click', (event) => {
           const target = event.target as HTMLElement | null
@@ -2440,18 +2489,13 @@ function createFillPanel(
 
     const hue = el('div', 'ei-dp-color-slider ei-dp-color-slider-hue')
     const hueHandle = el('div', 'ei-dp-color-slider-handle ei-dp-color-slider-handle-hue')
-    hueHandle.style.left = `${rgbToHsvColor(hexToRgb(editableColor())).h / 360 * 100}%`
-    hueHandle.style.setProperty('--control-handle-fill', editableColor())
     hue.appendChild(hueHandle)
-    bindColorSlider(hue, hueHandle, 'hue')
+    bindColorSlider(hue, 'hue')
     const alpha = el('div', 'ei-dp-color-slider ei-dp-color-slider-alpha')
-    alpha.style.background = `linear-gradient(90deg, color-mix(in srgb, var(--text-inverse) 0%, transparent) 0%, ${editableColor()} 100%), conic-gradient(from 90deg, var(--border-hover) 0 25%, transparent 0 50%, var(--border-hover) 0 75%, transparent 0)`
     alpha.style.backgroundSize = '100% 100%, 12px 12px'
     const alphaHandle = el('div', 'ei-dp-color-slider-handle ei-dp-color-slider-handle-alpha')
-    alphaHandle.style.left = `${draft.kind === 'gradient' ? getActiveGradientStop(draft).opacity : draft.opacity}%`
-    alphaHandle.style.setProperty('--control-handle-fill', editableColor())
     alpha.appendChild(alphaHandle)
-    bindColorSlider(alpha, alphaHandle, 'alpha')
+    bindColorSlider(alpha, 'alpha')
     const sliderGroup = el('div', 'ei-dp-color-slider-group')
     sliderGroup.append(hue, alpha)
     const sliderLayout = el('div', 'ei-dp-color-slider-layout')
@@ -2472,30 +2516,79 @@ function createFillPanel(
         render()
       })
     })
-    const segmentGroup = createColorSegmentGroup(currentFormat, draft, applySolid, applyGradient, applyImage, render)
+    const segmentGroup = createColorSegmentGroup(
+      currentFormat,
+      draft,
+      applySolid,
+      applyGradient,
+      applyImage,
+      () => syncColorControls(),
+      editableHsva,
+      (value) => {
+        updateEditableHsva(value)
+        syncColorControls()
+      },
+    )
     valueRow.append(formatBtn, segmentGroup)
     body.appendChild(valueRow)
 
-    if (pageColors.length > 0) {
-      body.appendChild(createPageColorGrid(pageColors, (color) => {
-        if (draft.kind === 'gradient') {
-          updateGradientStop(draft, draft.activeGradientStopId, { color: ensureHexColor(color, editableColor()) })
-          applyGradient()
-          render()
-          return
+    syncColorControls = (): void => {
+      const hsva = editableHsva()
+      const color = hsvaToHex(hsva)
+      const opacity = hsvaToOpacity(hsva)
+      pickerArea.style.background = `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvaHueColor(hsva)})`
+      pickerHandle.style.left = `${hsva.s * 100}%`
+      pickerHandle.style.top = `${(1 - hsva.v) * 100}%`
+      pickerHandle.style.setProperty('--control-handle-fill', color)
+      pickerArea.setAttribute('aria-valuenow', String(Math.round(hsva.s * 100)))
+      pickerArea.setAttribute('aria-valuetext', `饱和度 ${Math.round(hsva.s * 100)}%，明度 ${Math.round(hsva.v * 100)}%`)
+
+      hueHandle.style.left = `${hsva.h / 360 * 100}%`
+      hueHandle.style.setProperty('--control-handle-fill', hsvaHueColor(hsva))
+      hue.setAttribute('aria-valuenow', String(Math.round(hsva.h)))
+
+      const { r, g, b } = hexToRgb(color)
+      alpha.style.background = `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0) 0%, ${color} 100%), conic-gradient(from 90deg, var(--border-hover) 0 25%, transparent 0 50%, var(--border-hover) 0 75%, transparent 0)`
+      alphaHandle.style.left = `${opacity}%`
+      alphaHandle.style.setProperty('--control-handle-fill', color)
+      alpha.setAttribute('aria-valuenow', String(opacity))
+
+      syncColorSegmentGroup(segmentGroup, currentFormat, draft, hsva)
+
+      if (gradientPreview && draft.kind === 'gradient') {
+        gradientPreview.style.background = createGradientCss(draft)
+        for (const stop of draft.gradientStops) {
+          const stopButton = gradientPreview.querySelector(`[data-stop-id="${stop.id}"]`) as HTMLButtonElement | null
+          if (stopButton) {
+            stopButton.style.left = `calc(${stop.position}% - 10px)`
+            stopButton.dataset.active = stop.id === draft.activeGradientStopId ? 'true' : 'false'
+            const chip = stopButton.querySelector('.ei-dp-gradient-stop-chip') as HTMLElement | null
+            if (chip) chip.style.background = formatColorValue(stop.color, 'css', stop.opacity)
+          }
+          const row = panel.querySelector(`.ei-dp-gradient-stop-row[data-stop-id="${stop.id}"]`) as HTMLDivElement | null
+          if (!row) continue
+          row.dataset.active = stop.id === draft.activeGradientStopId ? 'true' : 'false'
+          const positionInput = row.querySelector('.ei-dp-gradient-stop-position-input') as HTMLInputElement | null
+          const colorInput = row.querySelector('.ei-dp-gradient-stop-color-input') as HTMLInputElement | null
+          const opacityInput = row.querySelector('.ei-dp-gradient-stop-opacity-input') as HTMLInputElement | null
+          const picker = row.querySelector('input[type="color"]') as HTMLInputElement | null
+          const swatch = row.querySelector('.ei-dp-gradient-stop-swatch') as HTMLElement | null
+          if (positionInput && document.activeElement !== positionInput) positionInput.value = String(Math.round(stop.position))
+          if (colorInput && document.activeElement !== colorInput) colorInput.value = stop.color.replace('#', '').toUpperCase()
+          if (opacityInput && document.activeElement !== opacityInput) opacityInput.value = String(Math.round(stop.opacity))
+          if (picker) picker.value = ensureHexColor(stop.color)
+          if (swatch) swatch.style.background = formatColorValue(stop.color, 'css', stop.opacity)
         }
-        draft.color = ensureHexColor(color, draft.color)
-        draft.kind = 'solid'
-        applySolid()
-        render()
-      }))
+      }
     }
 
     panel.appendChild(body)
+    syncColorControls()
   }
 
   render()
-  return panel
+  updatePageColors(pageColors, pageColorsRefreshPending && pageColors.length === 0)
+  return { custom: panel, libraries, updatePageColors }
 }
 
 // --- Shared Selects ---
@@ -3122,11 +3215,18 @@ function openColorFormatDropdown(anchor: HTMLElement, currentFormat: ColorFormat
     item.setAttribute(IGNORE_ATTR, 'true')
     item.innerHTML = `${format === currentFormat ? '<span class="ei-dp-color-format-check">✓</span>' : '<span class="ei-dp-color-format-check"></span>'}<span>${labels[format]}</span>`
     if (format === currentFormat) item.dataset.active = 'true'
-    item.addEventListener('click', (e) => {
+    let selected = false
+    const selectFormat = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      e.preventDefault()
       e.stopPropagation()
+      if (selected) return
+      selected = true
       onSelect(format)
       closeColorFormatDropdown()
-    })
+    }
+    item.addEventListener('mousedown', selectFormat)
+    item.addEventListener('click', selectFormat)
     dropdown.appendChild(item)
   }
 
@@ -4509,6 +4609,7 @@ export type DesignPanelCallbacks = {
   onNoteDraftChange?: (value: string) => void
   onTextEditStart?: () => void
   onTextEditEnd?: () => void
+  textNode?: Text | null
 }
 
 export type MultiSelectionTypographyCallbacks = {
@@ -4542,12 +4643,15 @@ export function buildDesignPanel(
   }
 
   // --- Text Content Section (for text elements) ---
-  const originalText = info.text || ''
+  const textNode = callbacks.textNode ?? null
+  const originalText = (textNode?.textContent ?? info.text) || ''
   const hasTextContent = originalText.length > 0 && originalText.trim().length > 0
-  const isTextElement = element instanceof HTMLElement && hasTextContent && !Array.from(element.children).some((child) => {
-    const d = window.getComputedStyle(child).display
-    return d === 'block' || d === 'flex' || d === 'grid' || d === 'table' || d === 'list-item'
-  })
+  const isTextElement = textNode
+    ? element instanceof HTMLElement && hasTextContent
+    : element instanceof HTMLElement && hasTextContent && !Array.from(element.children).some((child) => {
+      const d = window.getComputedStyle(child).display
+      return d === 'block' || d === 'flex' || d === 'grid' || d === 'table' || d === 'list-item'
+    })
 
   const supportsSvgSizeEditing = isSvgElement(element)
 
@@ -4589,11 +4693,13 @@ export function buildDesignPanel(
           isModified = true
           restoreBtn.style.display = 'flex'
         }
-        element.textContent = newText
+        if (textNode) textNode.textContent = newText
+        else element.textContent = newText
       } else if (isModified) {
         isModified = false
         restoreBtn.style.display = 'none'
-        element.textContent = originalText
+        if (textNode) textNode.textContent = originalText
+        else element.textContent = originalText
       }
     }
 
@@ -4618,7 +4724,8 @@ export function buildDesignPanel(
     restoreBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       textInput.value = originalText
-      element.textContent = originalText
+      if (textNode) textNode.textContent = originalText
+      else element.textContent = originalText
       isModified = false
       restoreBtn.style.display = 'none'
       callbacks.onTextDraftChange?.('')
@@ -5328,6 +5435,7 @@ export function buildDesignPanel(
   })
   if (hasEffects) {
     populateEffectsContent(effectsSection.content, existingShadow)
+    effectsSection.setHasContent(true)
   } else {
     effectsSection.setHasContent(false)
   }
@@ -5453,6 +5561,10 @@ export function getDesignStyles(): string {
 .ei-dp-fill-popover::-webkit-scrollbar-track { background: transparent; }
 .ei-dp-fill-popover::-webkit-scrollbar-thumb { background: var(--surface-hover-strong); border-radius: 999px; }
 .ei-dp-fill-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 0 12px 14px; }
+.ei-dp-fill-panel[hidden] { display: none; }
+.ei-dp-fill-libraries { min-height: 148px; }
+.ei-dp-fill-libraries .ei-dp-page-colors { border-top: 0; padding-top: 12px; }
+.ei-dp-page-colors-status { min-height: 120px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; text-align: center; }
 .ei-dp-fill-modebar { justify-content: flex-start; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); margin: 0 -12px; }
 .ei-dp-fill-modebar .ei-dp-fill-mode-btn { width: 24px; min-width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .ei-dp-fill-mode-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
@@ -5464,7 +5576,9 @@ export function getDesignStyles(): string {
 .ei-dp-fill-row { display: flex; align-items: center; width: 100%; height: var(--input-height); border: 1px solid transparent; border-radius: var(--field-radius); background: var(--surface-field); color: var(--text-primary); padding: 0; gap: 0; overflow: hidden; }
 .ei-dp-fill-row:hover { border-color: var(--border-default); }
 .ei-dp-fill-row:focus-within { border-color: var(--interactive-accent); }
-.ei-dp-color-square { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; overflow: visible; box-shadow: inset 0 0 0 1px var(--border-subtle); cursor: default; }
+.ei-dp-color-square { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; overflow: visible; box-shadow: inset 0 0 0 1px var(--border-subtle); cursor: crosshair; outline: none; }
+.ei-dp-color-square:focus-visible,
+.ei-dp-color-slider:focus-visible { box-shadow: inset 0 0 0 1px var(--interactive-accent), 0 0 0 2px color-mix(in srgb, var(--interactive-focus-ring) 30%, transparent); }
 .ei-dp-color-square-handle { position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18); border: 4px solid #FFFFFF; box-sizing: border-box; transform: translate(-10px, -10px); }
 .ei-dp-color-square-handle::after { content: ''; position: absolute; inset: 1.5px; border-radius: 50%; background: var(--control-handle-fill, currentColor); }
 .ei-dp-color-sliders { width: 100%; display: flex; flex-direction: column; gap: 12px; }
@@ -5473,7 +5587,9 @@ export function getDesignStyles(): string {
 .ei-dp-eyedropper { width: 24px; height: 24px; color: var(--text-secondary); flex-shrink: 0; border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .ei-dp-eyedropper svg { width: 14px; height: 14px; display: block; fill: currentColor; stroke: none; }
 .ei-dp-eyedropper:hover { color: var(--text-primary); }
-.ei-dp-color-slider { position: relative; width: 100%; height: 12px; border-radius: 999px; overflow: visible; cursor: default; box-shadow: inset 0 0 0 1px color-mix(in srgb, #FFFFFF 10%, transparent); }
+.ei-dp-eyedropper:disabled { color: var(--text-muted); opacity: 0.5; cursor: not-allowed; }
+.ei-dp-eyedropper.ei-dp-gradient-icon-btn:disabled:hover { color: var(--text-muted); background: transparent; }
+.ei-dp-color-slider { position: relative; width: 100%; height: 12px; border-radius: 999px; overflow: visible; cursor: pointer; outline: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, #FFFFFF 10%, transparent); }
 .ei-dp-color-slider-hue { background: linear-gradient(90deg, #ff2a2a 0%, #ffd600 16%, #2cff66 33%, #1ad7ff 50%, #3156ff 66%, #ff37f2 83%, #ff2a2a 100%); }
 .ei-dp-color-slider-alpha { }
 .ei-dp-color-slider-handle { position: absolute; left: 0; top: -4px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.18); border: 4px solid #FFFFFF; box-sizing: border-box; transform: translateX(-10px); }

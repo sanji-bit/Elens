@@ -1,10 +1,6 @@
 import CHECK_INLINE_SVG from './assets/check-inline.svg?raw'
-import CAPTURE_SCREEN_SVG from './assets/capture-screen.svg?raw'
-import CAPTURE_WINDOW_SVG from './assets/capture-window.svg?raw'
 import CHEVRON_DOWN_INLINE_SVG from './assets/chevron-down-inline.svg?raw'
 import COPY_INLINE_SVG from './assets/copy-inline.svg?raw'
-import SELECT_ELEMENT_SVG from './assets/select-element.svg?raw'
-import STATE_CAPTURE_SVG from './assets/state-capture.svg?raw'
 import TOOLBAR_CHANGES_SVG from './assets/toolbar-changes.svg?raw'
 import TOOLBAR_DESIGN_SVG from './assets/toolbar-design.svg?raw'
 import DESIGN_MODE_FIGMA_SVG from './assets/design-mode-figma.svg?raw'
@@ -17,7 +13,6 @@ import TOOLBAR_INSPECTOR_SVG from './assets/toolbar-inspector.svg?raw'
 import TOOLBAR_MOVE_SVG from './assets/toolbar-move.svg?raw'
 import TOOLBAR_ACTIONS_SVG from './assets/toolbar-actions.svg?raw'
 import TOOLBAR_OUTLINES_SVG from './assets/toolbar-outlines.svg?raw'
-import TOOLBAR_SCREENSHOT_SVG from './assets/toolbar-screenshot.svg?raw'
 import CHANGES_PANEL_CLOSE_SVG from './assets/changes-panel-close.svg?raw'
 import CHANGES_DELETE_SVG from './assets/changes-delete.svg?raw'
 
@@ -38,7 +33,7 @@ const EXTENSION_ICON_32_URL = new URL('../extension/icons/icon-32.png', import.m
 const EXTENSION_ICON_48_URL = new URL('../extension/icons/icon-48.png', import.meta.url).href
 const EXTENSION_ICON_128_URL = new URL('../extension/icons/icon-128.png', import.meta.url).href
 
-export type ElensIconGroup = 'toolbar' | 'design' | 'changes' | 'capture' | 'layers' | 'inline' | 'extension'
+export type ElensIconGroup = 'toolbar' | 'design' | 'changes' | 'layers' | 'inline' | 'extension'
 export type ElensIconRenderMode = 'svg' | 'image'
 
 export type ElensIconDefinition = {
@@ -54,6 +49,7 @@ export type ElensIconDefinition = {
 }
 
 export const ICON_VIEWPORT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12C2 7.757 2 5.636 3.172 4.318C4.344 3 6.229 3 10 3H14C17.771 3 19.657 3 20.828 4.318C21.999 5.636 22 7.758 22 12C22 16.242 22 18.364 20.828 19.682C19.656 21 17.771 21 14 21H10C6.229 21 4.343 21 3.172 19.682C2.001 18.364 2 16.242 2 12Z" stroke="white" stroke-width="1.5"/><path d="M2 9H10C12.828 9 14.243 9 15.121 9.879C16 10.757 16 12.172 16 15V21" stroke="white" stroke-width="1.5"/><path d="M10 21V9" stroke="white" stroke-width="1.5"/></svg>'
+export const ICON_SETTINGS = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 12C15.5 13.933 13.933 15.5 12 15.5C10.067 15.5 8.5 13.933 8.5 12C8.5 10.067 10.067 8.5 12 8.5C13.933 8.5 15.5 10.067 15.5 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M21.011 14.0965C21.5329 13.9558 21.7939 13.8854 21.8969 13.7508C22 13.6163 22 13.3998 22 12.9669V11.0332C22 10.6003 22 10.3838 21.8969 10.2493C21.7938 10.1147 21.5329 10.0443 21.011 9.90358C19.0606 9.37759 17.8399 7.33851 18.3433 5.40087C18.4817 4.86799 18.5509 4.60156 18.4848 4.44529C18.4187 4.28902 18.2291 4.18134 17.8497 3.96596L16.125 2.98673C15.7528 2.77539 15.5667 2.66972 15.3997 2.69222C15.2326 2.71472 15.0442 2.90273 14.6672 3.27873C13.208 4.73448 10.7936 4.73442 9.33434 3.27864C8.95743 2.90263 8.76898 2.71463 8.60193 2.69212C8.43489 2.66962 8.24877 2.77529 7.87653 2.98663L6.15184 3.96587C5.77253 4.18123 5.58287 4.28891 5.51678 4.44515C5.45068 4.6014 5.51987 4.86787 5.65825 5.4008C6.16137 7.3385 4.93972 9.37763 2.98902 9.9036C2.46712 10.0443 2.20617 10.1147 2.10308 10.2492C2 10.3838 2 10.6003 2 11.0332V12.9669C2 13.3998 2 13.6163 2.10308 13.7508C2.20615 13.8854 2.46711 13.9558 2.98902 14.0965C4.9394 14.6225 6.16008 16.6616 5.65672 18.5992C5.51829 19.1321 5.44907 19.3985 5.51516 19.5548C5.58126 19.7111 5.77092 19.8188 6.15025 20.0341L7.87495 21.0134C8.24721 21.2247 8.43334 21.3304 8.6004 21.3079C8.76746 21.2854 8.95588 21.0973 9.33271 20.7213C10.7927 19.2644 13.2088 19.2643 14.6689 20.7212C15.0457 21.0973 15.2341 21.2853 15.4012 21.3078C15.5682 21.3303 15.7544 21.2246 16.1266 21.0133L17.8513 20.034C18.2307 19.8187 18.4204 19.711 18.4864 19.5547C18.5525 19.3984 18.4833 19.132 18.3448 18.5991C17.8412 16.6616 19.0609 14.6226 21.011 14.0965Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
 export const ICON_LAYERS = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.75 5.41667C3.75 4.95643 4.1231 4.58333 4.58333 4.58333H8.75C9.21024 4.58333 9.58333 4.95643 9.58333 5.41667V9.58333C9.58333 10.0436 9.21024 10.4167 8.75 10.4167H4.58333C4.1231 10.4167 3.75 10.0436 3.75 9.58333V5.41667Z" stroke="currentColor" stroke-width="1.25"/><path d="M10.4167 5.41667C10.4167 4.95643 10.7898 4.58333 11.25 4.58333H15.4167C15.8769 4.58333 16.25 4.95643 16.25 5.41667V9.58333C16.25 10.0436 15.8769 10.4167 15.4167 10.4167H11.25C10.7898 10.4167 10.4167 10.0436 10.4167 9.58333V5.41667Z" stroke="currentColor" stroke-width="1.25"/><path d="M3.75 11.25C3.75 10.7898 4.1231 10.4167 4.58333 10.4167H8.75C9.21024 10.4167 9.58333 10.7898 9.58333 11.25V15.4167C9.58333 15.8769 9.21024 16.25 8.75 16.25H4.58333C4.1231 16.25 3.75 15.8769 3.75 15.4167V11.25Z" stroke="currentColor" stroke-width="1.25"/><path d="M10.4167 11.25C10.4167 10.7898 10.7898 10.4167 11.25 10.4167H15.4167C15.8769 10.4167 16.25 10.7898 16.25 11.25V15.4167C16.25 15.8769 15.8769 16.25 15.4167 16.25H11.25C10.7898 16.25 10.4167 15.8769 10.4167 15.4167V11.25Z" stroke="currentColor" stroke-width="1.25"/></svg>'
 export const ICON_LAYER_DISCLOSURE_COLLAPSED = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.121 10.121L9.243 8.00003L7.12 5.87903" stroke="currentColor" stroke-linecap="round"/></svg>'
 export const ICON_LAYER_DISCLOSURE_EXPANDED = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.87903 7.12097L8.00003 9.24297L10.121 7.12097" stroke="currentColor" stroke-linecap="round"/></svg>'
@@ -89,12 +85,8 @@ export const ICON_URLS = {
 
 export const ICON_SVGS = {
   checkInline: CHECK_INLINE_SVG,
-  captureScreen: CAPTURE_SCREEN_SVG,
-  captureWindow: CAPTURE_WINDOW_SVG,
   chevronDownInline: CHEVRON_DOWN_INLINE_SVG,
   copyInline: COPY_INLINE_SVG,
-  selectElement: SELECT_ELEMENT_SVG,
-  stateCapture: STATE_CAPTURE_SVG,
   toolbarChanges: TOOLBAR_CHANGES_SVG,
   toolbarDesign: TOOLBAR_DESIGN_SVG,
   designModeFigma: DESIGN_MODE_FIGMA_SVG,
@@ -107,10 +99,10 @@ export const ICON_SVGS = {
   toolbarMove: TOOLBAR_MOVE_SVG,
   toolbarActions: TOOLBAR_ACTIONS_SVG,
   toolbarOutlines: TOOLBAR_OUTLINES_SVG,
-  toolbarScreenshot: TOOLBAR_SCREENSHOT_SVG,
   changesPanelClose: CHANGES_PANEL_CLOSE_SVG,
   changesDelete: CHANGES_DELETE_SVG,
   viewport: ICON_VIEWPORT,
+  settings: ICON_SETTINGS,
   layers: ICON_LAYERS,
   layerDisclosureCollapsed: ICON_LAYER_DISCLOSURE_COLLAPSED,
   layerDisclosureExpanded: ICON_LAYER_DISCLOSURE_EXPANDED,
@@ -129,7 +121,7 @@ export const ELENS_ICONS: ElensIconDefinition[] = [
   { id: 'toolbar-move', name: 'Move', group: 'toolbar', source: 'src/assets/toolbar-move.svg', usage: 'Toolbar move mode', renderMode: 'svg', svg: TOOLBAR_MOVE_SVG },
   { id: 'toolbar-changes', name: 'Changes', group: 'toolbar', source: 'src/assets/toolbar-changes.svg', usage: 'Toolbar changes mode', renderMode: 'svg', svg: TOOLBAR_CHANGES_SVG },
   { id: 'toolbar-viewport', name: 'Viewport', group: 'toolbar', source: 'src/icons.ts inline', usage: 'Toolbar viewport panel', renderMode: 'svg', svg: ICON_VIEWPORT },
-  { id: 'toolbar-screenshot', name: 'Screenshot', group: 'toolbar', source: 'src/assets/toolbar-screenshot.svg', usage: 'Toolbar screenshot menu', renderMode: 'svg', svg: TOOLBAR_SCREENSHOT_SVG },
+  { id: 'toolbar-settings', name: 'Settings', group: 'toolbar', source: 'src/icons.ts inline', usage: 'Toolbar settings panel', renderMode: 'svg', svg: ICON_SETTINGS },
   { id: 'toolbar-guides', name: 'Guides', group: 'toolbar', source: 'src/assets/toolbar-guides.svg', usage: 'More menu guides action', renderMode: 'svg', svg: TOOLBAR_GUIDES_SVG },
   { id: 'toolbar-outlines', name: 'Outlines', group: 'toolbar', source: 'src/assets/toolbar-outlines.svg', usage: 'More menu outlines action', renderMode: 'svg', svg: TOOLBAR_OUTLINES_SVG },
   { id: 'toolbar-actions', name: 'More', group: 'toolbar', source: 'src/assets/toolbar-actions.svg', usage: 'Toolbar more menu', renderMode: 'svg', svg: TOOLBAR_ACTIONS_SVG },
@@ -151,11 +143,6 @@ export const ELENS_ICONS: ElensIconDefinition[] = [
   { id: 'changes-upload', name: 'Upload', group: 'changes', source: 'src/assets/changes-upload.svg', usage: 'Changes import/export action', renderMode: 'image', url: CHANGES_UPLOAD_URL, fixedColor: true },
   { id: 'changes-download', name: 'Download', group: 'changes', source: 'src/assets/changes-download.svg', usage: 'Changes import/export action', renderMode: 'image', url: CHANGES_DOWNLOAD_URL, fixedColor: true },
   { id: 'changes-avatar', name: 'Avatar', group: 'changes', source: 'src/assets/changes-avatar.jpg', usage: 'Changes item avatar', renderMode: 'image', url: CHANGES_AVATAR_URL, fixedColor: true },
-
-  { id: 'capture-screen', name: 'Screen', group: 'capture', source: 'src/assets/capture-screen.svg', usage: 'Capture menu screen option', renderMode: 'svg', svg: CAPTURE_SCREEN_SVG },
-  { id: 'capture-window', name: 'Window', group: 'capture', source: 'src/assets/capture-window.svg', usage: 'Capture menu window option', renderMode: 'svg', svg: CAPTURE_WINDOW_SVG },
-  { id: 'select-element', name: 'Select Element', group: 'capture', source: 'src/assets/select-element.svg', usage: 'Capture menu select element option', renderMode: 'svg', svg: SELECT_ELEMENT_SVG },
-  { id: 'state-capture', name: 'State Capture', group: 'capture', source: 'src/assets/state-capture.svg', usage: 'Capture menu state option', renderMode: 'svg', svg: STATE_CAPTURE_SVG },
 
   { id: 'layer-disclosure-collapsed', name: 'Disclosure Collapsed', group: 'layers', source: 'src/icons.ts inline', usage: 'Layer row collapsed disclosure', renderMode: 'svg', svg: ICON_LAYER_DISCLOSURE_COLLAPSED },
   { id: 'layer-disclosure-expanded', name: 'Disclosure Expanded', group: 'layers', source: 'src/icons.ts inline', usage: 'Layer row expanded disclosure', renderMode: 'svg', svg: ICON_LAYER_DISCLOSURE_EXPANDED },

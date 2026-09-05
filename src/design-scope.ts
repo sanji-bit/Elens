@@ -28,6 +28,10 @@ const GRID_CLASS_RE = /(?:^|[-_\s])(grid|grid-cols|cards?|masonry|waterfall|colu
 const SLOT_CLASS_RE = /(?:^|[-_\s])(title|name|label|text|desc|description|subtitle|summary|caption|meta|time|date|author|footer|count|price|status)(?:$|[-_\s])/i
 const CARD_CONTAINER_CLASS_RE = /(?:^|[-_\s])(feeds?|notes?|explore|masonry|waterfall|cards?|columns?|grid)(?:$|[-_\s])/i
 const MEDIA_TAGS = new Set(['img', 'video', 'picture'])
+const MAX_SCOPE_DOCUMENT_ELEMENTS = 5000
+const MAX_VISIBLE_CHILDREN = 120
+const MAX_REPEAT_ITEMS = 80
+const MAX_SLOT_QUERY_CANDIDATES = 80
 
 function classText(element: HTMLElement): string {
   return Array.from(element.classList).join(' ')
@@ -46,7 +50,12 @@ function visible(element: HTMLElement): boolean {
 }
 
 function children(element: HTMLElement): HTMLElement[] {
-  return Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && visible(child))
+  const result: HTMLElement[] = []
+  for (const child of Array.from(element.children)) {
+    if (result.length >= MAX_VISIBLE_CHILDREN) break
+    if (child instanceof HTMLElement && visible(child)) result.push(child)
+  }
+  return result
 }
 
 function unique(elements: HTMLElement[]): HTMLElement[] {
@@ -56,6 +65,15 @@ function unique(elements: HTMLElement[]): HTMLElement[] {
     if (seen.has(element)) continue
     seen.add(element)
     result.push(element)
+  }
+  return result
+}
+
+function queryElements(root: HTMLElement, selector: string, limit: number): HTMLElement[] {
+  const result: HTMLElement[] = []
+  for (const element of root.querySelectorAll<HTMLElement>(selector)) {
+    result.push(element)
+    if (result.length >= limit) break
   }
   return result
 }
@@ -135,10 +153,10 @@ function sameTableHeaderElements(element: HTMLElement): DesignScopeCandidate | n
 }
 
 function dominantGroupTypeCandidate(group: HTMLElement): DesignScopeCandidate | null {
-  const links = Array.from(group.querySelectorAll<HTMLElement>('a')).filter(candidate => candidate !== group && visible(candidate))
+  const links = queryElements(group, 'a', MAX_REPEAT_ITEMS).filter(candidate => candidate !== group && visible(candidate))
   if (links.length > 1) return candidate('same-group-type', `同组链接 ${links.length} 个`, 'semantic-container-links', links, group, 'high')
 
-  const buttons = Array.from(group.querySelectorAll<HTMLElement>('button, [role="button"], [role="menuitem"], [role="tab"], [role="option"], [role="treeitem"]')).filter(candidate => candidate !== group && visible(candidate))
+  const buttons = queryElements(group, 'button, [role="button"], [role="menuitem"], [role="tab"], [role="option"], [role="treeitem"]', MAX_REPEAT_ITEMS).filter(candidate => candidate !== group && visible(candidate))
   if (buttons.length > 1) return candidate('same-group-type', `同组按钮 ${buttons.length} 个`, 'semantic-container-controls', buttons, group, 'high')
 
   return null
@@ -169,17 +187,17 @@ function sameGroupTypeElements(element: HTMLElement): DesignScopeCandidate | nul
   const role = target.getAttribute('role') || ''
   const tag = target.tagName.toLowerCase()
   const selector = role ? `[role="${CSS.escape(role)}"]` : tag
-  const matches = Array.from(group.querySelectorAll<HTMLElement>(selector)).filter(candidate => (
+  const matches = queryElements(group, selector, MAX_SLOT_QUERY_CANDIDATES).filter(candidate => (
     candidate !== group && visible(candidate) && candidate.tagName.toLowerCase() === tag
   ))
-  const items = unique(matches)
+  const items = unique(matches).slice(0, MAX_REPEAT_ITEMS)
   if (items.length <= 1) return null
   const name = tag === 'a' ? '链接' : tag === 'button' ? '按钮' : '控件'
   return candidate('same-group-type', `同组${name} ${items.length} 个`, 'semantic-control-group', items, group, 'high')
 }
 
 function elementHasMedia(element: HTMLElement): boolean {
-  return Array.from(element.querySelectorAll<HTMLElement>('img, video, picture, canvas, svg')).some(node => {
+  return queryElements(element, 'img, video, picture, canvas, svg', MAX_SLOT_QUERY_CANDIDATES).some(node => {
     if (!visible(node)) return false
     const rect = node.getBoundingClientRect()
     return rect.width >= 24 && rect.height >= 24
@@ -244,7 +262,7 @@ function xhsRepeatUnit(element: HTMLElement): { unit: HTMLElement; items: HTMLEl
   if (!unit) return null
   const boundary = findXhsFeedsContainer(unit)
   if (!boundary) return null
-  const items = Array.from(boundary.querySelectorAll<HTMLElement>('section.note-item')).filter(visible)
+  const items = queryElements(boundary, 'section.note-item', MAX_REPEAT_ITEMS).filter(visible)
   if (items.length <= 1 || !items.includes(unit)) return null
   return { unit, items, boundary }
 }
@@ -447,7 +465,7 @@ function knownSlotSelector(element: HTMLElement): string | null {
 function bestKnownSlotMatch(source: HTMLElement, root: HTMLElement): HTMLElement | null {
   const selector = knownSlotSelector(source)
   if (!selector) return null
-  const candidates = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(visible)
+  const candidates = queryElements(root, selector, MAX_SLOT_QUERY_CANDIDATES).filter(visible)
   return candidates[0] ?? null
 }
 
@@ -479,7 +497,7 @@ function slotRole(element: HTMLElement): 'media' | 'title' | 'footer' | 'author'
 function bestRoleMatch(source: HTMLElement, root: HTMLElement): HTMLElement | null {
   const role = slotRole(source)
   if (role === 'unknown') return null
-  const candidates = Array.from(root.querySelectorAll<HTMLElement>(source.tagName.toLowerCase())).filter(candidate => visible(candidate) && slotRole(candidate) === role)
+  const candidates = queryElements(root, source.tagName.toLowerCase(), MAX_SLOT_QUERY_CANDIDATES).filter(candidate => visible(candidate) && slotRole(candidate) === role)
   if (!candidates.length) return null
   return candidates.sort((a, b) => slotScore(source, b) - slotScore(source, a))[0] ?? null
 }
@@ -490,7 +508,7 @@ function sameSlotElements(element: HTMLElement, repeat: { unit: HTMLElement; ite
   const path = indexPath(repeat.unit, element)
   if (!knownSelector && !path) return null
   const matches: HTMLElement[] = []
-  for (const item of repeat.items) {
+  for (const item of repeat.items.slice(0, MAX_REPEAT_ITEMS)) {
     const knownMatch = bestKnownSlotMatch(element, item)
     if (knownMatch) {
       matches.push(knownMatch)
@@ -506,11 +524,11 @@ function sameSlotElements(element: HTMLElement, repeat: { unit: HTMLElement; ite
       matches.push(roleMatch)
       continue
     }
-    const candidates = Array.from(item.querySelectorAll<HTMLElement>(element.tagName.toLowerCase())).filter(visible)
+    const candidates = queryElements(item, element.tagName.toLowerCase(), MAX_SLOT_QUERY_CANDIDATES).filter(visible)
     const best = candidates.filter(candidate => slotRole(element) === slotRole(candidate)).sort((a, b) => slotScore(element, b) - slotScore(element, a))[0]
     if (best && slotScore(element, best) >= 10) matches.push(best)
   }
-  const items = unique(matches)
+  const items = unique(matches).slice(0, MAX_REPEAT_ITEMS)
   if (items.length <= 1) return null
   return candidate('same-slot', `同槽位 ${items.length} 个`, 'repeat-unit-slot', items, repeat.boundary, 'medium')
 }
@@ -518,7 +536,8 @@ function sameSlotElements(element: HTMLElement, repeat: { unit: HTMLElement; ite
 function sameComponentElements(element: HTMLElement, repeat: { unit: HTMLElement; items: HTMLElement[]; boundary: HTMLElement }): DesignScopeCandidate | null {
   if (element !== repeat.unit) return null
   if (repeat.items.length <= 1) return null
-  return candidate('same-component', `同组件实例 ${repeat.items.length} 个`, 'repeat-unit-component', repeat.items, repeat.boundary, 'medium')
+  const items = repeat.items.slice(0, MAX_REPEAT_ITEMS)
+  return candidate('same-component', `同组件实例 ${items.length} 个`, 'repeat-unit-component', items, repeat.boundary, 'medium')
 }
 
 function ancestorRepeatedContainerSlotCandidate(element: HTMLElement): DesignScopeCandidate | null {
@@ -597,6 +616,10 @@ export function analyzeDesignScope(element: HTMLElement): DesignScopeAnalysis {
     'same-component': disabledCandidate('same-component', element),
     'same-slot': disabledCandidate('same-slot', element),
     'same-group-type': disabledCandidate('same-group-type', element),
+  }
+
+  if (document.getElementsByTagName('*').length > MAX_SCOPE_DOCUMENT_ELEMENTS) {
+    return { recommendedMode: 'single', candidates }
   }
 
   const repeat = findRepeatUnit(element)

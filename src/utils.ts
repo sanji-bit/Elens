@@ -28,7 +28,7 @@ export function pickEdgeBox(style: CSSStyleDeclaration, prefix: 'margin' | 'padd
   }
 }
 
-export function buildDomPath(element: InspectableElement): string {
+export function buildDomPath(element: Element): string {
   const parts: string[] = []
   let current: Element | null = element
 
@@ -59,26 +59,174 @@ export function buildDomPath(element: InspectableElement): string {
   return ['body', ...parts].join(' > ')
 }
 
-function getRootSvgElement(element: SVGElement): SVGSVGElement | null {
-  return element instanceof SVGSVGElement ? element : element.ownerSVGElement ?? element.closest('svg')
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml'
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
+const VISUAL_HIT_ANCESTOR_LIMIT = 4
+const VISUAL_HIT_DESCENDANT_LIMIT = 300
+
+type HitTestRoot = Document | ShadowRoot
+
+function isInspectableElement(element: Element): element is InspectableElement {
+  return element.namespaceURI === HTML_NAMESPACE || element.namespaceURI === SVG_NAMESPACE
 }
 
-export function getInspectableElementFromPoint(x: number, y: number, ignoreAttribute: string): InspectableElement | null {
-  const elements = document.elementsFromPoint(x, y)
+function isDocumentBackground(root: HitTestRoot, element: Element): boolean {
+  if (!('documentElement' in root)) return false
+  return element === root.documentElement || element === root.body
+}
 
-  for (const element of elements) {
-    const candidate = element instanceof SVGElement
-      ? getRootSvgElement(element)
-      : element instanceof HTMLElement
-        ? element
-        : null
-    if (!candidate) continue
-    if (candidate.closest(`[${ignoreAttribute}="true"]`)) continue
-    if (candidate === document.documentElement || candidate === document.body) continue
-    return candidate
+function getElementsFromPoint(root: HitTestRoot, x: number, y: number): Element[] {
+  if (typeof root.elementsFromPoint === 'function') return root.elementsFromPoint(x, y)
+  const element = root.elementFromPoint(x, y)
+  return element ? [element] : []
+}
+
+function getAccessibleFrameDocument(element: Element): Document | null {
+  if (element.namespaceURI !== HTML_NAMESPACE || element.tagName.toLowerCase() !== 'iframe') return null
+  try {
+    return (element as HTMLIFrameElement).contentDocument
+  } catch {
+    return null
+  }
+}
+
+function containsViewportPoint(rect: DOMRect, x: number, y: number): boolean {
+  return rect.width > 0
+    && rect.height > 0
+    && x >= rect.left
+    && x <= rect.left + rect.width
+    && y >= rect.top
+    && y <= rect.top + rect.height
+}
+
+function getElementComputedStyle(element: Element): CSSStyleDeclaration {
+  return element.ownerDocument?.defaultView?.getComputedStyle(element) ?? window.getComputedStyle(element)
+}
+
+function isPointerEventsNone(element: Element): boolean {
+  return getElementComputedStyle(element).pointerEvents === 'none'
+}
+
+function isPointerTransparentVisualCandidate(element: Element, x: number, y: number, ignoreSelector: string): element is InspectableElement {
+  if (!isInspectableElement(element) || element.closest(ignoreSelector)) return false
+  if (!containsViewportPoint(element.getBoundingClientRect(), x, y)) return false
+  const style = getElementComputedStyle(element)
+  if (style.pointerEvents !== 'none' || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false
+  const opacity = Number.parseFloat(style.opacity || '1')
+  return !Number.isFinite(opacity) || opacity > 0
+}
+
+function pickDeeperVisualCandidate(current: InspectableElement | null, candidate: InspectableElement): InspectableElement {
+  if (!current || current.contains(candidate)) return candidate
+  if (candidate.contains(current)) return current
+  const currentRect = current.getBoundingClientRect()
+  const candidateRect = candidate.getBoundingClientRect()
+  return candidateRect.width * candidateRect.height <= currentRect.width * currentRect.height ? candidate : current
+}
+
+function findPointerTransparentVisualCandidate(hitElement: Element, x: number, y: number, ignoreSelector: string): InspectableElement | null {
+  let scope: Element | null = hitElement
+  let scanned = 0
+
+  for (let level = 0; scope && level < VISUAL_HIT_ANCESTOR_LIMIT && scanned < VISUAL_HIT_DESCENDANT_LIMIT; level += 1) {
+    let candidate: InspectableElement | null = null
+    for (const descendant of scope.querySelectorAll('*')) {
+      scanned += 1
+      if (isPointerTransparentVisualCandidate(descendant, x, y, ignoreSelector)) {
+        candidate = pickDeeperVisualCandidate(candidate, descendant)
+      }
+      if (scanned >= VISUAL_HIT_DESCENDANT_LIMIT) break
+    }
+    if (candidate) return candidate
+    scope = scope.parentElement
   }
 
   return null
+}
+
+function findInspectableElementFromPoint(
+  root: HitTestRoot,
+  x: number,
+  y: number,
+  ignoreSelector: string,
+  visitedRoots: Set<HitTestRoot>,
+): InspectableElement | null {
+  if (visitedRoots.has(root)) return null
+  visitedRoots.add(root)
+
+  for (const element of getElementsFromPoint(root, x, y)) {
+    if (element.closest(ignoreSelector)) continue
+    if (isDocumentBackground(root, element)) continue
+
+    const frameDocument = getAccessibleFrameDocument(element)
+    if (frameDocument) {
+      const rect = element.getBoundingClientRect()
+      const frameElement = findInspectableElementFromPoint(
+        frameDocument,
+        x - rect.left,
+        y - rect.top,
+        ignoreSelector,
+        visitedRoots,
+      )
+      if (frameElement) return frameElement
+    }
+
+    const shadowElement = element.shadowRoot
+      ? findInspectableElementFromPoint(element.shadowRoot, x, y, ignoreSelector, visitedRoots)
+      : null
+    if (shadowElement) return shadowElement
+
+    const visualElement = findPointerTransparentVisualCandidate(element, x, y, ignoreSelector)
+    if (visualElement) return visualElement
+
+    // `elementsFromPoint()` may still include a visual layer whose CSS says
+    // `pointer-events: none`. It is not the node the user actually clicked;
+    // keep looking at the next hit instead of selecting that overlay.
+    if (isInspectableElement(element) && !isPointerEventsNone(element)) return element
+  }
+
+  return null
+}
+
+/**
+ * Prefer the browser's real event target/path. Coordinate hit testing is only
+ * a fallback for synthetic events and pointer-transparent visual layers.
+ */
+export function getInspectableElementFromEvent(event: Event, ignoreAttribute: string): InspectableElement | null {
+  const ignoreSelector = `[${ignoreAttribute}="true"]`
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+
+  for (const value of path) {
+    if (!value || typeof value !== 'object') continue
+    const element = value as Element
+    if (typeof element.closest === 'function' && element.closest(ignoreSelector)) continue
+    if (isDocumentBackground(document, element)) continue
+    if (!isInspectableElement(element) || isPointerEventsNone(element)) continue
+    return element
+  }
+
+  const target = event.target
+  if (target && typeof target === 'object') {
+    const element = target as Element
+    if ((!element.closest || !element.closest(ignoreSelector)) && isInspectableElement(element) && !isPointerEventsNone(element)) {
+      return element
+    }
+  }
+
+  if (event instanceof MouseEvent) {
+    return getInspectableElementFromPoint(event.clientX, event.clientY, ignoreAttribute)
+  }
+  return null
+}
+
+export function getInspectableElementFromPoint(x: number, y: number, ignoreAttribute: string): InspectableElement | null {
+  return findInspectableElementFromPoint(
+    document,
+    x,
+    y,
+    `[${ignoreAttribute}="true"]`,
+    new Set(),
+  )
 }
 
 const IMPLICIT_ROLES: Record<string, string> = {
@@ -202,7 +350,7 @@ export function extractInspectorInfo(element: InspectableElement): InspectorInfo
       gridTemplateRows: style.gridTemplateRows,
     },
     visual: {
-      backgroundColor: style.backgroundImage && style.backgroundImage !== 'none' ? style.backgroundImage : style.backgroundColor,
+      backgroundColor: style.backgroundColor,
       backgroundOpacity: String(getColorOpacityPercent(style.backgroundColor)),
       borderColor: style.borderColor,
       borderStyle: style.borderStyle,
@@ -295,30 +443,39 @@ export function normalizeColorValue(value: string): string | null {
 }
 
 export function collectPageColors(root: ParentNode = document): string[] {
-  const elements = Array.from(root.querySelectorAll('*')).filter((node): node is HTMLElement => node instanceof HTMLElement)
   const counts = new Map<string, number>()
+  const walkerRoot = root instanceof Document ? root.body : root
+  if (!walkerRoot) return []
 
-  for (const element of elements.slice(0, 1500)) {
-    const rect = element.getBoundingClientRect()
-    if ((rect.width === 0 && rect.height === 0) || element.offsetParent === null) continue
+  const walker = document.createTreeWalker(walkerRoot, NodeFilter.SHOW_ELEMENT)
+  let visited = 0
+  let current: Node | null = walker.currentNode
 
-    const style = window.getComputedStyle(element)
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue
+  while (current && visited < 1500) {
+    visited += 1
+    if (current instanceof HTMLElement) {
+      const rect = current.getBoundingClientRect()
+      if (!((rect.width === 0 && rect.height === 0) || current.offsetParent === null)) {
+        const style = window.getComputedStyle(current)
+        if (!(style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0)) {
+          const values = [
+            style.color,
+            style.backgroundColor,
+            style.borderTopColor,
+            style.borderRightColor,
+            style.borderBottomColor,
+            style.borderLeftColor,
+          ]
 
-    const values = [
-      style.color,
-      style.backgroundColor,
-      style.borderTopColor,
-      style.borderRightColor,
-      style.borderBottomColor,
-      style.borderLeftColor,
-    ]
-
-    for (const value of values) {
-      const normalized = normalizeColorValue(value)
-      if (!normalized) continue
-      counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+          for (const value of values) {
+            const normalized = normalizeColorValue(value)
+            if (!normalized) continue
+            counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+          }
+        }
+      }
     }
+    current = walker.nextNode()
   }
 
   return Array.from(counts.entries())
@@ -362,37 +519,86 @@ function hasMeaningfulText(element: HTMLElement): boolean {
   return truncate(element.innerText || element.textContent || '', 60).length > 0
 }
 
-function getTreeNodeSiblingIndex(element: HTMLElement): number {
+function isTextNode(node: ChildNode): node is Text {
+  return node.nodeType === Node.TEXT_NODE
+}
+
+function getTextNodeContent(node: Text): string {
+  return node.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
+function getTextNodeSiblingIndex(node: Text): number {
+  const parent = node.parentElement
+  if (!parent) return 0
+  const textNodes = Array.from(parent.childNodes).filter((child): child is Text => isTextNode(child) && getTextNodeContent(child).length > 0)
+  return Math.max(0, textNodes.indexOf(node))
+}
+
+function buildTextTreeNodeId(node: Text, parentId: string): string {
+  return `${parentId}|text:${getTextNodeSiblingIndex(node)}`
+}
+
+function getLayerSelectionElement(element: HTMLElement | SVGElement): InspectableElement {
+  return element
+}
+
+function buildTextLayerTreeNode(node: Text, options: { depth: number; parentId: string; parentElement: HTMLElement | SVGElement }): LayersTreeNode | null {
+  const text = getTextNodeContent(node)
+  if (!text) return null
+  const label = `"${truncate(text, 40)}"`
+  return {
+    id: buildTextTreeNodeId(node, options.parentId),
+    kind: 'text',
+    element: options.parentElement,
+    selectionElement: getLayerSelectionElement(options.parentElement),
+    textNode: node,
+    parentId: options.parentId,
+    depth: options.depth,
+    label,
+    secondaryLabel: 'text',
+    searchText: `${label} ${text}`.toLowerCase(),
+    hasChildren: false,
+    childrenLoaded: true,
+    children: [],
+  }
+}
+
+function isLayerElement(node: ChildNode): node is HTMLElement | SVGElement {
+  return node instanceof HTMLElement || node instanceof SVGElement
+}
+
+function getTreeNodeSiblingIndex(element: HTMLElement | SVGElement): number {
   const parent = element.parentElement
   if (!parent) return 0
-  const siblings = Array.from(parent.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === element.tagName)
+  const siblings = Array.from(parent.children).filter((child): child is HTMLElement | SVGElement => isLayerElement(child) && child.tagName === element.tagName)
   return Math.max(0, siblings.indexOf(element))
 }
 
-export function buildTreeNodeId(element: HTMLElement): string {
+export function buildTreeNodeId(element: HTMLElement | SVGElement): string {
   return `${buildDomPath(element)}|${getTreeNodeSiblingIndex(element)}`
 }
 
-export function getLayerNodeLabel(element: HTMLElement): string {
+export function getLayerNodeLabel(element: HTMLElement | SVGElement): string {
   const tag = element.tagName.toLowerCase()
-  const id = element.id ? `#${element.id}` : ''
+  const id = 'id' in element && element.id ? `#${element.id}` : ''
   const className = Array.from(element.classList).filter(Boolean).slice(0, 1).map(name => `.${name}`).join('')
   return `${tag}${id}${className}`
 }
 
-export function getLayerNodeSecondaryLabel(element: HTMLElement): string {
+export function getLayerNodeSecondaryLabel(element: HTMLElement | SVGElement): string {
   const ariaLabel = element.getAttribute('aria-label')?.trim()
   if (ariaLabel) return truncate(ariaLabel, 60)
-  if (element.id) return `id="${element.id}"`
+  if ('id' in element && element.id) return `id="${element.id}"`
   const className = element.className?.toString().trim()
   if (className) return truncate(`class="${className}"`, 60)
-  const text = truncate(element.innerText || element.textContent || '', 60)
+  const text = truncate(element.textContent || '', 60)
   return text
 }
 
-export function shouldIncludeInLayersTree(element: HTMLElement, ignoreAttribute: string): boolean {
+export function shouldIncludeInLayersTree(element: HTMLElement | SVGElement, ignoreAttribute: string): boolean {
   if (element.hasAttribute(ignoreAttribute) || element.closest(`[${ignoreAttribute}="true"]`)) return false
   if (element.classList.contains('ei-root') || Array.from(element.classList).some(name => name.startsWith('ei-'))) return false
+  if (element instanceof SVGElement) return true
   const style = window.getComputedStyle(element)
   if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false
   const rect = element.getBoundingClientRect()
@@ -401,52 +607,89 @@ export function shouldIncludeInLayersTree(element: HTMLElement, ignoreAttribute:
   return true
 }
 
-export function buildLayerTreeNode(element: HTMLElement, options: { ignoreAttribute: string; depth: number; parentId: string | null; loadChildren?: boolean }): LayersTreeNode | null {
+export function buildLayerTreeNode(element: HTMLElement | SVGElement, options: { ignoreAttribute: string; depth: number; parentId: string | null; loadChildren?: boolean; maxChildren?: number }): LayersTreeNode | null {
   if (!shouldIncludeInLayersTree(element, options.ignoreAttribute)) return null
 
   const id = buildTreeNodeId(element)
   const label = getLayerNodeLabel(element)
   const secondaryLabel = getLayerNodeSecondaryLabel(element)
-  const childElements = Array.from(element.children).filter(
-    (child): child is HTMLElement => child instanceof HTMLElement && shouldIncludeInLayersTree(child, options.ignoreAttribute),
-  )
-  const children = options.loadChildren
-    ? childElements
-        .map(child => buildLayerTreeNode(child, {
-          ignoreAttribute: options.ignoreAttribute,
-          depth: options.depth + 1,
-          parentId: id,
-          loadChildren: false,
-        }))
-        .filter((child): child is LayersTreeNode => Boolean(child))
-    : []
+  const children: LayersTreeNode[] = []
+  const maxChildren = options.maxChildren ?? Number.POSITIVE_INFINITY
+  let hasChildren = false
+
+  for (const child of Array.from(element.childNodes)) {
+    let childNode: LayersTreeNode | null = null
+    if (isLayerElement(child)) {
+      if (!shouldIncludeInLayersTree(child, options.ignoreAttribute)) continue
+      hasChildren = true
+      if (!options.loadChildren || children.length >= maxChildren) continue
+      childNode = buildLayerTreeNode(child, {
+        ignoreAttribute: options.ignoreAttribute,
+        depth: options.depth + 1,
+        parentId: id,
+        loadChildren: false,
+        maxChildren,
+      })
+    } else if (isTextNode(child) && getTextNodeContent(child as Text).length > 0) {
+      hasChildren = true
+      if (!options.loadChildren || children.length >= maxChildren) continue
+      childNode = buildTextLayerTreeNode(child as Text, {
+        depth: options.depth + 1,
+        parentId: id,
+        parentElement: element,
+      })
+    }
+    if (childNode) children.push(childNode)
+  }
 
   return {
     id,
+    kind: 'element',
     element,
+    selectionElement: getLayerSelectionElement(element),
     parentId: options.parentId,
     depth: options.depth,
     label,
     secondaryLabel,
     searchText: `${label} ${secondaryLabel} ${buildDomPath(element)}`.toLowerCase(),
-    hasChildren: childElements.length > 0,
+    hasChildren,
     childrenLoaded: Boolean(options.loadChildren),
     children,
   }
 }
 
-export function loadLayerTreeNodeChildren(node: LayersTreeNode, ignoreAttribute: string): void {
-  if (node.childrenLoaded) return
-  node.children = Array.from(node.element.children)
-    .filter((child): child is HTMLElement => child instanceof HTMLElement)
-    .map(child => buildLayerTreeNode(child, {
-      ignoreAttribute,
-      depth: node.depth + 1,
-      parentId: node.id,
-      loadChildren: false,
-    }))
-    .filter((child): child is LayersTreeNode => Boolean(child))
-  node.hasChildren = node.children.length > 0
+export function loadLayerTreeNodeChildren(node: LayersTreeNode, ignoreAttribute: string, maxChildren = Number.POSITIVE_INFINITY, includeElement?: InspectableElement): void {
+  if (node.kind === 'text') return
+  const children = node.childrenLoaded ? [...node.children] : []
+  let hasChildren = node.hasChildren
+  for (const child of Array.from(node.element.childNodes)) {
+    let childNode: LayersTreeNode | null = null
+    if (isLayerElement(child)) {
+      if (!shouldIncludeInLayersTree(child, ignoreAttribute)) continue
+      hasChildren = true
+      const shouldIncludeChild = child === includeElement || (includeElement ? child.contains(includeElement) : false)
+      if (children.some(existing => existing.element === child)) continue
+      if (children.length >= maxChildren && !shouldIncludeChild) continue
+      childNode = buildLayerTreeNode(child, {
+        ignoreAttribute,
+        depth: node.depth + 1,
+        parentId: node.id,
+        loadChildren: false,
+        maxChildren,
+      })
+    } else if (!node.childrenLoaded && isTextNode(child) && getTextNodeContent(child as Text).length > 0) {
+      hasChildren = true
+      if (children.length >= maxChildren) continue
+      childNode = buildTextLayerTreeNode(child as Text, {
+        depth: node.depth + 1,
+        parentId: node.id,
+        parentElement: node.element,
+      })
+    }
+    if (childNode) children.push(childNode)
+  }
+  node.children = children
+  node.hasChildren = hasChildren
   node.childrenLoaded = true
 }
 
@@ -455,7 +698,7 @@ export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttr
   let nodeCount = 0
   let truncated = false
 
-  function walk(element: HTMLElement, depth: number, parentId: string | null): LayersTreeNode | null {
+  function walk(element: HTMLElement | SVGElement, depth: number, parentId: string | null): LayersTreeNode | null {
     if (nodeCount >= maxNodes) {
       truncated = true
       return null
@@ -468,16 +711,26 @@ export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttr
     const secondaryLabel = getLayerNodeSecondaryLabel(element)
     const children: LayersTreeNode[] = []
 
-    for (const child of Array.from(element.children)) {
-      if (!(child instanceof HTMLElement)) continue
-      const nextNode = walk(child, depth + 1, id)
-      if (nextNode) children.push(nextNode)
+    for (const child of Array.from(element.childNodes)) {
+      if (isLayerElement(child)) {
+        const nextNode = walk(child, depth + 1, id)
+        if (nextNode) children.push(nextNode)
+      } else if (isTextNode(child)) {
+        const textNode = buildTextLayerTreeNode(child as Text, {
+          depth: depth + 1,
+          parentId: id,
+          parentElement: element,
+        })
+        if (textNode) children.push(textNode)
+      }
       if (truncated && nodeCount >= maxNodes) break
     }
 
     return {
       id,
+      kind: 'element',
       element,
+      selectionElement: getLayerSelectionElement(element),
       parentId,
       depth,
       label,
@@ -500,9 +753,10 @@ export function buildDocumentLayersTree(root: HTMLElement, options: { ignoreAttr
     depth: 0,
     parentId: null,
     loadChildren: true,
+    maxChildren: maxNodes,
   })
   if (!tree) return null
-  return { root: tree, truncated: false, nodeCount: tree.children.length + 1 }
+  return { root: tree, truncated: tree.hasChildren && tree.children.length >= maxNodes, nodeCount: tree.children.length + 1 }
 }
 
 export function filterLayersTree(node: LayersTreeNode, query: string): LayersTreeNode | null {
@@ -829,76 +1083,135 @@ function getRoute(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
-function annotationHeading(idx: number, info: InspectorInfo): string {
-  const tag = info.tagName
-  const text = info.text && info.text !== '—' ? ` — "${truncate(info.text, 40)}"` : ''
-  return `## ${idx + 1}. ${tag}${text}`
+function formatElementTitle(info: InspectorInfo, componentTree?: string[]): string {
+  const text = info.text && info.text !== '—' ? ` [${truncate(info.text, 40)}]` : ''
+  const role = info.accessibility.role && info.accessibility.role !== 'generic' ? `${info.accessibility.role} ` : ''
+  const components = componentTree?.length ? `${componentTree.map(name => `<${name}>`).join(' ')} ` : ''
+  return `${components}${role}${info.tagName}${text}`.trim()
 }
 
-function buildMarkdownSection(lines: string[], a: Change, detail: OutputDetail): void {
+function formatSourceLine(a: Change): string | null {
+  return a.target.sourceContext.sourceFilePaths[0] ?? null
+}
+
+function formatLocation(a: Change): string {
+  return a.target.selector.primary || a.info.domPath
+}
+
+function formatFeedback(a: Change): string {
+  const patchLines: string[] = []
+  if (a.patch.textDiff) patchLines.push(`Text: ${a.patch.textDiff.from} → ${a.patch.textDiff.to}`)
+  if (a.patch.moveDiff) patchLines.push(`Move: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
+  if (a.patch.deleteDiff) patchLines.push('Delete: remove this element from the source structure')
+  a.patch.styleDiffs.forEach(diff => patchLines.push(`${diff.property}: ${diff.original} → ${diff.modified}`))
+  return [a.comment, ...patchLines].filter(Boolean).join('; ') || 'No written feedback.'
+}
+
+function formatClasses(className: string): string | null {
+  if (!className || className === '—') return null
+  return className.split(/\s+/).filter(Boolean).join(', ')
+}
+
+function formatPosition(info: InspectorInfo): string {
+  return `${Math.round(info.rect.left)}px, ${Math.round(info.rect.top)}px (${Math.round(info.rect.width)}×${Math.round(info.rect.height)}px)`
+}
+
+function formatComputedStyles(info: InspectorInfo): string {
+  const border = `${info.boxModel.borderWidth.top} solid ${info.visual.borderColor}`
+  return [
+    `color: ${info.typography.color}`,
+    `background-color: ${info.visual.backgroundColor}`,
+    `font-size: ${info.typography.fontSize}`,
+    `font-weight: ${info.typography.fontWeight}`,
+    `font-family: ${info.typography.fontFamily}`,
+    `line-height: ${info.typography.lineHeight}`,
+    `text-align: ${info.typography.textAlign}`,
+    `width: ${info.boxModel.width}`,
+    `height: ${info.boxModel.height}`,
+    `padding: ${formatEdges(info.boxModel.padding)}`,
+    `border: ${border}`,
+    `border-radius: ${info.boxModel.borderRadius}`,
+    `display: ${info.layout.display}`,
+    `position: ${info.layout.position}`,
+    `flex-direction: ${info.layout.flexDirection}`,
+    `justify-content: ${info.layout.justifyContent}`,
+    `align-items: ${info.layout.alignItems}`,
+    `opacity: ${info.visual.opacity}`,
+    `box-shadow: ${info.visual.boxShadow}`,
+  ].join('; ')
+}
+
+function buildCompactMarkdownLine(index: number, a: Change): string {
+  const source = formatSourceLine(a)
+  const sourceText = source ? ` (${source})` : ''
+  return `${index + 1}. **${formatElementTitle(a.info)}**${sourceText}: ${formatFeedback(a)}`
+}
+
+function buildMarkdownSection(lines: string[], index: number, a: Change, detail: OutputDetail): void {
   const info = a.info
-  lines.push(`- **Selector**: \`${a.target?.selector?.primary || info.domPath}\``)
+  const componentTree = detail === 'detailed'
+    ? a.target.sourceContext.componentTree
+    : detail === 'forensic'
+      ? a.target.sourceContext.componentNames
+      : a.target.sourceContext.componentTree.slice(-6)
 
-  if (detail !== 'compact' && a.target?.locatorHints?.confidence) {
-    lines.push(`- **Locator confidence**: ${a.target.locatorHints.confidence}`)
+  lines.push(`### ${index + 1}. ${formatElementTitle(info, componentTree)}`)
+  if (detail === 'forensic') lines.push(`**Full DOM Path:** ${info.domPath}`)
+  else lines.push(`**Location:** ${formatLocation(a)}`)
+
+  const source = formatSourceLine(a)
+  if (source) lines.push(`**Source:** ${source}`)
+  if (a.target.sourceContext.componentTree.length) lines.push(`**React:** ${a.target.sourceContext.componentTree.map(name => `<${name}>`).join(' ')}`)
+
+  if (detail === 'detailed' || detail === 'forensic') {
+    const classes = formatClasses(info.className)
+    if (classes) lines.push(detail === 'forensic' ? `**CSS Classes:** ${classes}` : `**Classes:** ${classes}`)
+    lines.push(detail === 'forensic'
+      ? `**Position:** x:${Math.round(info.rect.left)}, y:${Math.round(info.rect.top)} (${Math.round(info.rect.width)}×${Math.round(info.rect.height)}px)`
+      : `**Position:** ${formatPosition(info)}`)
   }
 
-  if ((detail === 'standard' || detail === 'detailed' || detail === 'forensic') && a.target?.locatorHints?.bestCodeSearchTerms?.length) {
-    lines.push(`- **Code search hints**: ${a.target.locatorHints.bestCodeSearchTerms.map(term => `\`${term}\``).join(', ')}`)
-  }
-
-  if ((detail === 'detailed' || detail === 'forensic') && a.target?.sourceContext?.componentTree?.length) {
-    lines.push(`- **Component tree**: ${a.target.sourceContext.componentTree.join(' → ')}`)
-  }
-
-  if ((detail === 'detailed' || detail === 'forensic') && a.target?.sourceContext?.sourceFilePaths?.length) {
-    lines.push(`- **Source files**: ${a.target.sourceContext.sourceFilePaths.join(', ')}`)
-  }
-
-  if (a.patch.textDiff) {
-    lines.push(`- **Text**: ${a.patch.textDiff.from} → ${a.patch.textDiff.to}`)
-  }
-
-  if (a.patch.moveDiff) {
-    lines.push(`- **Move**: position ${a.patch.moveDiff.fromIndex} → ${a.patch.moveDiff.toIndex}`)
-  }
-
-  if (a.patch.deleteDiff) {
-    lines.push(`- **Delete**: remove this element from the source structure`)
-  }
-
-  if (a.patch.styleDiffs.length > 0) {
-    lines.push(`- **Style changes**:`)
-    for (const d of a.patch.styleDiffs) {
-      lines.push(`  - \`${d.property}\`: ${d.original} → ${d.modified}`)
+  if (detail === 'forensic') {
+    lines.push(`**Annotation at:** ${Math.round(info.rect.left + info.rect.width / 2)}px from left, ${Math.round(info.rect.top + info.rect.height / 2)}px from top`)
+    lines.push(`**Computed Styles:** ${formatComputedStyles(info)}`)
+    lines.push(`**Accessibility:** name="${info.accessibility.name}", role="${info.accessibility.role}", focusable=${info.accessibility.keyboardFocusable}`)
+    if (a.target.context.previousSiblingText || a.target.context.nextSiblingText) {
+      lines.push(`**Nearby Elements:** previous="${a.target.context.previousSiblingText}", next="${a.target.context.nextSiblingText}"`)
     }
   }
 
-  if (!a.patch.textDiff && !a.patch.moveDiff && !a.patch.deleteDiff && a.patch.styleDiffs.length === 0) {
-    lines.push(`- **Size**: ${info.boxModel.width} × ${info.boxModel.height}`)
-    if (detail !== 'compact') {
-      lines.push(`- **Font**: ${info.typography.fontSize} / ${info.typography.fontWeight} ${info.typography.fontFamily.split(',')[0]?.trim().replace(/['"]/g, '')}`)
-      lines.push(`- **Color**: ${rgbToHex(info.typography.color)}`)
-      lines.push(`- **Background**: ${info.visual.backgroundColor}`)
-    }
-  }
-
-  if (a.comment) lines.push(`- **Note**: ${a.comment}`)
+  lines.push(`**Feedback:** ${formatFeedback(a)}`)
 }
 
 export function buildMarkdownExport(changes: Change[], detail: OutputDetail = 'standard'): string {
   const entries = buildExportChangeEntries(changes)
-  if (entries.length === 0) return '# UI Changes\n\nNo changes yet.'
-  const lines: string[] = [`# UI Changes (${entries.length} items)\n`]
+  if (entries.length === 0) return '# Page Feedback\n\nNo feedback yet.'
+
+  const route = getRoute()
+  if (detail === 'compact') {
+    return [`## Page Feedback: ${route}`, '', ...entries.map((entry, index) => buildCompactMarkdownLine(index, entry.primary))].join('\n')
+  }
+
+  const lines: string[] = [`## Page Feedback: ${route}`]
+  lines.push(`**Viewport:** ${window.innerWidth}×${window.innerHeight}`)
+  if (detail === 'forensic') {
+    lines.push('', '**Environment:**')
+    lines.push(`- Viewport: ${window.innerWidth}×${window.innerHeight}`)
+    lines.push(`- URL: ${window.location.href}`)
+    lines.push(`- User Agent: ${window.navigator.userAgent}`)
+    lines.push(`- Timestamp: ${new Date().toISOString()}`)
+    lines.push(`- Device Pixel Ratio: ${window.devicePixelRatio}`)
+    lines.push('', '---')
+  }
+  lines.push('')
 
   for (const [i, entry] of entries.entries()) {
     const a = entry.primary
-    lines.push(annotationHeading(i, a.info))
+    buildMarkdownSection(lines, i, a, detail)
     if (entry.isGrouped) {
-      lines.push('- Scope: matching peer layers')
-      lines.push('- Match rule: same signature, or same child signature inside matching parent cards')
+      lines.push(`**Scope:** matching peer layers`)
+      lines.push(`**Match rule:** same signature, or same child signature inside matching parent cards`)
     }
-    buildMarkdownSection(lines, a, detail)
     lines.push('')
   }
 
@@ -1046,39 +1359,12 @@ export function buildJSONExport(changes: Change[], detail: OutputDetail = 'detai
   return JSON.stringify(data, null, 2)
 }
 
-export function buildAIPayload(changes: Change[], detail: OutputDetail = 'detailed'): string {
-  if (detail === 'compact') return buildMarkdownExport(changes, 'compact')
-
-  const payload = buildJSONExport(changes, detail)
+export function buildAIPayload(changes: Change[], detail: OutputDetail = 'standard'): string {
   const levelLabel = `${detail.slice(0, 1).toUpperCase()}${detail.slice(1)}`
-
   return [
-    `You are an AI coding assistant. Update the source code to match the approved UI changes below. Output detail: ${levelLabel}.`,
+    `Use this ${levelLabel} page feedback to update the source code. Prefer the Source/React fields first, then Location if source metadata is missing. Keep the change local unless the feedback explicitly asks for a broader pattern.`,
     '',
-    'What these fields mean:',
-    '- route/pageState: current page and UI state when the change was made.',
-    '- target.selector: prioritized DOM selectors. Prefer testing, semantic, and stable selectors over structural or unstable selectors.',
-    '- target.sourceContext: framework, component names/tree, and source file paths when available.',
-    '- target.locatorHints: best terms to search in the codebase, text anchors, attribute anchors, component hints, and locator confidence.',
-    '- target.identity/context: element identity, nearby text, parent tag, and sibling context for verification.',
-    '- scope: when present, apply the change as a selector/matching rule instead of a fixed instance count. Matching peer layers can include the same child layer inside repeated parent cards.',
-    '- patch: the exact style/text/move/delete change.',
-    '- beforeSnapshot/afterSnapshot: high-level visual state before and after the edit.',
-    '',
-    'Instructions:',
-    '1. First use target.sourceContext.sourceFilePaths and target.sourceContext.componentTree when present.',
-    '2. If source files are missing, search target.locatorHints.bestCodeSearchTerms in order.',
-    '3. Use target.selector.testing, semantic, and stable selectors before structural or unstable fallbacks.',
-    '4. Verify the match with target.identity, text, box, and nearby context before editing.',
-    '5. Prefer changing component styles, props, or source code rather than applying runtime-only fixes.',
-    '6. Treat these changes as intentional and already approved.',
-    '7. If a change looks local, keep it local; do not generalize without evidence.',
-    '8. Preserve existing architecture and coding style.',
-    '',
-    'Approved UI change payload:',
-    '```json',
-    payload,
-    '```',
+    buildMarkdownExport(changes, detail),
   ].join('\n')
 }
 

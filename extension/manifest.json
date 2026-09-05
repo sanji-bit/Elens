@@ -28,10 +28,16 @@
       "matches": ["<all_urls>"],
       "html": "offscreen.html",
       "reason": "CLIPBOARD",
-      "justification": "Write clipboard data for Figma capture and copy actions from the extension context"
+      "justification": "Write clipboard data for copy actions from the extension context"
     }
   ],
   "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["page-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],

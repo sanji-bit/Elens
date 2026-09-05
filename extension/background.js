@@ -21,7 +21,8 @@ function createContextMenus() {
     chrome.contextMenus.create({ id: 'show-hide', parentId: CONTEXT_MENU_ROOT_ID, title: '显示 / 隐藏', contexts: ['all'] })
     chrome.contextMenus.create({ id: 'inspector', parentId: CONTEXT_MENU_ROOT_ID, title: '检查模式', contexts: ['all'] })
     chrome.contextMenus.create({ id: 'design', parentId: CONTEXT_MENU_ROOT_ID, title: '设计模式', contexts: ['all'] })
-    chrome.contextMenus.create({ id: 'figma-capture', parentId: CONTEXT_MENU_ROOT_ID, title: 'Figma 捕获', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'screenshot-viewport', parentId: CONTEXT_MENU_ROOT_ID, title: '可视范围截图', contexts: ['all'] })
+    chrome.contextMenus.create({ id: 'screenshot-full', parentId: CONTEXT_MENU_ROOT_ID, title: '整页截图', contexts: ['all'] })
     chrome.contextMenus.create({ id: 'viewport-root', parentId: CONTEXT_MENU_ROOT_ID, title: '视口尺寸', contexts: ['all'] })
     VIEWPORT_PRESETS.forEach((preset) => {
       chrome.contextMenus.create({ id: preset.id, parentId: 'viewport-root', title: preset.title, contexts: ['all'] })
@@ -60,7 +61,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_PATH,
     reasons: ['CLIPBOARD'],
-    justification: 'Write clipboard data for Figma capture and copy actions from the extension context',
+    justification: 'Write clipboard data for copy actions from the extension context',
   })
 }
 

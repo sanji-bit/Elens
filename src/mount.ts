@@ -11,6 +11,7 @@ import {
   ICON_LAYER_TEXT,
   ICON_LAYER_VECTOR,
   ICON_LAYERS,
+  ICON_SETTINGS,
   ICON_SVGS,
   ICON_URLS,
   ICON_VIEWPORT,
@@ -22,13 +23,22 @@ import { buildTheme } from './design-tokens'
 import { i18n } from './i18n'
 import { createRuntimeStyles } from './runtime-styles'
 import { clearPersistedTheme, getDefaultThemeConfig, loadPersistedTheme, mergeThemeConfig, persistTheme } from './theme-store'
-import { applyViewportSize as applyHostViewportSize, applyWindowBounds as applyHostWindowBounds, canResizeViewport as canHostResizeViewport, canResizeWindow as canHostResizeWindow, captureElementImageBlob as captureHostElementImageBlob, performCaptureForDesign, resolveInitialViewportState, resolveViewportCapabilities, writeClipboardImage as writeHostClipboardImage, writeClipboardText as writeHostClipboardText } from './host-runtime'
-import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildDomPath, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, formatColorHexDisplay, getInspectableElementFromPoint, getRoute, loadLayerTreeNodeChildren, rgbToHex, truncate } from './utils'
+import { applyViewportSize as applyHostViewportSize, applyWindowBounds as applyHostWindowBounds, canResizeViewport as canHostResizeViewport, canResizeWindow as canHostResizeWindow, resolveInitialViewportState, resolveViewportCapabilities, writeClipboardText as writeHostClipboardText } from './host-runtime'
+import { buildAIPayload, buildChangePatch, buildChangeSnapshot, buildChangeTarget, buildCopyText, buildDocumentLayersTree, buildJSONExport, buildMarkdownExport, buildTreeNodeId, extractInspectorInfo, filterLayersTree, formatColorHexDisplay, getInspectableElementFromEvent, getInspectableElementFromPoint, getRoute, loadLayerTreeNodeChildren, rgbToHex, truncate } from './utils'
 
 const IGNORE_ATTR = 'data-elens-ignore'
+const INLINE_EDIT_ATTR = 'data-elens-inline-editing'
+const LAYERS_TREE_MAX_NODES = 1500
+const LAYERS_NODE_MAX_CHILDREN = 1500
+const LAYERS_SEARCH_MAX_NODES = 2500
+const EDITABLE_STYLE_RULE_SCAN_LIMIT = 2000
 const MODE_STORAGE_KEY = 'elens-mode'
 const CHANGES_STORAGE_KEY = 'elens-changes'
 const VIEWPORT_PRESET_STORAGE_KEY = 'elens-viewport-preset'
+const BLOCK_PAGE_INTERACTIONS_STORAGE_KEY = 'elens-block-page-interactions'
+const CLEAR_ON_COPY_STORAGE_KEY = 'elens-clear-on-copy'
+const MARKER_COLOR_STORAGE_KEY = 'elens-marker-color'
+const MARKER_COLORS = ['#5B50F5', '#008AFF', '#09BBC7', '#37C75B', '#FFCA05', '#FF8A20', '#F04A4A'] as const
 
 const DEFAULT_VIEWPORT_PRESETS: ViewportPreset[] = [
   { id: 'desktop-1920x1080', label: '1920 × 1080', width: 1920, height: 1080, category: 'desktop' },
@@ -64,6 +74,56 @@ function persistViewportPresetId(presetId: string | null): void {
     } else {
       window.localStorage.removeItem(VIEWPORT_PRESET_STORAGE_KEY)
     }
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function loadBlockPageInteractions(): boolean {
+  try {
+    return window.localStorage.getItem(BLOCK_PAGE_INTERACTIONS_STORAGE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+function persistBlockPageInteractions(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(BLOCK_PAGE_INTERACTIONS_STORAGE_KEY, String(enabled))
+  } catch {
+    // Ignore storage failures.
+  }
+  window.dispatchEvent(new CustomEvent('elens:block-page-interactions', { detail: { enabled } }))
+}
+
+function loadClearOnCopy(): boolean {
+  try {
+    return window.localStorage.getItem(CLEAR_ON_COPY_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function persistClearOnCopy(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(CLEAR_ON_COPY_STORAGE_KEY, String(enabled))
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function loadMarkerColor(): string {
+  try {
+    const value = window.localStorage.getItem(MARKER_COLOR_STORAGE_KEY)
+    return MARKER_COLORS.includes(value as typeof MARKER_COLORS[number]) ? value! : MARKER_COLORS[1]
+  } catch {
+    return MARKER_COLORS[1]
+  }
+}
+
+function persistMarkerColor(color: string): void {
+  try {
+    window.localStorage.setItem(MARKER_COLOR_STORAGE_KEY, color)
   } catch {
     // Ignore storage failures.
   }
@@ -165,12 +225,8 @@ const {
 
 const {
   checkInline: CHECK_ICON_SVG,
-  captureScreen: ICON_CAPTURE_SCREEN,
-  captureWindow: ICON_CAPTURE_WINDOW,
   chevronDownInline: ICON_CHEVRON_DOWN,
   copyInline: COPY_ICON_SVG,
-  selectElement: ICON_SELECT_ELEMENT,
-  stateCapture: ICON_STATE_CAPTURE,
   toolbarChanges: ICON_CHANGES,
   toolbarDesign: ICON_DESIGN,
   designModeFigma: DESIGN_MODE_ICON,
@@ -181,9 +237,6 @@ const {
   toolbarGuides: ICON_GUIDES,
   toolbarInspector: ICON_INSPECTOR,
   toolbarMove: ICON_MOVE,
-  toolbarActions: ICON_MORE,
-  toolbarOutlines: ICON_OUTLINES,
-  toolbarScreenshot: ICON_SCREENSHOT,
 } = ICON_SVGS
 
 const CHANGES_HOVER_DELETE_ICON = `<img src="${CHANGES_HOVER_DELETE_URL}" alt="" />`
@@ -234,17 +287,6 @@ function codeRows(rows: Array<[string, string, string?]>): HTMLDivElement {
   return wrap
 }
 
-function isLikelyBackgroundElement(element: InspectableElement): boolean {
-  if (!(element instanceof HTMLElement)) return false
-  const rect = element.getBoundingClientRect()
-  const area = rect.width * rect.height
-  const viewportArea = window.innerWidth * window.innerHeight
-  const text = (element.innerText || element.textContent || '').trim()
-  const hasLabel = Boolean(element.getAttribute('aria-label') || element.getAttribute('title'))
-
-  return area > viewportArea * 0.45 && text.length === 0 && !hasLabel
-}
-
 function getHTMLElementChildren(element: HTMLElement): HTMLElement[] {
   return Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement)
 }
@@ -257,6 +299,18 @@ function getSiblingElement(element: HTMLElement, direction: 'prev' | 'next'): HT
   if (index === -1) return null
   const nextIndex = direction === 'prev' ? index - 1 : index + 1
   return siblings[nextIndex] ?? null
+}
+
+function isArrowNavigationKey(key: string): boolean {
+  return key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight'
+}
+
+function getArrowNavigationTarget(element: HTMLElement, key: string): HTMLElement | null {
+  if (key === 'ArrowUp') return element.parentElement
+  if (key === 'ArrowDown') return getHTMLElementChildren(element)[0] ?? null
+  if (key === 'ArrowLeft') return getSiblingElement(element, 'prev')
+  if (key === 'ArrowRight') return getSiblingElement(element, 'next')
+  return null
 }
 
 function getElementChain(element: HTMLElement): HTMLElement[] {
@@ -273,13 +327,11 @@ function getLayerNodeIcon(element: HTMLElement): string {
   const tagName = element.tagName.toLowerCase()
   const computedStyle = window.getComputedStyle(element)
   const hasText = (element.innerText || element.textContent || '').trim().length > 0
-  const backgroundImage = computedStyle.backgroundImage || ''
-
   if (tagName === 'body') {
     return ICON_LAYER_BODY
   }
 
-  if (tagName === 'img' || tagName === 'picture' || tagName === 'svg' || backgroundImage !== 'none') {
+  if (tagName === 'img' || tagName === 'picture' || tagName === 'svg') {
     return tagName === 'svg' ? ICON_LAYER_VECTOR : ICON_LAYER_IMAGE
   }
 
@@ -419,14 +471,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let viewportCapabilities: ViewportControllerCapabilities = options.viewportController?.capabilities ?? {}
   let currentViewportTarget: ViewportTarget = currentViewportState?.target ?? 'window'
   let viewportMenuOpen = false
-  let moreMenuOpen = false
+  let settingsMenuOpen = false
+  let blockPageInteractions = loadBlockPageInteractions()
+  let clearOnCopy = loadClearOnCopy()
+  let markerColor = loadMarkerColor()
 
   let currentMode: InspectorMode = 'off'
   let destroyed = false
   let lockedElement: InspectableElement | null = null
   let selectedElements: HTMLElement[] = []
   let currentInfo: InspectorInfo | null = null
-  let hoverLocked = false
   let outlinesEnabled = false
   let outlinesHoverElement: Element | null = null
   let currentTab: 'typography' | 'box' | 'layout' = 'typography'
@@ -434,6 +488,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let rafId: number | null = null
   let layersRenderRaf: number | null = null
   let latestPoint: { x: number; y: number } | null = null
+  let latestInspectElement: InspectableElement | null = null
+  let latestPagePoint: { x: number; y: number } | null = null
   let panelAnchor: { x: number; y: number } | null = null
   let panelPosition: { left: number; top: number } | null = null
   let layersPanelPosition: { left: number; top: number } | null = null
@@ -453,6 +509,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let beforePreviewChangeIds = new Set<string>()
   let disabledStyleDiffsByChangeId = new Map<string, Set<string>>()
   let disabledTextDiffByChangeId = new Set<string>()
+  const textNodeByChangeId = new Map<string, Text>()
   let disabledMoveDiffByChangeId = new Set<string>()
   let disabledNoteByChangeId = new Set<string>()
   let changeFlashTimeout: number | null = null
@@ -465,9 +522,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   let layersExpandedIds = new Set<string>()
   let layersTreeBuildResult: LayersTreeBuildResult | null = null
   let layersSelectedId: string | null = null
+  let layersSelectedElement: InspectableElement | null = null
+  let layersSelectedTextNode: Text | null = null
   let pendingLayersFocusId: string | null = null
+  let layersBodyScrollLeft = 0
   let layersKeyboardActive = false
-  let layersHoverElement: HTMLElement | null = null
+  let layersHoverElement: InspectableElement | null = null
   let styleTracker: StyleTracker | null = null
   const styleResetTargets = new WeakMap<InspectableElement, Map<string, { rule: CSSStyleRule | null; ruleValue: string; inlineValue: string }>>()
   const ruleResetOverrides = new Map<CSSStyleRule, Map<HTMLElement, Map<string, string>>>()
@@ -483,8 +543,16 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     previousOutline: string
     inputHandler: () => void
     blurHandler: () => void
+    keyboardHandler: (event: KeyboardEvent) => void
   } | null = null
-  let designApplyToElementOnly = false
+  let designApplyToElementOnly = true
+  let designState: 'default' | 'hover' = 'default'
+  let hoverCaptureArmed = false
+  let stateCaptureArmed = false
+  let stateCaptureToken = 0
+  type HoverLockedInlineStyle = { value: string; priority: string }
+  let hoverLockedElement: HTMLElement | null = null
+  let hoverLockedInlineStyles = new Map<HTMLElement, Map<string, HoverLockedInlineStyle>>()
   let designScopeModeOverride: DesignScopeMode | null = null
   let designScopeSelectionKey: string | null = null
   let panelCollapsed = false
@@ -523,16 +591,46 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const root = el('div')
   root.className = 'ei-root'
   root.setAttribute(IGNORE_ATTR, 'true')
+  const isolateElensKeyboardEvent = (event: KeyboardEvent) => {
+    if (blockPageInteractions) event.stopPropagation()
+  }
+  root.addEventListener('keydown', isolateElensKeyboardEvent)
+  root.addEventListener('keypress', isolateElensKeyboardEvent)
+  root.addEventListener('keyup', isolateElensKeyboardEvent)
 
   const overlayHost = document.createElement('div')
   overlayHost.setAttribute(IGNORE_ATTR, 'true')
   const overlayShadow = overlayHost.attachShadow({ mode: 'open' })
 
   const styleEl = document.createElement('style')
+  const applyMarkerColor = (): void => {
+    // Marker Color is also the accent color for Elens controls. Keep the
+    // runtime stylesheet theme-driven while allowing this setting to update
+    // the already-mounted toolbar and menus immediately. Menus redeclare
+    // their variables, so apply the override to those mounted descendants too.
+    const targets = [root, ...Array.from(root.querySelectorAll<HTMLElement>([
+      '.ei-capture-menu',
+      '.ei-tooltip',
+      '.ei-output-detail-menu',
+      '.ei-dp-size-dropdown',
+      '.ei-dp-fill-popover',
+      '.ei-dp-font-dropdown',
+      '.ei-dp-color-format-dropdown',
+    ].join(',')))]
+    targets.forEach((target) => {
+      target.style.setProperty('--interactive-accent', markerColor)
+      target.style.setProperty('--interactive-accent-soft', `color-mix(in srgb, ${markerColor} 12%, transparent)`)
+      target.style.setProperty('--interactive-accent-strong', `color-mix(in srgb, ${markerColor} 24%, white)`)
+      target.style.setProperty('--interactive-focus-ring', markerColor)
+      target.style.setProperty('--border-accent', markerColor)
+      target.style.setProperty('--accent', markerColor)
+    })
+  }
   const applyTheme = (nextThemeConfig: ThemeConfig, options: { persist?: boolean; reset?: boolean } = {}): void => {
     currentThemeConfig = options.reset ? defaultThemeConfig : mergeThemeConfig(defaultThemeConfig, nextThemeConfig)
     theme = buildTheme(currentThemeConfig)
     styleEl.textContent = createRuntimeStyles(theme)
+    applyMarkerColor()
     if (options.persist === false) return
     if (options.reset) {
       clearPersistedTheme()
@@ -541,6 +639,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     persistTheme(currentThemeConfig)
   }
   styleEl.textContent = createRuntimeStyles(theme)
+  applyMarkerColor()
 
   const highlight = el('div', 'ei-highlight')
   highlight.setAttribute(IGNORE_ATTR, 'true')
@@ -765,24 +864,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   changesBtn.classList.add('ei-toolbar-extra')
   const { button: toolbarCopyAIBtn, slot: toolbarCopyAISlot, tip: toolbarCopyAITip } = makeToolbarSlotBtn(TOOLBAR_COPY_AI_ICON, i18n.actions.copyAI)
   toolbarCopyAIBtn.classList.add('ei-toolbar-extra')
-  // Screenshot button with dropdown
   const viewportGroup = el('div', 'ei-toolbar-extra')
   viewportGroup.setAttribute(IGNORE_ATTR, 'true')
   const viewportBtn = makeToolbarBtn(ICON_VIEWPORT, i18n.toolbar.viewportTooltip)
   viewportGroup.append(viewportBtn)
 
-  const screenshotGroup = el('div', 'ei-toolbar-extra')
-  screenshotGroup.setAttribute(IGNORE_ATTR, 'true')
-  const screenshotBtn = makeToolbarBtn(ICON_SCREENSHOT, i18n.toolbar.screenshotTooltip)
-  screenshotGroup.append(screenshotBtn)
-
   const viewportMenu = el('div', 'ei-capture-menu ei-viewport-menu')
   viewportMenu.setAttribute(IGNORE_ATTR, 'true')
   viewportMenu.style.display = 'none'
 
-  const moreMenu = el('div', 'ei-capture-menu ei-more-menu')
-  moreMenu.setAttribute(IGNORE_ATTR, 'true')
-  moreMenu.style.display = 'none'
+  const settingsMenu = el('div', 'ei-capture-menu ei-settings-menu')
+  settingsMenu.id = 'elens-settings-menu'
+  settingsMenu.setAttribute(IGNORE_ATTR, 'true')
+  settingsMenu.setAttribute('role', 'dialog')
+  settingsMenu.setAttribute('aria-label', i18n.toolbar.settings)
+  settingsMenu.style.display = 'none'
 
   const outputDetailMenu = el('div', 'ei-output-detail-menu')
   outputDetailMenu.setAttribute(IGNORE_ATTR, 'true')
@@ -802,17 +898,73 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return item
   }
 
-  const guidesMenuItem = makeCaptureMenuItem(ICON_GUIDES, i18n.toolbar.guides)
-  const outlinesMenuItem = makeCaptureMenuItem(ICON_OUTLINES, i18n.toolbar.outlines)
-  guidesMenuItem.dataset.size = 'lg'
-  outlinesMenuItem.dataset.size = 'lg'
-  guidesMenuItem.setAttribute(IGNORE_ATTR, 'true')
-  outlinesMenuItem.setAttribute(IGNORE_ATTR, 'true')
+  const guidesBtn = makeToolbarBtn(ICON_GUIDES, i18n.toolbar.guidesTooltip)
+  guidesBtn.classList.add('ei-toolbar-extra')
+  guidesBtn.setAttribute('aria-label', i18n.toolbar.guides)
+  guidesBtn.title = i18n.toolbar.guidesTooltip
 
-  const moreBtn = makeToolbarBtn(ICON_MORE, i18n.toolbar.moreTooltip)
-  moreBtn.classList.add('ei-toolbar-extra')
-  moreBtn.setAttribute('aria-label', i18n.toolbar.more)
-  moreBtn.title = i18n.toolbar.more
+  const settingsBtn = makeToolbarBtn(ICON_SETTINGS, i18n.toolbar.settingsTooltip)
+  settingsBtn.classList.add('ei-toolbar-extra')
+  settingsBtn.setAttribute('aria-label', i18n.toolbar.settings)
+  settingsBtn.setAttribute('aria-haspopup', 'dialog')
+  settingsBtn.setAttribute('aria-controls', settingsMenu.id)
+  settingsBtn.setAttribute('aria-expanded', 'false')
+  settingsBtn.title = i18n.toolbar.settings
+
+  function createSettingsToggle(label: string, description: string, checked: boolean): { row: HTMLLabelElement; input: HTMLInputElement } {
+    const row = el('label', 'ei-settings-row') as HTMLLabelElement
+    row.setAttribute(IGNORE_ATTR, 'true')
+    const copy = el('span', 'ei-settings-copy')
+    const labelLine = el('span', 'ei-settings-label-line')
+    labelLine.append(el('span', 'ei-settings-label', label), createSettingsHelp(description))
+    copy.append(labelLine)
+    const toggle = el('span', 'ei-switch')
+    const input = document.createElement('input')
+    input.type = 'checkbox'
+    input.checked = checked
+    input.setAttribute(IGNORE_ATTR, 'true')
+    input.setAttribute('aria-label', label)
+    toggle.append(input, el('span', 'ei-switch-track'), el('span', 'ei-switch-thumb'))
+    row.append(copy, toggle)
+    return { row, input }
+  }
+
+  function createSettingsHelp(description: string): HTMLSpanElement {
+    const help = el('span', 'ei-settings-help', '?')
+    help.tabIndex = 0
+    help.setAttribute('role', 'img')
+    help.setAttribute('aria-label', description)
+    help.setAttribute(IGNORE_ATTR, 'true')
+    help.appendChild(el('span', 'ei-settings-help-tip', description))
+    return help
+  }
+
+  const { row: settingsRow, input: blockPageInteractionsInput } = createSettingsToggle(
+    i18n.settings.blockPageInteractions,
+    i18n.settings.blockPageInteractionsDescription,
+    blockPageInteractions,
+  )
+  const { row: clearOnCopyRow, input: clearOnCopyInput } = createSettingsToggle(
+    i18n.settings.clearOnCopy,
+    i18n.settings.clearOnCopyDescription,
+    clearOnCopy,
+  )
+  const markerColorRow = el('div', 'ei-settings-row ei-settings-color-row')
+  markerColorRow.setAttribute(IGNORE_ATTR, 'true')
+  const markerColorLabel = el('span', 'ei-settings-label', i18n.settings.markerColor)
+  const markerColorPalette = el('div', 'ei-marker-color-palette')
+  MARKER_COLORS.forEach((color) => {
+    const button = el('button', 'ei-marker-color') as HTMLButtonElement
+    button.type = 'button'
+    button.style.backgroundColor = color
+    button.dataset.color = color
+    button.dataset.active = color === markerColor ? 'true' : 'false'
+    button.setAttribute('aria-label', `${i18n.settings.markerColor}: ${color}`)
+    button.setAttribute(IGNORE_ATTR, 'true')
+    markerColorPalette.appendChild(button)
+  })
+  markerColorRow.append(markerColorLabel, markerColorPalette)
+  settingsMenu.append(settingsRow, clearOnCopyRow, markerColorRow)
 
   const viewportMode = el('div', 'ei-tabs ei-viewport-mode')
   const viewportModeViewportBtn = el('button', 'ei-tab', i18n.viewport.modeViewport)
@@ -856,8 +1008,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   viewportCustom.append(viewportCustomGrid, viewportApplyButton)
 
   viewportMenu.append(viewportMode, ...viewportPresetItems, viewportCustom)
-  moreMenu.append(guidesMenuItem, outlinesMenuItem)
-
   const toolbarActionsDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
   toolbarActionsDivider.appendChild(el('div', 'ei-toolbar-divider-line'))
   const toolbarExitDivider = el('div', 'ei-toolbar-divider ei-toolbar-extra')
@@ -866,8 +1016,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   const exitBtn = makeToolbarBtn(ICON_EXIT, i18n.toolbar.exitTooltip)
   exitBtn.classList.add('ei-toolbar-extra')
 
-  toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, screenshotGroup, moreBtn, toolbarActionsDivider, changesBtn, toolbarCopyAIBtn, toolbarExitDivider, exitBtn)
-  root.append(viewportMenu, moreMenu, outputDetailMenu)
+  toolbar.append(inspectorBtn, designBtn, moveBtn, viewportGroup, guidesBtn, toolbarActionsDivider, changesBtn, toolbarCopyAIBtn, settingsBtn, toolbarExitDivider, exitBtn)
+  root.append(viewportMenu, settingsMenu, outputDetailMenu)
+  applyMarkerColor()
 
   const layersPanel = el('div', 'ei-layers-panel')
   layersPanel.setAttribute(IGNORE_ATTR, 'true')
@@ -900,6 +1051,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   layersSearchWrap.appendChild(layersSearchInput)
 
   const layersBody = el('div', 'ei-layers-body')
+  layersBody.addEventListener('scroll', () => {
+    layersBodyScrollLeft = layersBody.scrollLeft
+  })
   layersPanel.append(layersHeader, layersSearchWrap, layersBody)
 
   // Panel
@@ -973,8 +1127,15 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function isPanelEvent(event: Event): boolean {
+    const path = event.composedPath()
+    if (path.includes(panel)) return true
     const target = event.target
     return target instanceof Node && panel.contains(target)
+  }
+
+  function isolateCapturedStatePanelEvent(event: Event): void {
+    if (!hoverLockedElement || !isPanelEvent(event)) return
+    event.stopPropagation()
   }
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -1783,11 +1944,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     currentInfo = null
     panelAnchor = null
     panelPosition = null
+    layersSelectedTextNode = null
   }
 
   function replaceDesignSelection(element: HTMLElement, anchor?: { x: number; y: number } | null): void {
     selectedElements = [element]
     lockedElement = element
+    layersSelectedTextNode = null
     if (anchor) {
       panelAnchor = anchor
     }
@@ -1913,7 +2076,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (!change.patch.textDiff) return
     if (enabled) disabledTextDiffByChangeId.delete(change.id)
     else disabledTextDiffByChangeId.add(change.id)
-    change.element.textContent = enabled ? change.patch.textDiff.to : change.patch.textDiff.from
+    const target = textNodeByChangeId.get(change.id) ?? change.element
+    target.textContent = enabled ? change.patch.textDiff.to : change.patch.textDiff.from
     renderMarkers()
   }
 
@@ -1969,7 +2133,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function applyChangeToAfter(change: Change): void {
-    if (change.patch.textDiff && isTextDiffEnabled(change.id)) change.element.textContent = change.patch.textDiff.to
+    const textTarget = textNodeByChangeId.get(change.id) ?? change.element
+    if (change.patch.textDiff && isTextDiffEnabled(change.id)) textTarget.textContent = change.patch.textDiff.to
     for (const diff of change.patch.styleDiffs) {
       if (isStyleDiffEnabled(change.id, diff.property)) change.element.style.setProperty(diff.property, diff.modified)
     }
@@ -1982,8 +2147,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
-  function restoreInlineStyle(element: HTMLElement, property: string, value: string): void {
-    if (value) element.style.setProperty(property, value)
+  function restoreInlineStyle(element: HTMLElement, property: string, value: string, priority = ''): void {
+    if (value) element.style.setProperty(property, value, priority)
     else element.style.removeProperty(property)
     if (!element.getAttribute('style')?.trim()) element.removeAttribute('style')
   }
@@ -2016,7 +2181,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function resetChangeToBefore(change: Change, options?: { preserveRemainingRuleChanges?: boolean }): void {
-    if (change.patch.textDiff) change.element.textContent = change.patch.textDiff.from
+    const textTarget = textNodeByChangeId.get(change.id) ?? change.element
+    if (change.patch.textDiff) textTarget.textContent = change.patch.textDiff.from
     const resetTargets = styleResetTargets.get(change.element)
     for (const diff of change.patch.styleDiffs) {
       const resetTarget = resetTargets?.get(diff.property)
@@ -2111,6 +2277,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     beforePreviewChangeIds.clear()
     disabledStyleDiffsByChangeId.clear()
     disabledTextDiffByChangeId.clear()
+    textNodeByChangeId.clear()
     disabledMoveDiffByChangeId.clear()
     disabledNoteByChangeId.clear()
     moveChangeIdByElement = new WeakMap<HTMLElement, string>()
@@ -2118,6 +2285,48 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (currentMode === 'changes') renderChangesList()
     closeOutputDetailMenu()
     if (!options?.skipAutoCopy) scheduleAutoCopy({ immediate: true })
+  }
+
+  function discardChangeRecords(ids?: string[]): void {
+    const removeAll = !ids
+    const removeSet = ids ? new Set(ids) : null
+    const discarded = removeSet ? changes.filter((change) => removeSet.has(change.id)) : [...changes]
+    changes = removeSet ? changes.filter((change) => !removeSet.has(change.id)) : []
+    if (removeAll || !activeChangeId || removeSet?.has(activeChangeId)) activeChangeId = null
+    if (removeAll) {
+      changeIdCounter = 0
+      beforePreviewChangeIds.clear()
+      disabledStyleDiffsByChangeId.clear()
+      disabledTextDiffByChangeId.clear()
+      textNodeByChangeId.clear()
+      disabledMoveDiffByChangeId.clear()
+      disabledNoteByChangeId.clear()
+      moveChangeIdByElement = new WeakMap<HTMLElement, string>()
+    } else if (removeSet) {
+      discarded.forEach((change) => {
+        beforePreviewChangeIds.delete(change.id)
+        disabledStyleDiffsByChangeId.delete(change.id)
+        disabledTextDiffByChangeId.delete(change.id)
+        textNodeByChangeId.delete(change.id)
+        disabledMoveDiffByChangeId.delete(change.id)
+        disabledNoteByChangeId.delete(change.id)
+        if (change.element instanceof HTMLElement && moveChangeIdByElement.get(change.element) === change.id) {
+          moveChangeIdByElement.delete(change.element)
+        }
+      })
+    }
+    clearPendingAutoCopy()
+    lastAutoCopiedPayload = null
+    lastAutoCopyFailedPayload = null
+    if (changes.length === 0) clearPersistedChanges()
+    else persistChangesState()
+    resetDesignTracker()
+    if (currentMode === 'design' && lockedElement instanceof HTMLElement) {
+      renderDesign(extractInspectorInfo(lockedElement))
+    }
+    renderMarkers()
+    if (currentMode === 'changes') renderChangesList()
+    closeOutputDetailMenu()
   }
 
   function persistChangesState(): void {
@@ -2361,8 +2570,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         .map(d => `${d.property}: ${d.original} → ${d.modified}`)
         .join(', ')
       : comment
+    const visibleStyleComment = change.type === 'design' && change.meta.designState === 'hover' && styleComment
+      ? `Hover style change: ${styleComment}`
+      : styleComment
     const mergedComment = change.type === 'design'
-      ? [styleComment, change.meta.note?.trim()].filter(Boolean).join('\n')
+      ? [visibleStyleComment, change.meta.note?.trim()].filter(Boolean).join('\n')
       : comment
     change.comment = mergedComment
     change.diffs = mergedDiffs
@@ -2416,6 +2628,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     changes = changes.filter(c => c.id !== id)
     disabledStyleDiffsByChangeId.delete(id)
     disabledTextDiffByChangeId.delete(id)
+    textNodeByChangeId.delete(id)
     disabledMoveDiffByChangeId.delete(id)
     disabledNoteByChangeId.delete(id)
     persistChangesState()
@@ -2456,6 +2669,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const marker = el('div', 'ei-marker')
       marker.textContent = String(visibleMarkerIndex)
       marker.setAttribute(IGNORE_ATTR, 'true')
+      marker.style.backgroundColor = markerColor
       marker.style.left = `${rect.left + rect.width - 12}px`
       marker.style.top = `${rect.top - 12}px`
       marker.addEventListener('click', (e) => {
@@ -2506,7 +2720,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         clearAnnotationPanel()
         return
       }
-      e.stopPropagation()
+      if (blockPageInteractions) e.stopPropagation()
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
         submitAnnotation(element, textarea.value)
@@ -2565,6 +2779,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   async function copyCurrentAIPayload(): Promise<void> {
     try {
       await writeClipboardText(buildAIPayload(changes, outputDetail))
+      if (clearOnCopy && changes.length > 0) discardChangeRecords()
     } catch (error) {
       console.error('[Elens] Copy AI failed:', error)
       showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
@@ -3159,8 +3374,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
             singleCopyBtn.addEventListener('click', async (e) => {
               e.stopPropagation()
               try {
+                const entryIds = entry.members.map((change) => change.id)
                 await writeClipboardText(buildEntryAIPayload(entry))
                 setActionCopied(singleCopyBtn)
+                if (clearOnCopy) discardChangeRecords(entryIds)
               } catch (error) {
                 console.error('[Elens] Copy entry AI failed:', error)
                 showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
@@ -3289,10 +3506,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     positionLayersPanel()
   }
 
-  function getLayerAncestorIdsForElement(element: HTMLElement): string[] {
+  function getLayerAncestorIdsForElement(element: InspectableElement): string[] {
     const ancestorIds: string[] = []
     let current = element.parentElement
-    while (current instanceof HTMLElement && current !== document.documentElement) {
+    while (current && current !== document.documentElement) {
       ancestorIds.unshift(buildTreeNodeId(current))
       if (current === document.body) break
       current = current.parentElement
@@ -3300,53 +3517,79 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return ancestorIds
   }
 
-  function ensureLayerPathLoaded(tree: LayersTreeNode, ancestorIds: string[]): void {
+  function ensureLayerPathLoaded(tree: LayersTreeNode, ancestorIds: string[], selectedElement: InspectableElement): void {
     let current: LayersTreeNode | null = tree
     for (const ancestorId of ancestorIds) {
       if (!current) return
       if (current.id === ancestorId) {
-        loadLayerTreeNodeChildren(current, IGNORE_ATTR)
+        loadLayerTreeNodeChildren(current, IGNORE_ATTR, LAYERS_NODE_MAX_CHILDREN, selectedElement)
         annotateLayersTreeIcons(current)
         continue
       }
-      loadLayerTreeNodeChildren(current, IGNORE_ATTR)
+      loadLayerTreeNodeChildren(current, IGNORE_ATTR, LAYERS_NODE_MAX_CHILDREN, selectedElement)
       annotateLayersTreeIcons(current)
       current = current.children.find(child => child.id === ancestorId) ?? null
     }
   }
 
-  function expandLayersSelection(tree: LayersTreeNode | null, selectedElement: HTMLElement | null): void {
+  function expandLayersSelection(tree: LayersTreeNode | null, selectedElement: InspectableElement | null): void {
     if (!tree || !selectedElement) return
     const ancestorIds = getLayerAncestorIdsForElement(selectedElement)
     ancestorIds.forEach((id) => layersExpandedIds.add(id))
     layersExpandedIds.add(tree.id)
-    ensureLayerPathLoaded(tree, ancestorIds)
+    ensureLayerPathLoaded(tree, ancestorIds, selectedElement)
   }
 
   function annotateLayersTreeIcons(node: LayersTreeNode | null): void {
     if (!node) return
-    node.icon = getLayerNodeIcon(node.element)
+    if (node.kind === 'element' && node.element instanceof HTMLElement) node.icon = getLayerNodeIcon(node.element)
     node.children.forEach(annotateLayersTreeIcons)
   }
 
+  function getMaxLayersTreeDepth(node: LayersTreeNode): number {
+    return node.children.reduce((maxDepth, child) => Math.max(maxDepth, getMaxLayersTreeDepth(child)), node.depth)
+  }
+
+  function updateLayersContentWidth(root: LayersTreeNode): void {
+    const width = Math.max(layersBody.clientWidth, 320 + getMaxLayersTreeDepth(root) * 32)
+    layersBody.style.setProperty('--ei-layers-content-width', `${width}px`)
+  }
+
+  function getDefaultLayersSelectedId(element: InspectableElement | null): string | null {
+    return element ? buildTreeNodeId(element) : null
+  }
+
   function rebuildLayersTree(): void {
-    layersTreeBuildResult = buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR })
+    layersTreeBuildResult = buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, maxNodes: LAYERS_TREE_MAX_NODES })
     annotateLayersTreeIcons(layersTreeBuildResult?.root ?? null)
-    const selectedId = lockedElement instanceof HTMLElement ? buildTreeNodeId(lockedElement) : null
-    layersSelectedId = selectedId
+    if (layersSelectedElement !== lockedElement || !layersSelectedId) {
+      layersSelectedId = getDefaultLayersSelectedId(lockedElement)
+      layersSelectedElement = lockedElement
+    }
     if (layersTreeBuildResult?.root) {
       layersExpandedIds.add(layersTreeBuildResult.root.id)
-      expandLayersSelection(layersTreeBuildResult.root, lockedElement instanceof HTMLElement ? lockedElement : null)
+      expandLayersSelection(layersTreeBuildResult.root, lockedElement)
+    }
+  }
+
+  function scrollLayersRowIntoViewVertically(row: HTMLElement): void {
+    const bodyRect = layersBody.getBoundingClientRect()
+    const rowRect = row.getBoundingClientRect()
+    if (rowRect.top < bodyRect.top) {
+      layersBody.scrollTop -= bodyRect.top - rowRect.top
+    } else if (rowRect.bottom > bodyRect.bottom) {
+      layersBody.scrollTop += rowRect.bottom - bodyRect.bottom
     }
   }
 
   function syncLayersTreeSelection(): void {
-    layersSelectedId = lockedElement instanceof HTMLElement ? buildTreeNodeId(lockedElement) : null
-    if (layersTreeBuildResult?.root && layersSelectedId) {
-      expandLayersSelection(layersTreeBuildResult.root, lockedElement instanceof HTMLElement ? lockedElement : null)
+    if (layersSelectedElement !== lockedElement) {
+      layersSelectedId = getDefaultLayersSelectedId(lockedElement)
+      layersSelectedElement = lockedElement
     }
-    const selectedRow = layersBody.querySelector<HTMLElement>('.ei-layer-row[data-active="true"]')
-    selectedRow?.scrollIntoView({ block: 'nearest' })
+    if (layersTreeBuildResult?.root && layersSelectedId) {
+      expandLayersSelection(layersTreeBuildResult.root, lockedElement)
+    }
   }
 
   function restoreLockedHighlight(): void {
@@ -3358,14 +3601,54 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     updateHighlight(currentInfo)
   }
 
-  function selectLayersElement(element: HTMLElement, options: { scroll?: boolean; focusLayersRow?: boolean } = {}): void {
+  function getHoveredInspectableElement(): HTMLElement | null {
+    if (currentInfo?.element instanceof HTMLElement) return currentInfo.element
+    if (!latestPoint) return null
+    const hovered = getInspectableElementFromPoint(latestPoint.x, latestPoint.y, IGNORE_ATTR)
+    return hovered instanceof HTMLElement ? hovered : null
+  }
+
+  function getArrowNavigationOrigin(): HTMLElement | null {
+    if (lockedElement instanceof HTMLElement) return lockedElement
+    return getHoveredInspectableElement()
+  }
+
+  function applyArrowNavigation(origin: HTMLElement, key: string): void {
+    const targetElement = getArrowNavigationTarget(origin, key) ?? (lockedElement ? null : origin)
+    if (!targetElement) return
+
+    if (currentMode === 'design') {
+      clearHoverLock()
+      selectedElements = [targetElement]
+    } else {
+      hideTooltip()
+    }
+
+    lockedElement = targetElement
+    const info = extractInspectorInfo(targetElement)
+    currentInfo = info
+    if (!panelAnchor) {
+      const rect = targetElement.getBoundingClientRect()
+      panelAnchor = { x: Math.max(rect.left, 120), y: Math.max(rect.top, 120) }
+    }
+    renderForCurrentMode(info)
+    renderLayersPanel()
+  }
+
+  function selectLayersElement(element: InspectableElement, options: { scroll?: boolean; focusLayersRow?: boolean; layerId?: string; textNode?: Text | null } = {}): void {
     lockedElement = element
+    layersSelectedTextNode = options.textNode ?? null
     panelAnchor = { x: Math.max(element.getBoundingClientRect().left, 120), y: Math.max(element.getBoundingClientRect().top, 120) }
     const info = extractInspectorInfo(element)
     currentInfo = info
-    pendingLayersFocusId = options.focusLayersRow === false ? null : buildTreeNodeId(element)
+    pendingLayersFocusId = options.focusLayersRow === false ? null : options.layerId ?? buildTreeNodeId(element)
+    if (options.layerId) {
+      layersSelectedId = options.layerId
+      layersSelectedElement = element
+    }
     syncLayersTreeSelection()
     renderForCurrentMode(info)
+    if (options.layerId && layersOpen) requestRenderLayersPanel()
     if (options.scroll !== false) {
       element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' })
     }
@@ -3377,7 +3660,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     pendingLayersFocusId = null
     if (!targetRow) return
     window.requestAnimationFrame(() => {
-      targetRow.focus()
+      scrollLayersRowIntoViewVertically(targetRow)
+      targetRow.focus({ preventScroll: true })
+      layersBody.scrollLeft = layersBodyScrollLeft
     })
   }
 
@@ -3411,7 +3696,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (isExpanded) disclosure.dataset.expanded = 'true'
 
     const icon = el('span', 'ei-layer-icon')
-    icon.innerHTML = node.icon ?? getLayerNodeIcon(node.element)
+    icon.innerHTML = node.kind === 'text' ? ICON_LAYER_TEXT : node.element instanceof SVGElement ? ICON_LAYER_VECTOR : node.icon ?? getLayerNodeIcon(node.element)
     const label = el('span', 'ei-layer-label', node.label)
     label.title = node.label
     const secondary = el('span', 'ei-layer-secondary', node.secondaryLabel)
@@ -3425,7 +3710,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       if (layersExpandedIds.has(node.id)) {
         layersExpandedIds.delete(node.id)
       } else {
-        loadLayerTreeNodeChildren(node, IGNORE_ATTR)
+        loadLayerTreeNodeChildren(node, IGNORE_ATTR, LAYERS_NODE_MAX_CHILDREN)
         annotateLayersTreeIcons(node)
         layersExpandedIds.add(node.id)
       }
@@ -3433,11 +3718,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
 
     row.addEventListener('mouseenter', () => {
-      layersHoverElement = node.element
-      updateHighlight(extractInspectorInfo(node.element))
+      const target = node.selectionElement
+      layersHoverElement = target
+      updateHighlight(extractInspectorInfo(target))
     })
     row.addEventListener('mouseleave', () => {
-      if (layersHoverElement !== node.element) return
+      const target = node.selectionElement
+      if (layersHoverElement !== target) return
       restoreLockedHighlight()
     })
     row.addEventListener('mousedown', () => {
@@ -3446,11 +3733,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     row.addEventListener('click', () => {
       layersKeyboardActive = true
-      selectLayersElement(node.element, { focusLayersRow: true })
+      const target = node.selectionElement
+      selectLayersElement(target, { focusLayersRow: true, layerId: node.id, textNode: node.kind === 'text' ? node.textNode : null })
     })
 
     row.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter') return
+      if (event.key !== 'Enter' || node.kind === 'text' || !(node.element instanceof HTMLElement)) return
       const targetElement = getLayersNavigationTarget(node.element, event.shiftKey ? 'parent' : 'child')
       if (!targetElement) return
 
@@ -3462,7 +3750,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     container.appendChild(row)
 
     if (node.hasChildren && isExpanded) {
-      loadLayerTreeNodeChildren(node, IGNORE_ATTR)
+      loadLayerTreeNodeChildren(node, IGNORE_ATTR, LAYERS_NODE_MAX_CHILDREN)
       annotateLayersTreeIcons(node)
       node.children.forEach((child) => renderLayersTreeNode(child, container))
     }
@@ -3480,6 +3768,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     syncLayersPanelVisibility()
     if (!layersOpen) return
     if (!layersTreeBuildResult) rebuildLayersTree()
+    const scrollLeft = layersBodyScrollLeft
     layersBody.innerHTML = ''
     if (!layersTreeBuildResult?.root) {
       layersBody.innerHTML = `<div class="ei-empty ei-layers-empty">${i18n.panel.emptyLayers}</div>`
@@ -3487,19 +3776,29 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
 
     const query = layersSearchQuery.trim()
-    const sourceTree = query
-      ? buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, loadAll: true })?.root ?? layersTreeBuildResult.root
-      : layersTreeBuildResult.root
+    const searchBuildResult = query
+      ? buildDocumentLayersTree(document.body, { ignoreAttribute: IGNORE_ATTR, loadAll: true, maxNodes: LAYERS_SEARCH_MAX_NODES })
+      : null
+    const sourceTree = searchBuildResult?.root ?? layersTreeBuildResult.root
     if (query) annotateLayersTreeIcons(sourceTree)
     const filteredRoot = filterLayersTree(sourceTree, query)
     if (!filteredRoot) {
       layersBody.innerHTML = `<div class="ei-empty ei-layers-empty">${i18n.panel.noLayerResults}</div>`
       return
     }
+    updateLayersContentWidth(filteredRoot)
 
     syncLayersTreeSelection()
 
+    const truncated = query ? Boolean(searchBuildResult?.truncated) : layersTreeBuildResult.truncated
+    if (truncated) {
+      const notice = el('div', 'ei-layers-notice', i18n.panel.truncatedLayers)
+      layersBody.appendChild(notice)
+    }
     renderLayersTreeNode(filteredRoot, layersBody)
+    const selectedRow = layersBody.querySelector<HTMLElement>('.ei-layer-row[data-active="true"]')
+    if (selectedRow) scrollLayersRowIntoViewVertically(selectedRow)
+    layersBody.scrollLeft = scrollLeft
     focusSelectedLayersRow()
   }
 
@@ -3676,11 +3975,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function updateHighlight(info: InspectorInfo | null): void {
-    // Support capture selection mode (element/state) when currentMode is 'off'
-    // Also support outlines mode for hover highlight
-    const isCaptureSelection = captureMenuMode === 'element' || captureMenuMode === 'state'
     const designOverlayHidden = currentMode === 'design' && !designOverlaysVisible
-    if ((currentMode === 'off' && !isCaptureSelection && !outlinesEnabled) || currentMode === 'changes' || !info || designOverlayHidden) {
+    if ((currentMode === 'off' && !outlinesEnabled) || currentMode === 'changes' || !info || designOverlayHidden) {
       clearGapOverlay()
       setHighlightVisible(false)
       // Remove hover highlight class from previous element in outlines mode
@@ -3722,7 +4018,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     hlContent.style.width = `${Math.max(w - pl - pr, 0)}px`
     hlContent.style.height = `${Math.max(h - pt - pb, 0)}px`
 
-    const isDesign = currentMode === 'design' || isCaptureSelection
+    const isDesign = currentMode === 'design'
     const isInspector = currentMode === 'inspector'
     const isMove = currentMode === 'move'
     highlight.dataset.design = isDesign ? 'true' : 'false'
@@ -3735,7 +4031,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       const tag = info.tagName.toLowerCase()
       const cls = info.element.className && typeof info.element.className === 'string'
         ? '.' + info.element.className.trim().split(/\s+/)[0] : ''
-      hlLabel.textContent = (hoverLocked ? '🔒 ' : '') + tag + cls
+      hlLabel.textContent = (hoverLockedElement ? '🔒 ' : '') + tag + cls
       hlLabel.style.display = 'block'
       hlCode.style.display = 'block'
 
@@ -3777,8 +4073,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
       renderGapOverlay(info)
 
-      // Margin badges + measurement lines (in margin layer coordinates)
       const marginSides: [string, number][] = [['top', mt], ['right', mr], ['bottom', mb], ['left', ml]]
+      // Margin badges + measurement lines (in margin layer coordinates)
       for (const [side, val] of marginSides) {
         const badge = hlMarginBadges[side]!
         const line = hlMarginLines[side]!
@@ -3856,8 +4152,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   }
 
   function buildBoxCode(info: InspectorInfo): HTMLDivElement {
+    const backgroundImage = info.element instanceof HTMLElement ? window.getComputedStyle(info.element).backgroundImage : 'none'
+    const backgroundValue = backgroundImage && backgroundImage !== 'none' ? backgroundImage : info.visual.backgroundColor
     return codeRows([
-      ['background', info.visual.backgroundColor, info.visual.backgroundColor],
+      ['background', backgroundValue, backgroundValue],
       ['border-color', info.visual.borderColor, info.visual.borderColor],
       ['box-shadow', info.visual.boxShadow],
     ])
@@ -4000,12 +4298,141 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Design rendering ---
 
+  const HOVER_LOCK_PROPERTIES = [
+    'display',
+    'visibility',
+    'pointer-events',
+    'color',
+    'background-color',
+    'border-color',
+    'border-top-color',
+    'border-right-color',
+    'border-bottom-color',
+    'border-left-color',
+    'box-shadow',
+    'opacity',
+    'transform',
+    'filter',
+    'outline-color',
+    'outline-width',
+    'outline-style',
+  ]
+
+  function clearHoverLock(): void {
+    hoverLockedInlineStyles.forEach((styles, element) => {
+      styles.forEach((style, property) => {
+        restoreInlineStyle(element, property, style.value, style.priority)
+      })
+    })
+    hoverLockedElement = null
+    hoverLockedInlineStyles = new Map()
+  }
+
+  function isPointerOverElement(element: HTMLElement): boolean {
+    if (!latestPagePoint) return false
+    const topElement = getInspectableElementFromPoint(latestPagePoint.x, latestPagePoint.y, IGNORE_ATTR)
+    return topElement === element || Boolean(topElement instanceof HTMLElement && element.contains(topElement))
+  }
+
+  function isInsideHoverLockedSubtree(element: HTMLElement): boolean {
+    if (hoverLockedElement && (element === hoverLockedElement || hoverLockedElement.contains(element))) return true
+    for (const lockedElement of hoverLockedInlineStyles.keys()) {
+      if (element === lockedElement || lockedElement.contains(element)) return true
+    }
+    return false
+  }
+
+  function discardHoverLockedInlineStyle(element: HTMLElement, property: string): void {
+    const styles = hoverLockedInlineStyles.get(element)
+    if (!styles) return
+    styles.delete(property)
+    if (styles.size === 0) hoverLockedInlineStyles.delete(element)
+  }
+
+  function lockStateElements(primaryElement: HTMLElement, elements: HTMLElement[]): void {
+    hoverLockedElement = primaryElement
+    elements.forEach((hoverElement) => {
+      const style = window.getComputedStyle(hoverElement)
+      const inlineStyles = new Map<string, HoverLockedInlineStyle>()
+      HOVER_LOCK_PROPERTIES.forEach((property) => {
+        inlineStyles.set(property, {
+          value: hoverElement.style.getPropertyValue(property),
+          priority: hoverElement.style.getPropertyPriority(property),
+        })
+        const value = style.getPropertyValue(property)
+        const priority = style.getPropertyPriority(property)
+        if (value) hoverElement.style.setProperty(property, value, priority)
+      })
+      hoverLockedInlineStyles.set(hoverElement, inlineStyles)
+    })
+  }
+
+  function getElementSubtree(element: HTMLElement): HTMLElement[] {
+    return [element, ...Array.from(element.querySelectorAll<HTMLElement>('*'))]
+  }
+
+  function captureHoverState(element: HTMLElement): void {
+    if (!hoverCaptureArmed || hoverLockedElement === element || !isPointerOverElement(element)) {
+      return
+    }
+    hoverCaptureArmed = false
+    clearHoverLock()
+    designState = 'hover'
+    lockStateElements(element, getElementSubtree(element))
+    showToast(i18n.design.hoverCaptured, 'success')
+    renderDesign(extractInspectorInfo(element))
+  }
+
+  function captureCurrentHover(element: HTMLElement): void {
+    if (!isPointerOverElement(element)) {
+      showToast(i18n.design.hoverCaptureHint, 'info')
+      return
+    }
+    clearHoverLock()
+    hoverCaptureArmed = true
+    captureHoverState(element)
+  }
+
+  function isVisibleStateLayer(element: HTMLElement): boolean {
+    if (element === document.documentElement || element === document.body || element === root || root.contains(element)) return false
+    if (element.closest(`[${IGNORE_ATTR}="true"]`)) return false
+    const rect = element.getBoundingClientRect()
+    if (rect.width < 8 || rect.height < 8) return false
+    if (rect.bottom <= 0 || rect.right <= 0 || rect.top >= window.innerHeight || rect.left >= window.innerWidth) return false
+    const style = window.getComputedStyle(element)
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
+    const role = element.getAttribute('role') ?? ''
+    const ariaModal = element.getAttribute('aria-modal')
+    const dataState = element.getAttribute('data-state') ?? ''
+    const hasLayerSemantics = ariaModal === 'true' || ['dialog', 'menu', 'listbox', 'tooltip'].includes(role) || dataState === 'open'
+    return style.position === 'fixed' || (style.position === 'absolute' && hasLayerSemantics)
+  }
+
+  function captureCurrentState(primaryElement: HTMLElement, token: number): void {
+    window.setTimeout(() => {
+      if (token !== stateCaptureToken || currentMode !== 'design' || !document.contains(primaryElement)) return
+      clearHoverLock()
+      designState = 'hover'
+      const elements = new Set<HTMLElement>(getElementSubtree(primaryElement))
+      document.querySelectorAll<HTMLElement>('body *').forEach((element) => {
+        if (!isVisibleStateLayer(element)) return
+        getElementSubtree(element).forEach(child => elements.add(child))
+      })
+      lockStateElements(primaryElement, Array.from(elements))
+      showToast(i18n.design.stateCaptured, 'success')
+      renderDesign(extractInspectorInfo(primaryElement))
+    }, 180)
+  }
+
   function resetDesignTracker(): void {
     // Don't reset styles — they persist until the Change is deleted
     styleTracker = null
     activeDesignTextChangeTarget = null
     activeDesignTextChangeHandler = null
-    designApplyToElementOnly = false
+    designApplyToElementOnly = true
+    hoverCaptureArmed = false
+    stateCaptureArmed = false
+    stateCaptureToken += 1
     clearDesignScopeOverlay()
   }
 
@@ -4070,6 +4497,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     inlineTextEditSession = null
     session.element.removeEventListener('input', session.inputHandler)
     session.element.removeEventListener('blur', session.blurHandler)
+    session.element.removeEventListener('keydown', session.keyboardHandler, true)
+    session.element.removeEventListener('keypress', session.keyboardHandler, true)
+    session.element.removeEventListener('keyup', session.keyboardHandler, true)
 
     if (!commit) {
       session.element.textContent = session.originalText
@@ -4083,6 +4513,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     } else {
       session.element.setAttribute('contenteditable', session.previousContentEditable)
     }
+    session.element.removeAttribute(INLINE_EDIT_ATTR)
     session.element.style.outline = session.previousOutline
 
     if (lockedElement === session.element && currentMode === 'design') {
@@ -4110,6 +4541,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       updateHighlight(freshInfo)
     }
     const blurHandler = () => finishInlineTextEdit(true)
+    const keyboardHandler = (event: KeyboardEvent) => {
+      if (blockPageInteractions) event.stopImmediatePropagation()
+    }
 
     inlineTextEditSession = {
       element,
@@ -4118,12 +4552,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       previousOutline,
       inputHandler,
       blurHandler,
+      keyboardHandler,
     }
 
     element.setAttribute('contenteditable', 'plaintext-only')
+    element.setAttribute(INLINE_EDIT_ATTR, 'true')
     element.style.outline = 'none'
     element.addEventListener('input', inputHandler)
     element.addEventListener('blur', blurHandler)
+    element.addEventListener('keydown', keyboardHandler, true)
+    element.addEventListener('keypress', keyboardHandler, true)
+    element.addEventListener('keyup', keyboardHandler, true)
     element.focus({ preventScroll: true })
     placeCaretAtEnd(element)
   }
@@ -4143,6 +4582,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     const classNames = Array.from(element.classList)
     const candidates: Array<{ rule: CSSStyleRule; score: number }> = []
 
+    let scannedRules = 0
     for (const sheet of Array.from(document.styleSheets)) {
       let rules: CSSRuleList
       try {
@@ -4152,6 +4592,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       }
 
       for (const rule of Array.from(rules)) {
+        if (scannedRules >= EDITABLE_STYLE_RULE_SCAN_LIMIT) break
+        scannedRules += 1
         if (!(rule instanceof CSSStyleRule)) continue
         const selectors = rule.selectorText.split(',').map(selector => selector.trim()).filter(Boolean)
         const matchingSelectors = selectors.filter((selector) => {
@@ -4170,6 +4612,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         score += matchingSelectors.reduce((total, selector) => total + (selector.match(/[.#[:]/g)?.length ?? 0), 0)
         candidates.push({ rule, score })
       }
+      if (scannedRules >= EDITABLE_STYLE_RULE_SCAN_LIMIT) break
     }
 
     return candidates
@@ -4192,6 +4635,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         return originals.get(property) ?? ''
       },
       apply(property: string, value: string): void {
+        discardHoverLockedInlineStyle(element, property)
         const rule = designApplyToElementOnly ? null : rules.get(property) ?? getEditableMatchedStyleRule(element, property)
         rememberStyleResetTarget(element, property, rule)
         if (rule) {
@@ -4203,6 +4647,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       },
       reset(property: string): void {
         const rule = designApplyToElementOnly ? null : rules.get(property)
+        discardHoverLockedInlineStyle(element, property)
         if (!rule) {
           element.style.removeProperty(property)
           return
@@ -4242,7 +4687,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     const override = designScopeModeOverride
     if (override && analysis.candidates[override]?.enabled) return override
-    return analysis.recommendedMode
+    return 'single'
   }
 
   function getEffectiveDesignScopeElements(element: HTMLElement): HTMLElement[] {
@@ -4343,7 +4788,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         event.preventDefault()
         event.stopPropagation()
         closeMenu()
-        designScopeModeOverride = option.mode === analysis.recommendedMode ? null : option.mode
+        designScopeModeOverride = option.mode === 'single' ? null : option.mode
         designScopeSelectionKey = getDesignScopeSelectionKey(element)
         renderDesign(extractInspectorInfo(element))
       }
@@ -4431,55 +4876,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     return button
   }
 
-  function clearSelectedElementCapture(): void {
-    captureMenuMode = null
-    highlight.style.display = 'none'
-    tooltip.style.display = 'none'
-  }
-
-  async function captureElementImageBlob(target: HTMLElement): Promise<Blob> {
-    return await captureHostElementImageBlob(target, options.viewportController?.captureVisibleTab, {
-      unsupported: i18n.design.screenshotUnsupported,
-      unavailable: i18n.design.screenshotBridgeUnavailable,
-      unknownError: i18n.capture.unknownError,
-    })
-  }
-
   async function writeClipboardText(text: string): Promise<void> {
     await writeHostClipboardText(text, { write: options.viewportController?.writeClipboard })
   }
-
-  async function writeClipboardImage(blob: Blob): Promise<void> {
-    await writeHostClipboardImage(blob, { write: options.viewportController?.writeClipboard }, i18n.capture.unknownError)
-  }
-
-  async function captureElementToFigma(target: HTMLElement): Promise<void> {
-    clearSelectedElementCapture()
-
-    try {
-      showToast(i18n.design.capturingCopyToFigma, 'info')
-      await performCapture(buildDomPath(target), { scroll: false })
-      showToast(i18n.design.copiedToFigma, 'success')
-    } catch (error) {
-      console.error('[Elens] Copy to Figma failed:', error)
-      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
-    }
-  }
-
-  async function captureElementScreenshot(target: HTMLElement): Promise<void> {
-    clearSelectedElementCapture()
-
-    try {
-      showToast(i18n.design.capturingScreenshot, 'info')
-      const blob = await captureElementImageBlob(target)
-      await writeClipboardImage(blob)
-      showToast(i18n.design.screenshotSaved, 'success')
-    } catch (error) {
-      console.error('[Elens] Screenshot capture failed:', error)
-      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
-    }
-  }
-
 
   function toggleDesignOverlays(): void {
     if (currentMode !== 'design') return
@@ -4521,6 +4920,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     positionPanel(panelAnchor, info)
 
     body.innerHTML = ''
+    if (layersSelectedTextNode) body.scrollTop = 0
     body.style.paddingTop = selectedElements.length > 1 ? '0' : ''
     body.style.paddingLeft = ''
 
@@ -4582,6 +4982,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         }
         const existingScopedChange = changes.find(c => c.type === 'design' && c.element === element)
         if (existingScopedChange) {
+          if (element === primaryElement && layersSelectedTextNode) textNodeByChangeId.set(existingScopedChange.id, layersSelectedTextNode)
+          existingScopedChange.meta.designState = designState
           updateChange(existingScopedChange.id, autoComment, diffs)
           existingScopedChange.meta.groupKey = info.element instanceof HTMLElement ? getDesignChangeGroupKey(info.element) : undefined
           existingScopedChange.meta.designInputMode = 'visual'
@@ -4592,8 +4994,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const changeId = addChange(element, [autoComment, note].filter(Boolean).join('\n'), 'design', diffs)
         const createdChange = changes.find(c => c.id === changeId)
         if (createdChange) {
+          if (element === primaryElement && layersSelectedTextNode) textNodeByChangeId.set(createdChange.id, layersSelectedTextNode)
           createdChange.meta.groupKey = info.element instanceof HTMLElement ? getDesignChangeGroupKey(info.element) : undefined
           createdChange.meta.designInputMode = 'visual'
+          createdChange.meta.designState = designState
           if (note) {
             createdChange.meta.note = note
             createdChange.comment = [autoComment, note].filter(Boolean).join('\n')
@@ -4753,7 +5157,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         const unsupported = el('div', 'ei-ann-empty', i18n.design.batchSelectionUnsupported)
         body.appendChild(unsupported)
         updateHighlight(info)
-        requestRenderLayersPanel()
+        if (layersOpen) requestRenderLayersPanel()
         return
       }
 
@@ -4784,7 +5188,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         })
         body.appendChild(multiPanel)
         updateHighlight(info)
-        requestRenderLayersPanel()
+        if (layersOpen) requestRenderLayersPanel()
         return
       }
 
@@ -4829,7 +5233,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       })
       body.appendChild(multiPanel)
       updateHighlight(info)
-      requestRenderLayersPanel()
+      if (layersOpen) requestRenderLayersPanel()
       return
     }
 
@@ -4855,11 +5259,12 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       },
       onTextEditStart: beginTextEditing,
       onTextEditEnd: endTextEditing,
+      textNode: layersSelectedTextNode,
     })
     body.appendChild(designPanel)
 
     updateHighlight(info)
-    requestRenderLayersPanel()
+    if (layersOpen) requestRenderLayersPanel()
   }
 
   function renderMove(info: InspectorInfo | null): void {
@@ -4900,11 +5305,11 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   // --- Inspect logic ---
 
-  function inspectPoint(x: number, y: number): void {
+  function inspectPoint(x: number, y: number, eventElement?: InspectableElement | null): void {
     if (!isInteractiveMode() && !outlinesEnabled) return
     if (lockedElement) return
-    if (hoverLocked) return // Hover lock: don't update element
-    const element = getInspectableElementFromPoint(x, y, IGNORE_ATTR)
+    if (hoverLockedElement) return
+    const element = eventElement ?? getInspectableElementFromPoint(x, y, IGNORE_ATTR)
     if (!element) {
       hideTooltip()
       return
@@ -4929,13 +5334,14 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     options.onInspect?.(info)
   }
 
-  function queueInspect(x: number, y: number): void {
+  function queueInspect(x: number, y: number, event?: MouseEvent): void {
     latestPoint = { x, y }
+    latestInspectElement = event ? getInspectableElementFromEvent(event, IGNORE_ATTR) : null
     if (rafId != null) return
     rafId = window.requestAnimationFrame(() => {
       rafId = null
       if (!latestPoint) return
-      inspectPoint(latestPoint.x, latestPoint.y)
+      inspectPoint(latestPoint.x, latestPoint.y, latestInspectElement)
     })
   }
 
@@ -4959,6 +5365,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
     if (!document.contains(lockedElement)) {
       finishInlineTextEdit(true)
+      clearHoverLock()
       resetDesignTracker()
       clearDesignSelection()
       renderForCurrentMode(null)
@@ -4985,8 +5392,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   // --- Event handlers ---
 
   function onMouseMove(event: MouseEvent): void {
+    latestPoint = { x: event.clientX, y: event.clientY }
     if (!isInteractiveMode() && !outlinesEnabled) return
     if (isIgnoredEvent(event)) return
+    latestPagePoint = latestPoint
     if (currentMode === 'move' && updateMoveDrag(event)) return
     if (currentMode === 'guides' && (rulerDragState || guideLineDragState)) {
       hideTooltip()
@@ -5000,7 +5409,9 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       hideTooltip()
       return
     }
-    queueInspect(event.clientX, event.clientY)
+    // Keep the event target so hover uses the same node the browser reports,
+    // instead of re-guessing from coordinates after the event has propagated.
+    queueInspect(event.clientX, event.clientY, event)
   }
 
   function onMouseDown(event: MouseEvent): void {
@@ -5020,7 +5431,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function blockMouse(event: Event): void {
     if (outlinesEnabled) return // Outlines mode: allow normal interaction
-    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event) || isEditableTarget(event.target)) return
+    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (currentMode === 'design' && stateCaptureArmed) return
     if (event.type === 'wheel') return
     if (currentMode === 'move' && (event.type === 'mousedown' || event.type === 'mouseup')) return
     event.preventDefault()
@@ -5034,14 +5446,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
     if (outlinesEnabled) return // Outlines mode: no interaction
-    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event) || isEditableTarget(event.target)) return
+    if (!isInteractiveMode() || isIgnoredEvent(event) || isPanelEvent(event)) return
+    if (currentMode === 'design' && stateCaptureArmed) {
+      const element = getInspectableElementFromEvent(event, IGNORE_ATTR)
+      const token = stateCaptureToken
+      stateCaptureArmed = false
+      if (element instanceof HTMLElement) captureCurrentState(element, token)
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     hideTooltip()
 
-    const element = getInspectableElementFromPoint(event.clientX, event.clientY, IGNORE_ATTR)
-    if (!element || isLikelyBackgroundElement(element)) {
+    const element = getInspectableElementFromEvent(event, IGNORE_ATTR)
+    if (!element) {
       finishInlineTextEdit(true)
+      clearHoverLock()
       resetDesignTracker()
       clearDesignSelection()
       // Guides mode: clear anchor on background click
@@ -5074,6 +5494,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     if (currentMode === 'design' && element instanceof HTMLElement) {
       finishInlineTextEdit(true)
+      const keepHoverLock = isInsideHoverLockedSubtree(element)
+      if (!keepHoverLock) clearHoverLock()
       resetDesignTracker()
       if (event.shiftKey) {
         toggleDesignSelectionElement(element, { x: event.clientX, y: event.clientY })
@@ -5098,6 +5520,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     if (lockedElement === element) {
       finishInlineTextEdit(true)
+      clearHoverLock()
       resetDesignTracker()
       clearDesignSelection()
       renderForCurrentMode(null)
@@ -5132,11 +5555,22 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
         cancelMoveDrag()
         return
       }
-      if (hoverLocked) {
-        hoverLocked = false
+      if (stateCaptureArmed) {
+        stateCaptureArmed = false
+        stateCaptureToken += 1
+        return
+      }
+      if (hoverLockedElement) {
+        clearHoverLock()
+        if (currentMode === 'design' && lockedElement instanceof HTMLElement) {
+          designState = 'default'
+          hoverCaptureArmed = false
+              renderDesign(extractInspectorInfo(lockedElement))
+        }
         return
       }
       if (lockedElement) {
+        clearHoverLock()
         resetDesignTracker()
         clearDesignSelection()
         renderForCurrentMode(null)
@@ -5174,24 +5608,10 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    if (!hasModifierKey && (event.key === 'o' || event.key === 'O')) {
-      event.preventDefault()
-      event.stopPropagation()
-      toggleOutlines()
-      return
-    }
-
     if (!hasModifierKey && (event.key === 'j' || event.key === 'J')) {
       event.preventDefault()
       event.stopPropagation()
       toggleToolbarMode('changes')
-      return
-    }
-
-    if (!hasModifierKey && (event.key === 'c' || event.key === 'C')) {
-      event.preventDefault()
-      event.stopPropagation()
-      triggerPrimaryCapture()
       return
     }
 
@@ -5213,14 +5633,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
       return
     }
 
-    // H key to lock hover state in Design mode
-    if (event.key === 'h' || event.key === 'H') {
-      if (currentMode === 'design' && currentInfo) {
-        event.preventDefault()
-        event.stopPropagation()
-        hoverLocked = !hoverLocked
-        return
-      }
+    if (!hasModifierKey && currentMode === 'design' && lockedElement instanceof HTMLElement && (event.key === 'h' || event.key === 'H')) {
+      event.preventDefault()
+      event.stopPropagation()
+      captureCurrentHover(lockedElement)
+      return
+    }
+
+    if (!hasModifierKey && currentMode === 'design' && lockedElement instanceof HTMLElement && (event.key === 's' || event.key === 'S')) {
+      event.preventDefault()
+      event.stopPropagation()
+      stateCaptureArmed = true
+      stateCaptureToken += 1
+      clearHoverLock()
+      showToast(i18n.design.stateCaptureHint, 'info')
+      return
     }
 
     const layersFocused = layersOpen && !layersCollapsed && layersKeyboardActive
@@ -5238,55 +5665,21 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
     if (layersFocused) return
 
-    // Arrow key navigation only for inspector mode
-    if (currentMode === 'inspector') {
-      if (event.key === 'ArrowUp' && lockedElement?.parentElement) {
+    if ((currentMode === 'inspector' || currentMode === 'design') && isArrowNavigationKey(event.key)) {
+      const originElement = getArrowNavigationOrigin()
+      if (originElement) {
         event.preventDefault()
         event.stopPropagation()
-        lockedElement = lockedElement.parentElement
-        renderInfo(extractInspectorInfo(lockedElement))
+        applyArrowNavigation(originElement, event.key)
         return
       }
+    }
 
-      if (event.key === 'ArrowDown' && lockedElement instanceof HTMLElement) {
-        const nextChild = getHTMLElementChildren(lockedElement)[0]
-        if (nextChild) {
-          event.preventDefault()
-          event.stopPropagation()
-          lockedElement = nextChild
-          renderInfo(extractInspectorInfo(lockedElement))
-          return
-        }
-      }
-
-      if (event.key === 'ArrowLeft' && lockedElement instanceof HTMLElement) {
-        const prevSibling = getSiblingElement(lockedElement, 'prev')
-        if (prevSibling) {
-          event.preventDefault()
-          event.stopPropagation()
-          lockedElement = prevSibling
-          renderInfo(extractInspectorInfo(lockedElement))
-          return
-        }
-      }
-
-      if (event.key === 'ArrowRight' && lockedElement instanceof HTMLElement) {
-        const nextSibling = getSiblingElement(lockedElement, 'next')
-        if (nextSibling) {
-          event.preventDefault()
-          event.stopPropagation()
-          lockedElement = nextSibling
-          renderInfo(extractInspectorInfo(lockedElement))
-          return
-        }
-      }
-
-      if (event.key === 'n' && lockedElement && annotateInput) {
-        event.preventDefault()
-        event.stopPropagation()
-        annotateInput.focus()
-        return
-      }
+    if (currentMode === 'inspector' && event.key === 'n' && lockedElement && annotateInput) {
+      event.preventDefault()
+      event.stopPropagation()
+      annotateInput.focus()
+      return
     }
 
     event.preventDefault()
@@ -5363,6 +5756,13 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function bindEvents(): void {
     const captureOptions: AddEventListenerOptions = { capture: true }
+    window.dispatchEvent(new CustomEvent('elens:keyboard-listener-registration', { detail: { active: true } }))
+    window.addEventListener('pointerdown', isolateCapturedStatePanelEvent, captureOptions)
+    window.addEventListener('pointerup', isolateCapturedStatePanelEvent, captureOptions)
+    window.addEventListener('mousedown', isolateCapturedStatePanelEvent, captureOptions)
+    window.addEventListener('mouseup', isolateCapturedStatePanelEvent, captureOptions)
+    window.addEventListener('click', isolateCapturedStatePanelEvent, captureOptions)
+    window.addEventListener('focusin', isolateCapturedStatePanelEvent, captureOptions)
     window.addEventListener('mousemove', onMouseMove, captureOptions)
     window.addEventListener('mousedown', onMouseDown, captureOptions)
     window.addEventListener('mouseup', onMouseUp, captureOptions)
@@ -5372,10 +5772,17 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     window.addEventListener('keydown', onKeyDown, captureOptions)
     window.addEventListener('resize', refreshLocked)
     window.addEventListener('scroll', refreshLocked, true)
+    window.dispatchEvent(new CustomEvent('elens:keyboard-listener-registration', { detail: { active: false } }))
   }
 
   function unbindEvents(): void {
     const captureOptions: AddEventListenerOptions = { capture: true }
+    window.removeEventListener('pointerdown', isolateCapturedStatePanelEvent, captureOptions)
+    window.removeEventListener('pointerup', isolateCapturedStatePanelEvent, captureOptions)
+    window.removeEventListener('mousedown', isolateCapturedStatePanelEvent, captureOptions)
+    window.removeEventListener('mouseup', isolateCapturedStatePanelEvent, captureOptions)
+    window.removeEventListener('click', isolateCapturedStatePanelEvent, captureOptions)
+    window.removeEventListener('focusin', isolateCapturedStatePanelEvent, captureOptions)
     window.removeEventListener('mousemove', onMouseMove, captureOptions)
     window.removeEventListener('mousedown', onMouseDown, captureOptions)
     window.removeEventListener('mouseup', onMouseUp, captureOptions)
@@ -5418,6 +5825,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function deactivateDesign(): void {
     finishInlineTextEdit(true)
+    clearHoverLock()
+    designState = 'default'
     resetDesignTracker()
     clearDesignSelection()
     currentInfo = null
@@ -6117,9 +6526,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     designBtn.dataset.active = currentMode === 'design' ? 'true' : 'false'
     moveBtn.dataset.active = currentMode === 'move' ? 'true' : 'false'
     changesBtn.dataset.active = currentMode === 'changes' ? 'true' : 'false'
-    guidesMenuItem.dataset.active = currentMode === 'guides' ? 'true' : 'false'
-    outlinesMenuItem.dataset.active = outlinesEnabled ? 'true' : 'false'
-    moreBtn.dataset.active = currentMode === 'guides' || outlinesEnabled ? 'true' : 'false'
+    guidesBtn.dataset.active = currentMode === 'guides' ? 'true' : 'false'
     updateToolbarChangesState()
   }
 
@@ -6235,6 +6642,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function openViewportMenu(): void {
     if (viewportMenuOpen) return
+    closeSettingsMenu()
     viewportMenuOpen = true
     viewportMenu.style.display = 'block'
     syncViewportMenu()
@@ -6406,9 +6814,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     renderForCurrentMode(null)
   }
 
-  // --- Figma Capture Functions (replaced by new capture system) ---
-  // See captureEntireScreen, captureWindow, startSelectElementCapture, startStateCapture above
-
   function showToast(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
     const toast = el('div', 'ei-toast')
     toast.textContent = message
@@ -6480,7 +6885,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
 
   function clearOutlines(): void {
     outlinesEnabled = false
-    outlinesMenuItem.dataset.active = 'false'
     document.body.dataset.eiOutlines = ''
     if (outlinesHoverElement) {
       outlinesHoverElement.classList.remove('ei-hover-highlight')
@@ -6546,192 +6950,34 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     }
   }
 
-  // --- More Dropdown Menu ---
-  function positionMoreMenu(): void {
-    const rect = moreBtn.getBoundingClientRect()
-    moreMenu.style.left = `${rect.left}px`
-    moreMenu.style.top = `${rect.top - moreMenu.offsetHeight - 8}px`
+  function positionSettingsMenu(): void {
+    const rect = settingsBtn.getBoundingClientRect()
+    const left = Math.min(Math.max(rect.right - settingsMenu.offsetWidth, 8), window.innerWidth - settingsMenu.offsetWidth - 8)
+    settingsMenu.style.left = `${left}px`
+    settingsMenu.style.top = `${rect.top - settingsMenu.offsetHeight - 8}px`
   }
 
-  function openMoreMenu(): void {
-    if (moreMenuOpen) return
-    moreMenuOpen = true
-    moreMenu.style.display = 'block'
-    positionMoreMenu()
-    moreBtn.style.background = 'var(--surface-active)'
+  function openSettingsMenu(): void {
+    if (settingsMenuOpen) return
+    closeViewportMenu()
+    settingsMenuOpen = true
+    settingsMenu.style.display = 'flex'
+    positionSettingsMenu()
+    settingsBtn.dataset.active = 'true'
+    settingsBtn.setAttribute('aria-expanded', 'true')
   }
 
-  function closeMoreMenu(): void {
-    if (!moreMenuOpen) return
-    moreMenuOpen = false
-    moreMenu.style.display = 'none'
-    moreBtn.style.background = ''
+  function closeSettingsMenu(): void {
+    if (!settingsMenuOpen) return
+    settingsMenuOpen = false
+    settingsMenu.style.display = 'none'
+    delete settingsBtn.dataset.active
+    settingsBtn.setAttribute('aria-expanded', 'false')
   }
 
-  function toggleMoreMenu(): void {
-    if (moreMenuOpen) closeMoreMenu()
-    else openMoreMenu()
-  }
-
-  // --- Capture Dropdown Menu ---
-  let captureMenuMode: 'entire' | 'window' | 'element' | 'state' | null = null
-  let stateCaptureElement: InspectableElement | null = null
-  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-
-  function triggerPrimaryCapture(): void {
-    if (captureMenuMode === 'element' || captureMenuMode === 'state') return
-    void captureEntireScreen()
-  }
-
-  async function captureForDesign(target: 'page' | 'window' = 'page'): Promise<void> {
-    if (target === 'window') {
-      await captureWindow()
-      return
-    }
-    await captureEntireScreen()
-  }
-
-  // Capture functions for each mode
-  async function captureEntireScreen(): Promise<void> {
-    if (currentMode !== 'off') setMode('off')
-    showToast(i18n.capture.capturingEntirePage, 'info')
-    await performCapture('body', { scroll: true })
-  }
-
-  async function captureWindow(): Promise<void> {
-    if (currentMode !== 'off') setMode('off')
-    showToast(i18n.capture.capturingCurrentWindow, 'info')
-    await performCapture('body', { scroll: false })
-  }
-
-  async function startSelectElementCapture(): Promise<void> {
-    if (currentMode !== 'off') setMode('off')
-    showToast(i18n.capture.hoverToCapture, 'info')
-    captureMenuMode = 'element'
-
-    // Show highlight overlay for element selection
-    let selectedElement: InspectableElement | null = null
-    highlight.style.display = 'block'
-    highlight.dataset.design = 'true'
-
-    const moveHandler = (e: MouseEvent) => {
-      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
-      if (element && element !== selectedElement) {
-        selectedElement = element
-        const info = extractInspectorInfo(element)
-        updateHighlight(info)
-        showTooltip(info, e.clientX, e.clientY)
-      }
-    }
-
-    const clickHandler = async (e: MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
-      if (element) {
-        document.removeEventListener('click', clickHandler, true)
-        document.removeEventListener('mousemove', moveHandler, true)
-        highlight.style.display = 'none'
-        tooltip.style.display = 'none'
-        const selector = buildDomPath(element)
-        showToast(i18n.capture.capturingSelectedElement, 'info')
-        await performCapture(selector, { scroll: false })
-      }
-    }
-
-    document.addEventListener('mousemove', moveHandler, true)
-    document.addEventListener('click', clickHandler, true)
-  }
-
-  async function startStateCapture(): Promise<void> {
-    if (currentMode !== 'off') setMode('off')
-    captureMenuMode = 'state'
-    showToast(i18n.capture.hoverToCaptureState, 'info')
-
-    // Show highlight overlay for element selection
-    let selectedElement: InspectableElement | null = null
-    highlight.style.display = 'block'
-    highlight.dataset.design = 'true'
-
-    const moveHandler = (e: MouseEvent) => {
-      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
-      if (element && element !== selectedElement) {
-        selectedElement = element
-        const info = extractInspectorInfo(element)
-        updateHighlight(info)
-        showTooltip(info, e.clientX, e.clientY)
-      }
-    }
-
-    const clickHandler = async (e: MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const element = getInspectableElementFromPoint(e.clientX, e.clientY, IGNORE_ATTR)
-      if (element) {
-        document.removeEventListener('click', clickHandler, true)
-        document.removeEventListener('mousemove', moveHandler, true)
-        highlight.style.display = 'none'
-        tooltip.style.display = 'none'
-        stateCaptureElement = element
-        await captureMultipleStates(element)
-      }
-    }
-
-    document.addEventListener('mousemove', moveHandler, true)
-    document.addEventListener('click', clickHandler, true)
-  }
-
-  async function captureMultipleStates(element: InspectableElement): Promise<void> {
-    const states = ['default', 'hover', 'active']
-    showToast(`Capturing ${states.length} states...`, 'info')
-
-    for (let i = 0; i < states.length; i++) {
-      const state = states[i]
-      showToast(`Capturing ${state} state (${i + 1}/${states.length})...`, 'info')
-
-      // Simulate state
-      if (state === 'hover') {
-        element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-        element.classList.add('hover')
-      } else if (state === 'active') {
-        element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-        element.classList.add('active')
-      }
-
-      await sleep(300)
-      const selector = buildDomPath(element)
-      await performCapture(selector, { scroll: false, state })
-
-      // Reset state
-      if (state === 'hover') {
-        element.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
-        element.classList.remove('hover')
-      } else if (state === 'active') {
-        element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
-        element.classList.remove('active')
-      }
-
-      await sleep(200)
-    }
-
-    showToast(i18n.capture.allStatesCaptured, 'success')
-    stateCaptureElement = null
-  }
-
-  interface CaptureOptions {
-    scroll: boolean
-    state?: string
-  }
-
-  async function performCapture(selector: string, captureOptions: CaptureOptions): Promise<void> {
-    try {
-      const result = await performCaptureForDesign(selector, { scroll: captureOptions.scroll }, options.viewportController?.captureForDesign)
-      showToast(captureOptions.state ? `${captureOptions.state} state captured!` : i18n.capture.captured, 'success')
-      return
-    } catch (error) {
-      console.error('[Elens] Capture failed:', error)
-      showToast(`${i18n.capture.captureFailed}: ` + (error instanceof Error ? error.message : i18n.capture.unknownError), 'error')
-    }
+  function toggleSettingsMenu(): void {
+    if (settingsMenuOpen) closeSettingsMenu()
+    else openSettingsMenu()
   }
 
   // Close menu when clicking outside
@@ -6740,8 +6986,8 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     if (viewportMenuOpen && !viewportMenu.contains(target) && !viewportGroup.contains(target)) {
       closeViewportMenu()
     }
-    if (moreMenuOpen && !moreMenu.contains(target) && !moreBtn.contains(target)) {
-      closeMoreMenu()
+    if (settingsMenuOpen && !settingsMenu.contains(target) && !settingsBtn.contains(target)) {
+      closeSettingsMenu()
     }
     if (isOutputDetailMenuOpen && !outputDetailMenu.contains(target)) {
       closeOutputDetailMenu()
@@ -6752,7 +6998,7 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
   window.addEventListener('resize', () => {
     pinToolbarToBottomCenter()
     if (viewportMenuOpen) positionViewportMenu()
-    if (moreMenuOpen) positionMoreMenu()
+    if (settingsMenuOpen) positionSettingsMenu()
     if (isOutputDetailMenuOpen) closeOutputDetailMenu()
   })
 
@@ -6814,21 +7060,40 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     })
   })
 
-  moreBtn.addEventListener('click', (event) => {
+  guidesBtn.addEventListener('click', () => toggleToolbarMode('guides'))
+  settingsBtn.addEventListener('click', (event) => {
     event.stopPropagation()
-    toggleMoreMenu()
+    toggleSettingsMenu()
   })
-  guidesMenuItem.addEventListener('click', () => {
-    closeMoreMenu()
-    toggleToolbarMode('guides')
+  settingsMenu.addEventListener('click', (event) => event.stopPropagation())
+  settingsMenu.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    closeSettingsMenu()
+    settingsBtn.focus()
   })
-  outlinesMenuItem.addEventListener('click', () => {
-    closeMoreMenu()
-    toggleOutlines()
-    updateToolbar()
+  blockPageInteractionsInput.addEventListener('change', () => {
+    blockPageInteractions = blockPageInteractionsInput.checked
+    persistBlockPageInteractions(blockPageInteractions)
   })
-
-  screenshotBtn.addEventListener('click', () => triggerPrimaryCapture())
+  clearOnCopyInput.addEventListener('change', () => {
+    clearOnCopy = clearOnCopyInput.checked
+    persistClearOnCopy(clearOnCopy)
+  })
+  markerColorPalette.addEventListener('click', (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLButtonElement>('.ei-marker-color')
+    if (!target) return
+    const color = target.dataset.color
+    if (!color) return
+    markerColor = color
+    persistMarkerColor(color)
+    applyMarkerColor()
+    markerColorPalette.querySelectorAll<HTMLButtonElement>('.ei-marker-color').forEach((button) => {
+      button.dataset.active = button === target ? 'true' : 'false'
+    })
+    renderMarkers()
+  })
   toolbar.addEventListener('mousedown', startToolbarDrag)
   copyBtn.addEventListener('click', copyCurrent)
   unlockBtn.addEventListener('click', unlockCurrent)
@@ -6885,7 +7150,6 @@ export function mountElementInspector(options: ElementInspectorOptions = {}): El
     getViewportPreset: () => currentViewportPreset,
     getViewportState: () => currentViewportState,
     toggleLayersPanel,
-    captureForDesign,
     destroy,
     getCurrentInfo: () => currentInfo,
     getChanges: () => [...changes],

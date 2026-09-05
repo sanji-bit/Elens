@@ -1,5 +1,7 @@
-import { runPageCapture } from './figma-capture'
 import { mountChromeExtensionInspector } from './extension-entry'
+import { captureToClipboard, type ClipboardScreenshotMode } from './clipboard-screenshot'
+import { createChromeExtensionViewportController } from './extension-bridge'
+import { i18n } from './i18n'
 import type { ElementInspectorInstance } from './types'
 
 type TrustedTypesPolicyRules = {
@@ -48,9 +50,56 @@ function unmountInspector(): void {
   delete window.__ELEMENT_INSPECTOR__
 }
 
+const screenshotController = createChromeExtensionViewportController()
+
+function showScreenshotFeedback(message: string, type: 'success' | 'error'): void {
+  document.querySelector('[data-elens-screenshot-feedback]')?.remove()
+  const toast = document.createElement('div')
+  toast.dataset.elensScreenshotFeedback = 'true'
+  toast.textContent = message
+  toast.style.cssText = `
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    max-width: min(480px, calc(100vw - 32px));
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: ${type === 'error' ? '#c9362b' : 'rgba(30, 30, 34, .94)'};
+    color: #fff;
+    border: 1px solid ${type === 'error' ? '#e46b62' : 'rgba(255, 255, 255, .18)'};
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
+    font: 500 12px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-align: center;
+    z-index: 2147483647;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s ease;
+  `
+  document.documentElement.appendChild(toast)
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1'
+  })
+  window.setTimeout(() => {
+    toast.style.opacity = '0'
+    window.setTimeout(() => toast.remove(), 220)
+  }, type === 'error' ? 4500 : 3000)
+}
+
+async function runClipboardScreenshot(mode: ClipboardScreenshotMode): Promise<void> {
+  try {
+    const copied = await captureToClipboard(mode, screenshotController)
+    if (copied) showScreenshotFeedback(i18n.design.screenshotSaved, 'success')
+  } catch (error) {
+    console.error('[Elens] Screenshot failed:', error)
+    const detail = error instanceof Error && error.message ? `：${error.message}` : ''
+    showScreenshotFeedback(`${i18n.capture.captureFailed}${detail}`, 'error')
+  }
+}
+
 window.addEventListener('message', event => {
   if (event.source !== window) return
-  const data = event.data as { source?: string; type?: string; command?: string; width?: number; height?: number; selector?: string; requestId?: string; scroll?: boolean } | undefined
+  const data = event.data as { source?: string; type?: string; command?: string; width?: number; height?: number } | undefined
   if (!data) return
 
   if (data.source === 'elens-extension-control' && data.type === 'ELENS_TOGGLE_INSPECTOR') {
@@ -68,8 +117,9 @@ window.addEventListener('message', event => {
       else mountInspector()
       return
     }
-    if (data.command === 'figma-capture') {
-      void runPageCapture('body', { scroll: true })
+    if (data.command === 'screenshot-viewport' || data.command === 'screenshot-full') {
+      if (window.__ELEMENT_INSPECTOR__) unmountInspector()
+      void runClipboardScreenshot(data.command.replace('screenshot-', '') as ClipboardScreenshotMode)
       return
     }
     const inspector = window.__ELEMENT_INSPECTOR__ ?? mountInspector()
@@ -91,28 +141,4 @@ window.addEventListener('message', event => {
     return
   }
 
-  if (data.source === 'elens-extension-control' && data.type === 'ELENS_PAGE_CAPTURE' && data.selector && data.requestId) {
-    const selector = data.selector
-    const requestId = data.requestId
-    ;(async () => {
-      try {
-        const result = await runPageCapture(selector, { scroll: data.scroll })
-        window.postMessage({
-          source: 'elens-extension-page',
-          type: 'ELENS_PAGE_CAPTURE_RESULT',
-          requestId,
-          ok: true,
-          result,
-        }, '*')
-      } catch (error) {
-        window.postMessage({
-          source: 'elens-extension-page',
-          type: 'ELENS_PAGE_CAPTURE_RESULT',
-          requestId,
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        }, '*')
-      }
-    })()
-  }
 })
